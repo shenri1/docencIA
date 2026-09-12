@@ -1,0 +1,37 @@
+name: docencia
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # $$ escapa o "$" pro shell do container resolver as vars injetadas via
+      # env_file (POSTGRES_USER/POSTGRES_DB), não pro Compose interpolar aqui.
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    ports:
+      - "5432:5432"
+
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+volumes:
+  db_data:

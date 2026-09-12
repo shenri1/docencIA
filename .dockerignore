@@ -1,0 +1,15 @@
+# Contexto de build da API é a raiz do repo (backend/Dockerfile depende de
+# pyproject.toml e uv.lock, que ficam aqui). Isto evita mandar lixo pro daemon.
+.git/
+.venv/
+__pycache__/
+*.py[codz]
+.pytest_cache/
+.ruff_cache/
+.env
+.claude/
+.agents/
+
+infra/
+backend/tests/
+*.md

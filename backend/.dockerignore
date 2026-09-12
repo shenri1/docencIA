@@ -1,0 +1,7 @@
+__pycache__/
+*.py[codz]
+.pytest_cache/
+.ruff_cache/
+tests/
+.env
+.env.example

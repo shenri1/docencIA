@@ -4,6 +4,15 @@ version = "0.0.1"
 requires-python = ">=3.14"
 dependencies = [
     "fastapi[standard]>=0.141.1",
+    "sqlalchemy>=2.0.36",
+    "psycopg[binary]>=3.2",
+    "pgvector>=0.3.6",
 ]
 [tool.fastapi]
 entrypoint = "backend.app.main:app"
+
+[tool.ruff.lint]
+# EXE002: neste ambiente o mount NTFS/FUSE (fuseblk) reporta todo arquivo como
+# executável. O git guarda os arquivos como 0644 (core.fileMode=false), então o
+# aviso é falso positivo — não reflete o conteúdo versionado.
+ignore = ["EXE002"]

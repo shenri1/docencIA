@@ -7,6 +7,8 @@ dependencies = [
     "sqlalchemy>=2.0.36",
     "psycopg[binary]>=3.2",
     "pgvector>=0.3.6",
+    "bcrypt>=5.0.0",
+    "pyjwt>=2.9",
 ]
 [tool.fastapi]
 entrypoint = "backend.app.main:app"
@@ -16,3 +18,11 @@ entrypoint = "backend.app.main:app"
 # executável. O git guarda os arquivos como 0644 (core.fileMode=false), então o
 # aviso é falso positivo — não reflete o conteúdo versionado.
 ignore = ["EXE002"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

@@ -3,6 +3,7 @@ from sqlalchemy.orm import configure_mappers
 
 from backend.app.models import Base, RegistroAuditoria
 from backend.app.models.base import bloquear_mutacao
+from backend.app.models.identidade import Docente
 
 TABELAS_ESPERADAS = {
     "docentes",
@@ -40,6 +41,11 @@ def test_tabelas_auditoria_sao_append_only():
     except ValueError:
         return
     raise AssertionError("mutação em tabela append-only não foi bloqueada")
+
+
+def test_docente_tem_coluna_senha_hash():
+    colunas = {c.name for c in Docente.__table__.columns}
+    assert "senha_hash" in colunas
 
 
 if __name__ == "__main__":

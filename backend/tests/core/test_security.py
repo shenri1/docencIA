@@ -1,6 +1,3 @@
-import time
-
-import jwt
 import pytest
 
 from backend.app.core.security import (

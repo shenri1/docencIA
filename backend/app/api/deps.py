@@ -21,7 +21,11 @@ def get_current_docente(
     token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
 ) -> Docente:
     payload = decodificar_token(token)
-    docente = db.get(Docente, int(payload["sub"]))
+    try:
+        docente_id = int(payload["sub"])
+    except (KeyError, ValueError) as exc:
+        raise TokenInvalidoException() from exc
+    docente = db.get(Docente, docente_id)
     if docente is None:
         raise TokenInvalidoException()
     return docente

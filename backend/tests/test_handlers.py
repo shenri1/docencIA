@@ -55,3 +55,17 @@ def test_perfil_insuficiente_retorna_403():
     client = _app_de_teste()
     resp = client.get("/levanta/perfil-insuficiente")
     assert resp.status_code == 403
+
+
+def test_registrar_com_senha_invalida_nao_ecoa_senha_em_texto_puro(client):
+    senha_curta = "abc"
+    resp = client.post(
+        "/auth/registrar",
+        json={
+            "nome": "Ana",
+            "credencial_institucional": "handler001",
+            "senha": senha_curta,
+        },
+    )
+    assert resp.status_code == 422
+    assert senha_curta not in resp.text

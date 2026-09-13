@@ -2,7 +2,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from backend.app.api.router import router as api_router
 from backend.app.core.db import engine
+from backend.app.handlers import registrar_exception_handlers
 from backend.app.models import Base
 
 
@@ -15,8 +17,5 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-
-
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
+registrar_exception_handlers(app)
+app.include_router(api_router)

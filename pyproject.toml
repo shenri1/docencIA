@@ -7,9 +7,24 @@ dependencies = [
     "sqlalchemy>=2.0.36",
     "psycopg[binary]>=3.2",
     "pgvector>=0.3.6",
+    "bcrypt>=5.0.0",
+    "pyjwt>=2.9",
 ]
 [tool.fastapi]
 entrypoint = "backend.app.main:app"
 
 [tool.ruff.lint]
 ignore = ["EXE002"]
+
+[tool.ruff.lint.flake8-bugbear]
+# B008: Depends()/Query() em default de argumento é o idiom padrão do
+# FastAPI — falso positivo, não uma mutable default de verdade.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

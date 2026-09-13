@@ -22,6 +22,7 @@ class Docente(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     nome: Mapped[str] = mapped_column(String(255))
     credencial_institucional: Mapped[str] = mapped_column(String(255), unique=True)
+    senha_hash: Mapped[str] = mapped_column(String(255))
     perfil: Mapped[PerfilDocente] = mapped_column(
         SAEnum(PerfilDocente, name="perfil_docente")
     )

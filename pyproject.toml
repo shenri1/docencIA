@@ -19,6 +19,11 @@ entrypoint = "backend.app.main:app"
 # aviso é falso positivo — não reflete o conteúdo versionado.
 ignore = ["EXE002"]
 
+[tool.ruff.lint.flake8-bugbear]
+# B008: Depends()/Query() em default de argumento é o idiom padrão do
+# FastAPI — falso positivo, não uma mutable default de verdade.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",

@@ -11,7 +11,9 @@ from backend.app.services.auth_service import autenticar_docente, registrar_doce
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 
 
-@router.post("/registrar", response_model=DocenteResposta, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/registrar", response_model=DocenteResposta, status_code=status.HTTP_201_CREATED
+)
 def registrar(dados: DocenteCriar, db: Session = Depends(get_db)) -> Docente:
     return registrar_docente(db, dados)
 
@@ -20,7 +22,9 @@ def registrar(dados: DocenteCriar, db: Session = Depends(get_db)) -> Docente:
 def login(
     form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
 ) -> TokenResponse:
-    token = autenticar_docente(db, credencial_institucional=form.username, senha=form.password)
+    token = autenticar_docente(
+        db, credencial_institucional=form.username, senha=form.password
+    )
     return TokenResponse(access_token=token)
 
 

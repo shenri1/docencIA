@@ -15,7 +15,11 @@ def test_registrar_docente_retorna_201_sem_senha_hash(client):
 
 
 def test_registrar_docente_com_credencial_duplicada_retorna_409(client):
-    payload = {"nome": "Ana", "credencial_institucional": "e2e002", "senha": "senhaforte123"}
+    payload = {
+        "nome": "Ana",
+        "credencial_institucional": "e2e002",
+        "senha": "senhaforte123",
+    }
     client.post("/auth/registrar", json=payload)
     resp = client.post("/auth/registrar", json=payload)
     assert resp.status_code == 409
@@ -24,7 +28,11 @@ def test_registrar_docente_com_credencial_duplicada_retorna_409(client):
 def test_login_com_credenciais_corretas_retorna_token(client):
     client.post(
         "/auth/registrar",
-        json={"nome": "Ana", "credencial_institucional": "e2e003", "senha": "senhaforte123"},
+        json={
+            "nome": "Ana",
+            "credencial_institucional": "e2e003",
+            "senha": "senhaforte123",
+        },
     )
     resp = client.post(
         "/auth/login", data={"username": "e2e003", "password": "senhaforte123"}
@@ -37,7 +45,11 @@ def test_login_com_credenciais_corretas_retorna_token(client):
 def test_login_com_senha_errada_retorna_401(client):
     client.post(
         "/auth/registrar",
-        json={"nome": "Ana", "credencial_institucional": "e2e004", "senha": "senhaforte123"},
+        json={
+            "nome": "Ana",
+            "credencial_institucional": "e2e004",
+            "senha": "senhaforte123",
+        },
     )
     resp = client.post("/auth/login", data={"username": "e2e004", "password": "errada"})
     assert resp.status_code == 401
@@ -49,14 +61,20 @@ def test_me_sem_token_retorna_401(client):
 
 
 def test_me_com_token_invalido_retorna_401(client):
-    resp = client.get("/auth/me", headers={"Authorization": "Bearer token.invalido.aqui"})
+    resp = client.get(
+        "/auth/me", headers={"Authorization": "Bearer token.invalido.aqui"}
+    )
     assert resp.status_code == 401
 
 
 def test_me_com_token_valido_retorna_dados_do_docente(client):
     client.post(
         "/auth/registrar",
-        json={"nome": "Ana", "credencial_institucional": "e2e005", "senha": "senhaforte123"},
+        json={
+            "nome": "Ana",
+            "credencial_institucional": "e2e005",
+            "senha": "senhaforte123",
+        },
     )
     login = client.post(
         "/auth/login", data={"username": "e2e005", "password": "senhaforte123"}

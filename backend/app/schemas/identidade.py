@@ -16,7 +16,7 @@ class DocenteCriar(BaseModel):
         max_length=72,
         description=(
             "Senha em texto puro — usada só pra gerar o hash, nunca persistida. "
-            "Limite de 72 bytes (não caracteres) por restrição do bcrypt — "
+            "Limite de 72 bytes (não caracteres) por restrição do bcrypt"
             "acentos e outros caracteres não-ASCII ocupam mais de 1 byte em UTF-8."
         ),
     )

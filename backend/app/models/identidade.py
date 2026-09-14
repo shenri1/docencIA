@@ -42,7 +42,6 @@ class SessaoGeracao(Base):
     disciplina: Mapped[str] = mapped_column(String(255))
     periodo: Mapped[str] = mapped_column(String(50))
     tema_escopo: Mapped[str | None] = mapped_column(String(500))
-    # Flag que ativa o campo de raciocínio clínico por questão.
     area_do_conhecimento: Mapped[str | None] = mapped_column(String(255))
 
     k_alternativas: Mapped[int] = mapped_column(Integer)

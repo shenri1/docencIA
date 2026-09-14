@@ -1,6 +1,5 @@
 # syntax=docker/dockerfile:1
 
-# Build context é a raiz do repo (pyproject.toml e uv.lock ficam lá, não em backend/).
 FROM python:3.14-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.13 /uv /uvx /bin/

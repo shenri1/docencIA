@@ -33,8 +33,6 @@ class PromptMestre(Base):
     versao: Mapped[str] = mapped_column(String(50), unique=True)
     conteudo: Mapped[str] = mapped_column(Text)
     papel_definido: Mapped[str] = mapped_column(String(255))
-    # Uma linha por versão: histórico completo fica no próprio conjunto,
-    # rollback = reativar versão anterior.
     ativo: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
 
 

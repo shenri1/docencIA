@@ -12,12 +12,6 @@ _SENHA_MAX_BYTES = 72
 
 
 def _senha_bytes_truncados(senha: str) -> bytes:
-    """bcrypt (>=5.0) levanta ValueError acima de 72 bytes em vez de truncar
-    silenciosamente. Truncamos aqui em vez de deixar a exceção escapar pro
-    endpoint — schema (`DocenteCriar.senha`, max_length=72) já barra a
-    maioria dos casos, mas `OAuth2PasswordRequestForm` (usado no login) não
-    passa pelo schema, então essa é a última linha de defesa contra um 500
-    (e contra o oráculo de enumeração de conta que ele criaria no login)."""
     return senha.encode("utf-8")[:_SENHA_MAX_BYTES]
 
 

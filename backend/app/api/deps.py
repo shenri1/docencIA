@@ -18,7 +18,8 @@ _ORDEM_PERFIL = {
 
 
 def get_current_docente(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ) -> Docente:
     payload = decodificar_token(token)
     try:

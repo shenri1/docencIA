@@ -14,7 +14,7 @@ from backend.app.models.identidade import Docente
 from backend.app.schemas.identidade import DocenteCriar
 
 # Hash de referência usado quando a credencial não existe, pra que
-# autenticar_docente sempre pague o custo de um bcrypt.checkpw — evita que o
+# autenticar_docente sempre pague o custo de um bcrypt.checkpw: evita que o
 # tempo de resposta vaze se a conta existe (timing oracle). Calculado uma
 # única vez na importação do módulo, não a cada requisição.
 _HASH_DUMMY = hash_senha("dummy-password-for-timing-safety")

@@ -172,3 +172,24 @@ def test_schemas_de_material_aparecem_no_swagger(client):
     assert "IndiceResposta" in componentes
     for proibido in ("chave_armazenamento", "hash_sha256"):
         assert proibido not in componentes["MaterialResposta"]["properties"]
+
+
+def test_confirmar_indexa_os_materiais_antes_de_congelar(client, db_session):
+    from backend.app.models.materiais import ChunkMaterial, MaterialReferencia
+
+    cabecalhos = _auth(client)
+    sessao_id = _sessao(client, cabecalhos)
+    _enviar(client, cabecalhos, sessao_id)
+
+    assert db_session.query(ChunkMaterial).count() == 0
+
+    resposta = client.post(
+        f"/sessoes/{sessao_id}/materiais/confirmar", headers=cabecalhos
+    )
+    assert resposta.status_code == 200
+    assert resposta.json()["confirmado"] is True
+
+    assert db_session.query(ChunkMaterial).count() > 0
+    material = db_session.query(MaterialReferencia).one()
+    assert material.indexado_em is not None
+    assert material.n_chunks > 0

@@ -70,6 +70,9 @@ class MaterialReferencia(Base):
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    # NULL = ainda não indexado. É o que a retomada da indexação consulta.
+    indexado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    n_chunks: Mapped[int] = mapped_column(Integer, default=0)
 
     sessao: Mapped[SessaoGeracao] = relationship(back_populates="materiais")
     chunks: Mapped[list[ChunkMaterial]] = relationship(
@@ -83,6 +86,7 @@ class MaterialReferencia(Base):
 class ChunkMaterial(Base):
     __tablename__ = "chunks_material"
     __table_args__ = (
+        UniqueConstraint("material_id", "ordem", name="chunk_por_material_ordem"),
         Index(
             "ix_chunks_material_embedding_hnsw",
             "vetor_embedding",
@@ -95,6 +99,8 @@ class ChunkMaterial(Base):
     material_id: Mapped[int] = mapped_column(
         ForeignKey("materiais_referencia.id"), index=True
     )
+    # Posição dentro do material: reconstrução e ordenação estável.
+    ordem: Mapped[int] = mapped_column(Integer)
     texto: Mapped[str] = mapped_column(Text)
     localizacao: Mapped[str] = mapped_column(String(255))
     vetor_embedding: Mapped[list[float]] = mapped_column(Vector(settings.embedding_dim))

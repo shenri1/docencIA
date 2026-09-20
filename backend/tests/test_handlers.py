@@ -6,9 +6,13 @@ from backend.app.exceptions import (
     ArquivoCorrompidoException,
     ArquivoMuitoGrandeException,
     ArquivoProtegidoException,
+    ArtefatoDeTextoInvalidoException,
+    ConfiguracaoEmbeddingInvalidaException,
     CredenciaisInvalidasException,
     CredencialJaCadastradaException,
     DomainException,
+    FalhaEmbeddingException,
+    FalhaRerankException,
     FormatoNaoSuportadoException,
     IndiceNaoConfirmadoException,
     IndiceVazioException,
@@ -22,6 +26,7 @@ from backend.app.exceptions import (
     PerfilInsuficienteException,
     SessaoEstadoInvalidaException,
     SessaoNaoEncontradaException,
+    SessaoNaoIndexadaException,
     TokenInvalidoException,
 )
 from backend.app.handlers import registrar_exception_handlers
@@ -160,3 +165,31 @@ def test_token_invalido_mantem_header_www_authenticate():
     resp = cliente.get("/levanta/token")
     assert resp.status_code == 401
     assert resp.headers["WWW-Authenticate"] == "Bearer"
+
+
+def test_falha_embedding_e_502_com_motivo():
+    exc = FalhaEmbeddingException("connection refused")
+    assert exc.status_code == 502
+    assert exc.corpo()["codigo"] == "FALHA_EMBEDDING"
+    assert exc.corpo()["motivo"] == "connection refused"
+
+
+def test_falha_rerank_e_502():
+    assert FalhaRerankException("timeout").status_code == 502
+
+
+def test_configuracao_embedding_invalida_e_500_e_diz_as_duas_dimensoes():
+    exc = ConfiguracaoEmbeddingInvalidaException(2560, 1024)
+    assert exc.status_code == 500
+    assert exc.corpo()["recebida"] == 2560
+    assert exc.corpo()["esperada"] == 1024
+
+
+def test_sessao_nao_indexada_e_409():
+    assert SessaoNaoIndexadaException().status_code == 409
+
+
+def test_artefato_de_texto_invalido_e_500():
+    exc = ArtefatoDeTextoInvalidoException("P1")
+    assert exc.status_code == 500
+    assert "P1" in exc.mensagem

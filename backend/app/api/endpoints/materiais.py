@@ -18,12 +18,14 @@ from backend.app.services.extracao import (
     ocr_disponivel,
 )
 from backend.app.services.material_service import (
-    confirmar_indice,
     ler_com_limite,
     listar_indice,
     registrar_material,
     remover_material,
 )
+from backend.app.services.rag.chunking import ConfigChunking
+from backend.app.services.rag.embeddings import Embeddings, get_embeddings
+from backend.app.services.rag.indexacao_service import indexar_e_confirmar
 from backend.app.services.sessao_service import obter_sessao
 
 router = APIRouter(prefix="/sessoes/{sessao_id}/materiais", tags=["Materiais"])
@@ -84,9 +86,16 @@ def confirmar(
     sessao_id: int,
     db: Session = Depends(get_db),
     docente: Docente = Depends(get_current_docente),
+    armazenamento: ArmazenamentoArquivos = Depends(get_armazenamento),
+    embeddings: Embeddings = Depends(get_embeddings),
 ) -> IndiceResposta:
     sessao = obter_sessao(db, docente, sessao_id)
-    return _montar_indice(db, confirmar_indice(db, sessao))
+    # A sessão só é promovida depois de TUDO indexado: sessão confirmada
+    # implica sessão inteiramente indexada.
+    sessao = indexar_e_confirmar(
+        db, armazenamento, embeddings, sessao, ConfigChunking.das_settings()
+    )
+    return _montar_indice(db, sessao)
 
 
 @router.delete("/{material_id}", status_code=status.HTTP_204_NO_CONTENT)

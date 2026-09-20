@@ -78,6 +78,28 @@ def test_enums_de_formato_e_origem():
     assert [o.value for o in OrigemTexto] == ["nativo", "ocr", "misto"]
 
 
+def test_material_tem_colunas_de_indexacao():
+    colunas = MaterialReferencia.__table__.columns
+    assert colunas["indexado_em"].nullable is True
+    assert colunas["n_chunks"].nullable is False
+
+
+def test_chunk_tem_ordem_unica_por_material():
+    from backend.app.models.materiais import ChunkMaterial
+
+    assert "ordem" in ChunkMaterial.__table__.columns
+    nomes = {c.name for c in ChunkMaterial.__table__.constraints}
+    assert "chunk_por_material_ordem" in nomes
+
+
+def test_vetor_embedding_usa_a_dimensao_configurada():
+    from backend.app.core.config import settings
+    from backend.app.models.materiais import ChunkMaterial
+
+    tipo = ChunkMaterial.__table__.columns["vetor_embedding"].type
+    assert tipo.dim == settings.embedding_dim == 1024
+
+
 if __name__ == "__main__":
     test_todas_as_entidades_mapeadas()
     test_tabelas_auditoria_sao_append_only()

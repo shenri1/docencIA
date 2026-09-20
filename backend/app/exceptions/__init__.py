@@ -213,3 +213,63 @@ class MaterialSemTextoException(MaterialIlegivelException):
             f"O arquivo {formato.upper()} foi aberto, mas não contém texto útil.",
             motivo="nenhum texto extraível encontrado",
         )
+
+
+# --- RAG ---
+
+
+class FalhaEmbeddingException(DomainException):
+    status_code = 502
+    codigo = "FALHA_EMBEDDING"
+
+    def __init__(self, motivo: str) -> None:
+        super().__init__(f"Serviço de embedding indisponível: {motivo}.", motivo=motivo)
+
+
+class FalhaRerankException(DomainException):
+    status_code = 502
+    codigo = "FALHA_RERANK"
+
+    def __init__(self, motivo: str) -> None:
+        super().__init__(
+            f"Serviço de reordenação indisponível: {motivo}.", motivo=motivo
+        )
+
+
+class ConfiguracaoEmbeddingInvalidaException(DomainException):
+    """Erro de configuração, não falha transitória: retentar não resolve."""
+
+    status_code = 500
+    codigo = "CONFIGURACAO_EMBEDDING_INVALIDA"
+
+    def __init__(self, recebida: int, esperada: int) -> None:
+        super().__init__(
+            f"O modelo de embedding devolveu vetor de {recebida} dimensões, "
+            f"mas o banco espera {esperada}. Verifique EMBEDDING_MODEL e "
+            "embedding_dim — trocar de modelo exige reindexar.",
+            recebida=recebida,
+            esperada=esperada,
+        )
+
+
+class SessaoNaoIndexadaException(DomainException):
+    status_code = 409
+    codigo = "SESSAO_NAO_INDEXADA"
+
+    def __init__(self) -> None:
+        super().__init__(
+            "A sessão foi confirmada mas não tem nenhum trecho indexado. "
+            "Isso ocorre em sessões confirmadas antes do pipeline de RAG existir."
+        )
+
+
+class ArtefatoDeTextoInvalidoException(DomainException):
+    status_code = 500
+    codigo = "ARTEFATO_TEXTO_INVALIDO"
+
+    def __init__(self, identificador_curto: str) -> None:
+        super().__init__(
+            f"O artefato de texto extraído do material {identificador_curto} "
+            "está ausente ou corrompido — reenvie o material.",
+            identificador_curto=identificador_curto,
+        )

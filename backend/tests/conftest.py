@@ -45,12 +45,14 @@ from backend.app.core.storage import ArmazenamentoLocal, get_armazenamento
 from backend.app.main import app
 from backend.app.models import Base
 from backend.app.models.identidade import Docente, SessaoGeracao
-from backend.app.models.materiais import MaterialReferencia
+from backend.app.models.materiais import ChunkMaterial, MaterialReferencia
 from backend.app.schemas.identidade import DocenteCriar
 from backend.app.services.auth_service import registrar_docente
+from backend.app.services.rag.embeddings import EmbeddingsFake, get_embeddings
+from backend.app.services.rag.rerank import RerankerFake, get_reranker
 
 # Ordem importa: filhos antes dos pais, senão a FK bloqueia o DELETE.
-_MODELOS_PARA_LIMPAR = (MaterialReferencia, SessaoGeracao, Docente)
+_MODELOS_PARA_LIMPAR = (ChunkMaterial, MaterialReferencia, SessaoGeracao, Docente)
 
 
 def _garantir_banco_de_teste_existe() -> None:
@@ -126,12 +128,47 @@ def armazenamento(tmp_path) -> ArmazenamentoLocal:
 
 
 @pytest.fixture()
-def client(db_session, armazenamento) -> Generator[TestClient]:
+def embeddings_fake() -> EmbeddingsFake:
+    return EmbeddingsFake()
+
+
+@pytest.fixture()
+def reranker_fake() -> RerankerFake:
+    return RerankerFake()
+
+
+@pytest.fixture()
+def sessao_rascunho(db_session, docente) -> SessaoGeracao:
+    from backend.app.schemas.sessao import SessaoCriar
+    from backend.app.services.sessao_service import criar_sessao
+
+    return criar_sessao(
+        db_session,
+        docente,
+        SessaoCriar(
+            disciplina="Algoritmos",
+            periodo="2026.2",
+            tema_escopo="Grafos",
+            area_do_conhecimento="Computação",
+            k_alternativas=5,
+            p_f=30,
+            p_m=40,
+            p_d=30,
+        ),
+    )
+
+
+@pytest.fixture()
+def client(
+    db_session, armazenamento, embeddings_fake, reranker_fake
+) -> Generator[TestClient]:
     def _override_get_db() -> Generator[Session]:
         yield db_session
 
     app.dependency_overrides[get_db] = _override_get_db
     app.dependency_overrides[get_armazenamento] = lambda: armazenamento
+    app.dependency_overrides[get_embeddings] = lambda: embeddings_fake
+    app.dependency_overrides[get_reranker] = lambda: reranker_fake
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

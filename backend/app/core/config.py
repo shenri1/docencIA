@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+psycopg://docencia:changeme@localhost:5432/docencia"
-    embedding_dim: int = 1536
+    embedding_dim: int = 1024
 
     secret_key: str = _SECRET_KEY_DEV_DEFAULT
     algorithm: str = "HS256"
@@ -26,6 +26,33 @@ class Settings(BaseSettings):
     min_chars_pagina: int = 25
     limiar_paginas_legiveis: float = 0.8
     tesseract_cmd: str | None = None
+
+    # --- RAG ---
+    # Ollama roda no host; dentro do Compose a URL vira host.docker.internal.
+    embedding_base_url: str = "http://localhost:11434"
+    embedding_model: str = "qwen3-embedding:0.6b"
+    # A família Qwen3-Embedding instrui apenas o lado da consulta.
+    embedding_instrucao_consulta: str = (
+        "Given a web search query, retrieve relevant passages that answer the query"
+    )
+    embedding_instrucao_documento: str = ""
+    embedding_batch: int = 64
+    embedding_timeout_s: float = 120.0
+
+    rerank_base_url: str = "http://localhost:11434"
+    rerank_model: str = "dengcao/Qwen3-Reranker-0.6B:F16"
+    rerank_instrucao: str = (
+        "Given a web search query, retrieve relevant passages that answer the query"
+    )
+    rerank_timeout_s: float = 120.0
+
+    # Rerank custa uma chamada HTTP por par: 20 candidatos, não 40.
+    rag_candidatos: int = 20
+    rag_top_k: int = 8
+
+    chunk_max_chars: int = 1200
+    chunk_overlap_chars: int = 200
+    chunk_min_chars: int = 300
 
 
 settings = Settings()

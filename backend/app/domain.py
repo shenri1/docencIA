@@ -29,6 +29,22 @@ class TipoMaterial(str, Enum):
     LIVRO = "livro"
 
 
+class FormatoArquivo(str, Enum):
+    """Formato físico do arquivo enviado — detectado pelo sistema, diferente
+    de TipoMaterial, que é a classificação didática informada pelo docente."""
+
+    PDF = "pdf"
+    PPTX = "pptx"
+    DOCX = "docx"
+    TXT = "txt"
+
+
+class OrigemTexto(str, Enum):
+    NATIVO = "nativo"
+    OCR = "ocr"
+    MISTO = "misto"
+
+
 class StatusLegibilidade(str, Enum):
     PENDENTE = "pendente"
     LEGIVEL = "legivel"

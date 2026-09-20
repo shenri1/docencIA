@@ -1,0 +1,90 @@
+"""Versionamento do prompt mestre — Núcleo Determinístico, nunca chama LLM.
+
+O texto vive em git; o banco guarda qual versão está ativa e qual foi o texto
+exato montado, para auditoria. Registrar uma versão nunca a ativa: separar os
+dois atos é o que torna o rollback um ato deliberado.
+"""
+
+from __future__ import annotations
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from backend.app.exceptions import (
+    NenhumPromptAtivoException,
+    PromptDivergenteException,
+    VersaoPromptDuplicadaException,
+    VersaoPromptNaoEncontradaException,
+)
+from backend.app.models.prompt_provedor import PromptMestre
+from backend.app.prompt.montagem import calcular_hash, carregar_modulos, montar_sistema
+from backend.app.prompt.parametros import ParametrosGeracao
+
+
+def registrar_versao(
+    db: Session, versao: str, papel_definido: str, params: ParametrosGeracao
+) -> PromptMestre:
+    if db.scalar(select(PromptMestre).where(PromptMestre.versao == versao)):
+        raise VersaoPromptDuplicadaException(versao)
+
+    modulos = carregar_modulos()
+    prompt = PromptMestre(
+        versao=versao,
+        conteudo=montar_sistema(params),
+        papel_definido=papel_definido,
+        hash_modulos=calcular_hash(modulos),
+        # Nasce inativa de propósito: ativar é ato separado.
+        ativo=False,
+    )
+    db.add(prompt)
+    db.commit()
+    db.refresh(prompt)
+    return prompt
+
+
+def listar_versoes(db: Session) -> list[PromptMestre]:
+    """histórico consultável, mais recente primeiro."""
+    return list(
+        db.scalars(
+            select(PromptMestre).order_by(
+                PromptMestre.criado_em.desc(), PromptMestre.id.desc()
+            )
+        )
+    )
+
+
+def obter_ativo(db: Session) -> PromptMestre:
+    prompt = db.scalar(select(PromptMestre).where(PromptMestre.ativo.is_(True)))
+    if prompt is None:
+        raise NenhumPromptAtivoException()
+    return prompt
+
+
+def ativar(db: Session, versao: str) -> PromptMestre:
+    """rollback. Desativa a anterior e ativa a pedida na mesma
+    transação — duas versões ativas tornariam indefinido o que foi enviado."""
+    alvo = db.scalar(select(PromptMestre).where(PromptMestre.versao == versao))
+    if alvo is None:
+        raise VersaoPromptNaoEncontradaException(versao)
+
+    for prompt in db.scalars(
+        select(PromptMestre).where(
+            PromptMestre.ativo.is_(True), PromptMestre.id != alvo.id
+        )
+    ):
+        prompt.ativo = False
+    alvo.ativo = True
+    db.commit()
+    db.refresh(alvo)
+    return alvo
+
+
+def verificar_integridade(db: Session) -> None:
+    """Os módulos em disco mudaram sem versão nova? Então `conteudo` descreve
+    algo que não seria mais enviado, e a auditoria passa a mentir."""
+    ativo = obter_ativo(db)
+    em_disco = calcular_hash(carregar_modulos())
+    if ativo.hash_modulos != em_disco:
+        raise PromptDivergenteException(
+            gravado=ativo.hash_modulos, em_disco=em_disco
+        )

@@ -329,3 +329,71 @@ class NenhumProvedorAtivoException(DomainException):
             "Nenhum provedor de LLM ativo cadastrado — verifique a tabela "
             "provedores_llm."
         )
+
+
+# --- Prompt Mestre ---
+
+
+class PlaceholderNaoResolvidoException(DomainException):
+    """Prompt entregue ao modelo com `{{tema}}` literal é falha silenciosa de
+    qualidade: o modelo não reclama, só gera pior. Falhar alto é obrigatório."""
+
+    status_code = 500
+    codigo = "PLACEHOLDER_NAO_RESOLVIDO"
+
+    def __init__(self, placeholders: list[str]) -> None:
+        nomes = ", ".join(placeholders)
+        super().__init__(
+            f"O prompt mestre foi montado com placeholders não resolvidos: "
+            f"{nomes}. Verifique ParametrosGeracao e os módulos em "
+            "backend/app/prompt/.",
+            placeholders=placeholders,
+        )
+
+
+class VersaoPromptDuplicadaException(DomainException):
+    status_code = 409
+    codigo = "VERSAO_PROMPT_DUPLICADA"
+
+    def __init__(self, versao: str) -> None:
+        super().__init__(
+            f"Já existe uma versão {versao} do prompt mestre.", versao=versao
+        )
+
+
+class NenhumPromptAtivoException(DomainException):
+    status_code = 409
+    codigo = "NENHUM_PROMPT_ATIVO"
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Nenhuma versão do prompt mestre está ativa — ative uma antes de "
+            "gerar questões."
+        )
+
+
+class VersaoPromptNaoEncontradaException(DomainException):
+    status_code = 404
+    codigo = "VERSAO_PROMPT_NAO_ENCONTRADA"
+
+    def __init__(self, versao: str) -> None:
+        super().__init__(
+            f"Versão {versao} do prompt mestre não encontrada.", versao=versao
+        )
+
+
+class PromptDivergenteException(DomainException):
+    """Os módulos em disco mudaram sem que uma versão nova fosse registrada.
+    Sem isso, `PromptMestre.conteudo` descreveria algo que não é mais o que
+    seria enviado, e a auditoria passaria a mentir."""
+
+    status_code = 409
+    codigo = "PROMPT_DIVERGENTE"
+
+    def __init__(self, gravado: str, em_disco: str) -> None:
+        super().__init__(
+            "Os módulos do prompt em disco divergem da versão ativa registrada. "
+            "Registre uma versão nova antes de continuar.",
+            hash_gravado=gravado,
+            hash_em_disco=em_disco,
+        )

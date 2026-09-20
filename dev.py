@@ -265,6 +265,27 @@ def start_dev():
         else:
             log_warning(f"Porta {DB_PORT} não abriu após 20s. Prosseguindo...")
 
+    # --- 1b. Migrações (Alembic) ---
+    # A porta 5432 abrir antes do Postgres aceitar conexão real: enquanto o
+    # container roda o docker-entrypoint-initdb.d, ele derruba conexões.
+    # Retry até o servidor ficar pronto, em vez de depender só do TCP check.
+    log_info("Aplicando migrações (alembic upgrade head)...")
+    migracao = None
+    for tentativa in range(1, 11):
+        migracao = subprocess.run(
+            ["uv", "run", "alembic", "upgrade", "head"],
+            cwd=WORKSPACE_ROOT, env=backend_env_for_local_run(),
+            capture_output=True, text=True, check=False,
+        )
+        if migracao.returncode == 0:
+            break
+        log_info(f"Banco ainda não aceitou conexão (tentativa {tentativa}/10). Aguardando...")
+        time.sleep(2)
+    if migracao is not None and migracao.returncode != 0:
+        log_error(f"Falha ao aplicar migrações:\n{migracao.stderr}")
+        sys.exit(1)
+    log_success("Migrações aplicadas.")
+
     # --- 2. Backend (FastAPI via uv/uvicorn) ---
     if is_port_in_use(BACKEND_PORT):
         log_error(f"Porta {BACKEND_PORT} já está em uso! Não é possível iniciar o backend.")

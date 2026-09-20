@@ -9,6 +9,11 @@ dependencies = [
     "pgvector>=0.3.6",
     "bcrypt>=5.0.0",
     "pyjwt>=2.9",
+    "alembic>=1.20.0",
+    "pymupdf>=1.28.2",
+    "pytesseract>=0.3.13",
+    "python-docx>=1.2.0",
+    "python-pptx>=1.0.2",
 ]
 [tool.fastapi]
 entrypoint = "backend.app.main:app"

@@ -32,7 +32,7 @@ class OcrTesseract:
         palavras = [
             (texto, float(conf))
             for texto, conf in zip(dados["text"], dados["conf"], strict=False)
-            if texto.strip() and float(conf) >= 0
+            if texto.strip() and float(conf) > 0
         ]
         if not palavras:
             return "", 0.0

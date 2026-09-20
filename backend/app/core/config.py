@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     # --- RAG ---
     # Ollama roda no host; dentro do Compose a URL vira host.docker.internal.
     embedding_base_url: str = "http://localhost:11434"
-    embedding_model: str = "qwen3-embedding:0.6b"
+    embedding_model: str = "dengcao/Qwen3-Embedding-0.6B:Q8_0"
     # A família Qwen3-Embedding instrui apenas o lado da consulta.
     embedding_instrucao_consulta: str = (
         "Given a web search query, retrieve relevant passages that answer the query"
@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     embedding_timeout_s: float = 120.0
 
     rerank_base_url: str = "http://localhost:11434"
-    rerank_model: str = "dengcao/Qwen3-Reranker-0.6B:F16"
+    rerank_model: str = "dengcao/Qwen3-Reranker-0.6B:Q8_0"
     rerank_instrucao: str = (
         "Given a web search query, retrieve relevant passages that answer the query"
     )
@@ -53,6 +53,18 @@ class Settings(BaseSettings):
     chunk_max_chars: int = 1200
     chunk_overlap_chars: int = 200
     chunk_min_chars: int = 300
+
+    # --- Provider Adapter ---
+    # Usado quando ProvedorLLM.endpoint é NULL. No Compose vira
+    # http://host.docker.internal:11434.
+    llm_base_url: str = "http://localhost:11434"
+    # O default do Ollama é 4096 e ele TRUNCA o prompt em silêncio para caber.
+    # O prompt do Gerador carrega prompt mestre + 8 trechos do RAG + schema.
+    llm_num_ctx: int = 8192
+    llm_timeout_s: float = 180.0
+    llm_tentativas_por_provedor: int = 2
+    llm_temperatura_padrao: float = 0.3
+    llm_max_tokens_padrao: int = 2048
 
 
 settings = Settings()

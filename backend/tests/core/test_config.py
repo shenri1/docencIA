@@ -38,11 +38,29 @@ def test_embedding_dim_e_1024_para_caber_no_indice_hnsw():
 
 def test_defaults_do_rag():
     assert settings.embedding_base_url == "http://localhost:11434"
-    assert settings.embedding_model == "qwen3-embedding:0.6b"
+    assert settings.embedding_model == "dengcao/Qwen3-Embedding-0.6B:Q8_0"
     assert settings.embedding_batch == 64
-    assert settings.rerank_model == "dengcao/Qwen3-Reranker-0.6B:F16"
+    assert settings.rerank_model == "dengcao/Qwen3-Reranker-0.6B:Q8_0"
     assert settings.rag_candidatos == 20
     assert settings.rag_top_k == 8
     assert settings.chunk_max_chars == 1200
     assert settings.chunk_overlap_chars == 200
     assert settings.chunk_min_chars == 300
+
+
+def test_defaults_de_modelo_apontam_para_tags_realmente_instaladas():
+    # Regressão: os defaults apontavam para `qwen3-embedding:0.6b`
+    # e para a tag `:F16`, que não existem na máquina alvo. Como não há .env
+    # no projeto, o default É o valor usado, e a primeira chamada dava 404.
+    assert settings.embedding_model == "dengcao/Qwen3-Embedding-0.6B:Q8_0"
+    assert settings.rerank_model == "dengcao/Qwen3-Reranker-0.6B:Q8_0"
+
+
+def test_defaults_do_provider_adapter():
+    assert settings.llm_base_url == "http://localhost:11434"
+    # 4096 é o default do Ollama e trunca o prompt do Gerador em silêncio.
+    assert settings.llm_num_ctx == 8192
+    assert settings.llm_timeout_s == 180.0
+    assert settings.llm_tentativas_por_provedor == 2
+    assert settings.llm_temperatura_padrao == 0.3
+    assert settings.llm_max_tokens_padrao == 2048

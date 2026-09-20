@@ -41,18 +41,26 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from backend.app.core.config import settings
 from backend.app.core.db import get_db
+from backend.app.core.storage import ArmazenamentoLocal, get_armazenamento
 from backend.app.main import app
 from backend.app.models import Base
-from backend.app.models.identidade import Docente
+from backend.app.models.identidade import Docente, SessaoGeracao
+from backend.app.models.materiais import MaterialReferencia
+from backend.app.schemas.identidade import DocenteCriar
+from backend.app.services.auth_service import registrar_docente
+
+# Ordem importa: filhos antes dos pais, senão a FK bloqueia o DELETE.
+_MODELOS_PARA_LIMPAR = (MaterialReferencia, SessaoGeracao, Docente)
 
 
 def _garantir_banco_de_teste_existe() -> None:
     """
     Postgres não cria bancos sob demanda — antes de apontar o engine de
-    teste pra "docencia_test", conecta no banco de dev ("docencia") em modo
-    autocommit e cria "docencia_test" se ainda não existir.
+    teste pra "docencia_test", conecta no banco de manutenção "postgres"
+    (que existe em qualquer instância) em modo autocommit e cria
+    "docencia_test" se ainda não existir.
     """
-    url_admin = settings.database_url.rsplit("/", 1)[0] + "/docencia"
+    url_admin = settings.database_url.rsplit("/", 1)[0] + "/postgres"
     nome_banco_teste = settings.database_url.rsplit("/", 1)[1]
     admin_engine = create_engine(url_admin, isolation_level="AUTOCOMMIT")
     try:
@@ -87,20 +95,43 @@ def engine():
 
 @pytest.fixture()
 def db_session(engine) -> Generator[Session]:
-    session = sessionmaker(bind=engine)()
+    # Mesma configuração do SessionLocal de produção (core/db.py): autoflush
+    # desligado e objetos não expiram no commit. Sem isso, testes que simulam
+    # leitura obsoleta (race de upload × confirmar) acabariam re-flushando o
+    # estado velho pro banco e mascarando o comportamento real.
+    session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)()
     yield session
     session.rollback()
-    session.query(Docente).delete()
+    for modelo in _MODELOS_PARA_LIMPAR:
+        session.query(modelo).delete()
     session.commit()
     session.close()
 
 
 @pytest.fixture()
-def client(db_session) -> Generator[TestClient]:
+def docente(db_session) -> Docente:
+    return registrar_docente(
+        db_session,
+        DocenteCriar(
+            nome="Ana Souza",
+            credencial_institucional="prof-materiais",
+            senha="senhaforte123",
+        ),
+    )
+
+
+@pytest.fixture()
+def armazenamento(tmp_path) -> ArmazenamentoLocal:
+    return ArmazenamentoLocal(tmp_path / "storage")
+
+
+@pytest.fixture()
+def client(db_session, armazenamento) -> Generator[TestClient]:
     def _override_get_db() -> Generator[Session]:
         yield db_session
 
     app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[get_armazenamento] = lambda: armazenamento
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

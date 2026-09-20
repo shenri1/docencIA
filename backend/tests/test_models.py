@@ -1,9 +1,11 @@
 from sqlalchemy import event
 from sqlalchemy.orm import configure_mappers
 
+from backend.app.domain import FormatoArquivo, OrigemTexto
 from backend.app.models import Base, RegistroAuditoria
 from backend.app.models.base import bloquear_mutacao
 from backend.app.models.identidade import Docente
+from backend.app.models.materiais import MaterialReferencia
 
 TABELAS_ESPERADAS = {
     "docentes",
@@ -46,6 +48,34 @@ def test_tabelas_auditoria_sao_append_only():
 def test_docente_tem_coluna_senha_hash():
     colunas = {c.name for c in Docente.__table__.columns}
     assert "senha_hash" in colunas
+
+
+def test_material_tem_colunas_do_modulo_de_materiais():
+    colunas = {c.name for c in MaterialReferencia.__table__.columns}
+    assert {
+        "formato",
+        "chave_armazenamento",
+        "chave_texto_extraido",
+        "hash_sha256",
+        "tamanho_bytes",
+        "origem_texto",
+        "criado_em",
+    } <= colunas
+
+
+def test_material_tem_unicidade_por_sessao():
+    nomes = {
+        constraint.name
+        for constraint in MaterialReferencia.__table__.constraints
+        if constraint.name
+    }
+    assert "material_por_sessao_hash" in nomes
+    assert "material_por_sessao_identificador" in nomes
+
+
+def test_enums_de_formato_e_origem():
+    assert [f.value for f in FormatoArquivo] == ["pdf", "pptx", "docx", "txt"]
+    assert [o.value for o in OrigemTexto] == ["nativo", "ocr", "misto"]
 
 
 if __name__ == "__main__":

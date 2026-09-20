@@ -14,6 +14,12 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# OCR de PDFs escaneados. pt/en cobrem o material do docente.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        tesseract-ocr tesseract-ocr-por tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
+
 # Camada de dependências isolada do código para aproveitar o cache do Docker.
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \

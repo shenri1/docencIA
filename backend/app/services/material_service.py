@@ -43,6 +43,17 @@ _PREFIXO_POR_TIPO = {
 _TAMANHO_PEDACO = 1024 * 1024
 
 
+def _sanitizar_nome_arquivo(nome: str) -> str:
+    """Reduz o nome enviado pelo cliente a um basename neutro, só para
+    exibição — nunca compõe caminho de disco. Path no POSIX não trata '\\'
+    como separador (caminho do Windows vira o valor inteiro) e nomes de ponto
+    ("." / "..") são degenerados — normaliza e cai para "sem-nome"."""
+    base = Path(nome.replace("\\", "/")).name.strip()
+    if base in ("", ".", ".."):
+        return "sem-nome"
+    return base[:255]
+
+
 def ler_com_limite(arquivo: BinaryIO, max_bytes: int) -> bytes:
     """Lê em pedaços e aborta assim que passa do limite — não carrega um
     arquivo gigante inteiro só para então rejeitá-lo."""
@@ -155,7 +166,7 @@ def registrar_material(
             identificador_curto=_proximo_identificador(
                 db, sessao, _PREFIXO_POR_TIPO[tipo]
             ),
-            nome_arquivo=Path(nome_arquivo).name[:255],
+            nome_arquivo=_sanitizar_nome_arquivo(nome_arquivo),
             tipo=tipo,
             formato=formato,
             status_legibilidade=StatusLegibilidade.LEGIVEL,

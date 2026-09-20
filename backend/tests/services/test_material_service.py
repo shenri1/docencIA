@@ -257,3 +257,12 @@ def test_ler_com_limite_rejeita_acima_do_maximo():
     with pytest.raises(ArquivoMuitoGrandeException) as erro:
         ler_com_limite(BytesIO(excedente), 2 * 1024 * 1024)
     assert erro.value.corpo()["max_mb"] == 2
+
+
+def test_sanitizar_nome_arquivo():
+    from backend.app.services.material_service import _sanitizar_nome_arquivo
+
+    assert _sanitizar_nome_arquivo("aula.pdf") == "aula.pdf"
+    assert _sanitizar_nome_arquivo("C:\\x\\aula.pdf") == "aula.pdf"
+    assert _sanitizar_nome_arquivo("..") == "sem-nome"
+    assert _sanitizar_nome_arquivo("../../etc/passwd.pdf") == "passwd.pdf"

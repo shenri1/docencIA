@@ -221,3 +221,6 @@ __marimo__/
 # Logs do sistema
 logs/
 logs/*
+
+# Materiais enviados pelo docente
+storage/

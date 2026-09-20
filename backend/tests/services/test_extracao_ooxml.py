@@ -3,7 +3,12 @@ import pytest
 from backend.app.domain import OrigemTexto
 from backend.app.exceptions import ArquivoCorrompidoException, MaterialSemTextoException
 from backend.app.services.extracao.ooxml import extrair_docx, extrair_pptx
-from backend.tests.fabricas import docx_com_secoes, pptx_com_slides, zip_corrompido
+from backend.tests.fabricas import (
+    docx_com_secoes,
+    docx_com_tabela,
+    pptx_com_slides,
+    zip_corrompido,
+)
 
 
 def test_docx_localiza_por_secao_e_paragrafo():
@@ -25,6 +30,15 @@ def test_docx_nao_tem_contagem_de_paginas():
 def test_docx_vazio_levanta_sem_texto():
     with pytest.raises(MaterialSemTextoException):
         extrair_docx(docx_com_secoes([]))
+
+
+def test_docx_extrai_texto_de_tabela():
+    dados = docx_com_tabela([["nome", "nota"], ["ana", "9.5"], ["bruno", "8.0"]])
+    resultado = extrair_docx(dados)
+    assert [b.localizacao for b in resultado.blocos] == ["tabela 1"]
+    assert "ana" in resultado.blocos[0].texto
+    assert "9.5" in resultado.blocos[0].texto
+    assert resultado.blocos[0].origem is OrigemTexto.NATIVO
 
 
 def test_docx_corrompido_levanta():

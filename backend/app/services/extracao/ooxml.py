@@ -22,14 +22,25 @@ def _abrir(dados: bytes, abridor, formato: str):
         raise ArquivoProtegidoException(formato)
     try:
         return abridor(BytesIO(dados))
-    except (
-        PackageNotFoundError,
-        OpcError,
-        KeyError,
-        ValueError,
-        zipfile.BadZipFile,
-    ) as exc:
+    except (PackageNotFoundError, OpcError, zipfile.BadZipFile) as exc:
         raise ArquivoCorrompidoException(formato) from exc
+
+
+def _textos_da_tabela(tabela) -> list[str]:
+    """Textos das células, sem repetir células mescladas — python-docx devolve
+    a mesma célula para cada posição ocupada pela mesclagem."""
+    vistos: set[int] = set()
+    textos: list[str] = []
+    for linha in tabela.rows:
+        for celula in linha.cells:
+            identidade = id(celula._tc)
+            if identidade in vistos:
+                continue
+            vistos.add(identidade)
+            texto = celula.text.strip()
+            if texto:
+                textos.append(texto)
+    return textos
 
 
 def extrair_docx(dados: bytes) -> ResultadoExtracao:
@@ -51,6 +62,17 @@ def extrair_docx(dados: bytes) -> ResultadoExtracao:
             f"{secao_atual} · par. {numero}" if secao_atual else f"par. {numero}"
         )
         blocos.append(BlocoTexto(localizacao, texto, OrigemTexto.NATIVO))
+
+    # Tabelas de topo não entram em document.paragraphs — percorrer também,
+    # senão o texto delas é perdido silenciosamente (violaria R2). Tabelas
+    # aninhadas e outras estruturas raras seguem como limitação registrada na
+    # 
+    for indice, tabela in enumerate(documento.tables, start=1):
+        textos = _textos_da_tabela(tabela)
+        if textos:
+            blocos.append(
+                BlocoTexto(f"tabela {indice}", "\n".join(textos), OrigemTexto.NATIVO)
+            )
 
     if not blocos:
         raise MaterialSemTextoException("docx")

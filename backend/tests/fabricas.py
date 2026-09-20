@@ -76,6 +76,17 @@ def docx_com_secoes(secoes: list[tuple[str, list[str]]]) -> bytes:
     return buffer.getvalue()
 
 
+def docx_com_tabela(linhas: list[list[str]]) -> bytes:
+    documento = Document()
+    tabela = documento.add_table(rows=len(linhas), cols=len(linhas[0]))
+    for i, linha in enumerate(linhas):
+        for j, valor in enumerate(linha):
+            tabela.cell(i, j).text = valor
+    buffer = BytesIO()
+    documento.save(buffer)
+    return buffer.getvalue()
+
+
 def pptx_com_slides(slides: list[tuple[str, str]], notas: str | None = None) -> bytes:
     apresentacao = Presentation()
     layout = apresentacao.slide_layouts[5]  # só título

@@ -273,3 +273,59 @@ class ArtefatoDeTextoInvalidoException(DomainException):
             "está ausente ou corrompido — reenvie o material.",
             identificador_curto=identificador_curto,
         )
+
+
+# --- Provedor de LLM ---
+
+
+class FalhaTransporteLLMException(DomainException):
+    """Interna à camada: `ProvedorLLMService` a consome como motivo de
+    retentativa e nunca a deixa chegar ao handler HTTP. O status existe só
+    para satisfazer o contrato de `DomainException`."""
+
+    status_code = 503
+    codigo = "FALHA_TRANSPORTE_LLM"
+
+    def __init__(self, motivo: str) -> None:
+        super().__init__(f"Falha ao falar com o provedor: {motivo}.", motivo=motivo)
+
+
+class FalhaProvedorLLMException(DomainException):
+    """a cadeia inteira falhou. Carrega o motivo de cada provedor —
+    sem isso, diagnosticar exige ler log do servidor."""
+
+    status_code = 503
+    codigo = "FALHA_PROVEDOR_LLM"
+
+    def __init__(self, motivos: list[tuple[str, str]]) -> None:
+        detalhe = "; ".join(f"{nome}: {motivo}" for nome, motivo in motivos)
+        super().__init__(
+            f"Nenhum provedor de LLM respondeu. Tentados — {detalhe}.",
+            provedores=[{"provedor": n, "motivo": m} for n, m in motivos],
+        )
+
+
+class RespostaLLMInvalidaException(DomainException):
+    """O provedor respondeu: o problema é o conteúdo, não a disponibilidade.
+    Por isso 502, e por isso NÃO dispara fallback — trocar de modelo não
+    conserta prompt ruim."""
+
+    status_code = 502
+    codigo = "RESPOSTA_LLM_INVALIDA"
+
+    def __init__(self, motivo: str) -> None:
+        super().__init__(
+            f"O provedor respondeu fora do formato esperado: {motivo}.",
+            motivo=motivo,
+        )
+
+
+class NenhumProvedorAtivoException(DomainException):
+    status_code = 500
+    codigo = "NENHUM_PROVEDOR_ATIVO"
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Nenhum provedor de LLM ativo cadastrado — verifique a tabela "
+            "provedores_llm."
+        )

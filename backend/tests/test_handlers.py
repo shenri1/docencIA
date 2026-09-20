@@ -12,7 +12,9 @@ from backend.app.exceptions import (
     CredencialJaCadastradaException,
     DomainException,
     FalhaEmbeddingException,
+    FalhaProvedorLLMException,
     FalhaRerankException,
+    FalhaTransporteLLMException,
     FormatoNaoSuportadoException,
     IndiceNaoConfirmadoException,
     IndiceVazioException,
@@ -20,10 +22,12 @@ from backend.app.exceptions import (
     MaterialIlegivelException,
     MaterialNaoEncontradoException,
     MaterialSemTextoException,
+    NenhumProvedorAtivoException,
     ParametrosInconsistentesException,
     PdfEscaneadoOcrInsuficienteException,
     PdfProtegidoException,
     PerfilInsuficienteException,
+    RespostaLLMInvalidaException,
     SessaoEstadoInvalidaException,
     SessaoNaoEncontradaException,
     SessaoNaoIndexadaException,
@@ -193,3 +197,31 @@ def test_artefato_de_texto_invalido_e_500():
     exc = ArtefatoDeTextoInvalidoException("P1")
     assert exc.status_code == 500
     assert "P1" in exc.mensagem
+
+
+def test_falha_transporte_llm_e_503_com_motivo():
+    exc = FalhaTransporteLLMException("ConnectError")
+    assert exc.status_code == 503
+    assert exc.corpo()["motivo"] == "ConnectError"
+
+
+def test_falha_provedor_llm_lista_cada_provedor_tentado():
+    exc = FalhaProvedorLLMException(
+        [("ollama-qwen3-4b", "HTTP 500"), ("ollama-qwen3-1.7b", "ConnectError")]
+    )
+    assert exc.status_code == 503
+    assert exc.corpo()["codigo"] == "FALHA_PROVEDOR_LLM"
+    assert exc.corpo()["provedores"] == [
+        {"provedor": "ollama-qwen3-4b", "motivo": "HTTP 500"},
+        {"provedor": "ollama-qwen3-1.7b", "motivo": "ConnectError"},
+    ]
+    assert "ollama-qwen3-4b" in exc.mensagem
+
+
+def test_resposta_llm_invalida_e_502_nao_503():
+    # 502 e não 503 porque o provedor respondeu: o problema é o conteúdo.
+    assert RespostaLLMInvalidaException("JSON malformado").status_code == 502
+
+
+def test_nenhum_provedor_ativo_e_500():
+    assert NenhumProvedorAtivoException().status_code == 500

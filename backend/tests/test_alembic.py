@@ -65,3 +65,23 @@ def test_migracao_reproduz_os_models_sem_diferenca(engine_migrado):
         )
         diferencas = compare_metadata(contexto, Base.metadata)
     assert diferencas == [], f"Migração fora de sincronia com os models: {diferencas}"
+
+
+def test_seed_cria_a_cadeia_de_fallback(engine_migrado):
+    with engine_migrado.connect() as conexao:
+        linhas = conexao.execute(
+            text(
+                "SELECT nome, modelo, prioridade, endpoint, "
+                "referencia_chave_secrets FROM provedores_llm "
+                "WHERE ativo = true ORDER BY prioridade"
+            )
+        ).all()
+
+    assert [(linha[0], linha[1], linha[2]) for linha in linhas] == [
+        ("ollama-qwen3-4b", "qwen3:4b", 1),
+        ("ollama-qwen3-1.7b", "qwen3:1.7b", 2),
+    ]
+    # endpoint NULL = usar settings.llm_base_url, que difere entre local e
+    # Compose. Gravar um host aqui quebraria um dos dois ambientes.
+    assert all(linha[3] is None for linha in linhas)
+    assert all(linha[4] is None for linha in linhas)

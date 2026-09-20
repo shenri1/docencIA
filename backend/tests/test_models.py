@@ -104,3 +104,16 @@ if __name__ == "__main__":
     test_todas_as_entidades_mapeadas()
     test_tabelas_auditoria_sao_append_only()
     print("ok")
+
+
+def test_provedor_llm_tem_modelo_e_prioridade():
+    from backend.app.models.prompt_provedor import ProvedorLLM
+
+    colunas = ProvedorLLM.__table__.columns
+    # endpoint diz ONDE; faltava dizer O QUÊ.
+    assert colunas["modelo"].nullable is False
+    assert colunas["prioridade"].nullable is False
+    # Provedor local não tem chave: string vazia seria mentira no schema.
+    assert colunas["referencia_chave_secrets"].nullable is True
+    # NULL = usar settings.llm_base_url, para a seed não fixar um host.
+    assert colunas["endpoint"].nullable is True

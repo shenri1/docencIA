@@ -41,16 +41,24 @@ class ProvedorLLM(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nome: Mapped[str] = mapped_column(String(100), unique=True)
+    # Tag do modelo no provedor (ex.: "qwen3:4b"). endpoint diz onde falar,
+    # modelo diz com quem.
+    modelo: Mapped[str] = mapped_column(String(100))
     tipo: Mapped[TipoProvedorLLM] = mapped_column(
         SAEnum(TipoProvedorLLM, name="tipo_provedor_llm")
     )
+    # NULL = usar settings.llm_base_url. Sem isso, a migração de seed teria
+    # que gravar um host, e o host correto difere entre local e Compose.
     endpoint: Mapped[str | None] = mapped_column(String(500))
     preco_input_por_milhao: Mapped[Decimal] = mapped_column(Numeric(12, 6))
     preco_output_por_milhao: Mapped[Decimal] = mapped_column(Numeric(12, 6))
     janela_contexto: Mapped[int] = mapped_column(Integer)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Ordem da cadeia de fallback: menor primeiro.
+    prioridade: Mapped[int] = mapped_column(Integer, index=True)
     # Caminho/referência no secrets manager — nunca a chave em si.
-    referencia_chave_secrets: Mapped[str] = mapped_column(String(255))
+    # NULL para provedor local, que não tem chave.
+    referencia_chave_secrets: Mapped[str | None] = mapped_column(String(255))
 
     sessoes: Mapped[list[SessaoGeracao]] = relationship(back_populates="provedor_llm")
     consumos_token: Mapped[list[ConsumoToken]] = relationship(back_populates="provedor")

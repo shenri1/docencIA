@@ -77,11 +77,11 @@ def classificar_pagina(metrica: MetricaPagina, cfg: ConfigExtracao) -> ClassePag
         and metrica.confianca_ocr >= cfg.ocr_confianca_minima
     ):
         return ClassePagina.OCR
-    # Vazia só quando não há texto algum: uma página com texto curto (abaixo
-    # de min_chars_pagina) tem conteúdo real e conta como ilegível, em vez de
-    # sumir do veredito — senão um PDF com texto curto seria tratado como
-    # "sem páginas" enquanto um TXT equivalente passaria.
-    if metrica.chars_nativos == 0 and not metrica.tem_imagem:
+    # Sem imagem a página é "vazia" para a legibilidade — inclui divisória de
+    # livro que só traz o número impresso ("47", 2 chars): não deve contar
+    # contra o documento. Só página com imagem (e sem texto suficiente) é
+    # candidata a OCR e, se o OCR falhar, ilegível.
+    if not metrica.tem_imagem:
         return ClassePagina.VAZIA
     return ClassePagina.ILEGIVEL
 

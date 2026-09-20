@@ -118,9 +118,9 @@ def test_pdf_totalmente_vazio_e_rejeitado():
         extrair_pdf(pdf_vazio(2), CFG, ocr=None)
 
 
-def test_pdf_de_uma_pagina_com_texto_curto_e_ilegivel():
-    """Texto real mas abaixo de min_chars_pagina não é página vazia: conta
-    como ilegível e aparece nas páginas afetadas da rejeição."""
+def test_pdf_de_uma_pagina_com_texto_curto_e_rejeitado():
+    """Uma página só com texto abaixo de min_chars_pagina não tem página
+    legível: é rejeitada, listando a página afetada."""
     dados = pdf_com_texto(["curto"])
     with pytest.raises(PdfEscaneadoOcrInsuficienteException) as erro:
         extrair_pdf(dados, CFG, ocr=None)

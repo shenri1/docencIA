@@ -181,14 +181,17 @@ def registrar_material(
         db.commit()
         db.refresh(material)
         return material
-    except IntegrityError:
-        # Dois uploads simultâneos do mesmo arquivo passam ambos na checagem
-        # de hash acima (ela é um SELECT sem lock) e o segundo estoura a
-        # UniqueConstraint material_por_sessao_hash no commit — traduz para a
-        # mesma resposta de duplicata do caminho "feliz", nunca 500.
+    except IntegrityError as exc:
+        # Só a violação de material_por_sessao_hash é "arquivo duplicado". As
+        # demais (FK de sessão, material_por_sessao_identificador) são bug —
+        # re-raise para virar 500 em vez de mascarar como duplicata.
         db.rollback()
         armazenamento.remover(chave_arquivo)
         armazenamento.remover(chave_texto)
+        diag = getattr(exc.orig, "diag", None)
+        constraint = getattr(diag, "constraint_name", None)
+        if constraint != "material_por_sessao_hash":
+            raise
         existente = db.scalar(
             select(MaterialReferencia).where(
                 MaterialReferencia.sessao_id == sessao.id,

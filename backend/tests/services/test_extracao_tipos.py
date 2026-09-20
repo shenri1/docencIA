@@ -38,9 +38,9 @@ def test_pagina_sem_texto_e_sem_imagem_e_vazia():
     assert classificar_pagina(metrica, CFG) is ClassePagina.VAZIA
 
 
-def test_pagina_com_texto_curto_sem_imagem_e_ilegivel_nao_vazia():
+def test_pagina_com_texto_curto_sem_imagem_e_vazia():
     metrica = MetricaPagina(numero=1, chars_nativos=10, tem_imagem=False)
-    assert classificar_pagina(metrica, CFG) is ClassePagina.ILEGIVEL
+    assert classificar_pagina(metrica, CFG) is ClassePagina.VAZIA
 
 
 def test_pagina_ocr_aprovada_quando_confianca_atinge_o_minimo():
@@ -66,6 +66,20 @@ def test_documento_legivel_ignora_paginas_vazias_na_fracao():
     assert veredito.legivel is True
     assert veredito.paginas_ilegiveis == []
     assert veredito.origem is OrigemTexto.NATIVO
+
+
+def test_paginas_divisorias_sem_imagem_nao_contam_contra_o_documento():
+    """Divisória de livro que só traz o número impresso ("47", 2 chars) é
+    vazia: 75 nativas + 25 divisórias seguem legíveis, não viram fração 0.75."""
+    metricas = [
+        MetricaPagina(numero=i, chars_nativos=100, tem_imagem=False)
+        for i in range(1, 76)
+    ]
+    metricas += [
+        MetricaPagina(numero=i, chars_nativos=2, tem_imagem=False)
+        for i in range(76, 101)
+    ]
+    assert avaliar_documento(metricas, CFG).legivel is True
 
 
 def test_documento_abaixo_do_limiar_e_ilegivel_e_lista_paginas():

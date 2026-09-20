@@ -33,7 +33,15 @@ class PromptMestre(Base):
     versao: Mapped[str] = mapped_column(String(50), unique=True)
     conteudo: Mapped[str] = mapped_column(Text)
     papel_definido: Mapped[str] = mapped_column(String(255))
+    # Uma linha por versão: histórico completo fica no próprio conjunto,
+    # rollback = reativar versão anterior.
     ativo: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # SHA-256 dos módulos em disco no momento do registro: detecta edição de
+    # arquivo sem versão nova, que faria `conteudo` mentir sobre o enviado.
+    hash_modulos: Mapped[str] = mapped_column(String(64))
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class ProvedorLLM(Base):

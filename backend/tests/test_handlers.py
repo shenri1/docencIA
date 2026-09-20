@@ -22,16 +22,21 @@ from backend.app.exceptions import (
     MaterialIlegivelException,
     MaterialNaoEncontradoException,
     MaterialSemTextoException,
+    NenhumPromptAtivoException,
     NenhumProvedorAtivoException,
     ParametrosInconsistentesException,
     PdfEscaneadoOcrInsuficienteException,
     PdfProtegidoException,
     PerfilInsuficienteException,
+    PlaceholderNaoResolvidoException,
+    PromptDivergenteException,
     RespostaLLMInvalidaException,
     SessaoEstadoInvalidaException,
     SessaoNaoEncontradaException,
     SessaoNaoIndexadaException,
     TokenInvalidoException,
+    VersaoPromptDuplicadaException,
+    VersaoPromptNaoEncontradaException,
 )
 from backend.app.handlers import registrar_exception_handlers
 
@@ -225,3 +230,33 @@ def test_resposta_llm_invalida_e_502_nao_503():
 
 def test_nenhum_provedor_ativo_e_500():
     assert NenhumProvedorAtivoException().status_code == 500
+
+
+def test_placeholder_nao_resolvido_e_500_e_lista_os_nomes():
+    exc = PlaceholderNaoResolvidoException(["tema_escopo", "k_alternativas"])
+    assert exc.status_code == 500
+    assert exc.corpo()["placeholders"] == ["tema_escopo", "k_alternativas"]
+    assert "tema_escopo" in exc.mensagem
+
+
+def test_versao_duplicada_e_409():
+    exc = VersaoPromptDuplicadaException("1.0.0")
+    assert exc.status_code == 409
+    assert exc.corpo()["versao"] == "1.0.0"
+
+
+def test_nenhum_prompt_ativo_e_409():
+    assert NenhumPromptAtivoException().status_code == 409
+
+
+def test_versao_nao_encontrada_e_404():
+    exc = VersaoPromptNaoEncontradaException("9.9.9")
+    assert exc.status_code == 404
+    assert exc.corpo()["versao"] == "9.9.9"
+
+
+def test_prompt_divergente_e_409_e_traz_os_dois_hashes():
+    exc = PromptDivergenteException(gravado="aaa", em_disco="bbb")
+    assert exc.status_code == 409
+    assert exc.corpo()["hash_gravado"] == "aaa"
+    assert exc.corpo()["hash_em_disco"] == "bbb"

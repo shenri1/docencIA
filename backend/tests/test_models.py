@@ -117,3 +117,14 @@ def test_provedor_llm_tem_modelo_e_prioridade():
     assert colunas["referencia_chave_secrets"].nullable is True
     # NULL = usar settings.llm_base_url, para a seed não fixar um host.
     assert colunas["endpoint"].nullable is True
+
+
+def test_prompt_mestre_tem_criado_em_e_hash():
+    from backend.app.models.prompt_provedor import PromptMestre
+
+    colunas = PromptMestre.__table__.columns
+    # Sem criado_em, o histórico só teria `id` para ordenar.
+    assert colunas["criado_em"].nullable is False
+    assert colunas["criado_em"].server_default is not None
+    # 64 = SHA-256 em hexadecimal.
+    assert colunas["hash_modulos"].type.length == 64

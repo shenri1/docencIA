@@ -1,4 +1,4 @@
-import fitz
+import pymupdf as fitz
 
 from backend.app.domain import OrigemTexto
 from backend.app.exceptions import (

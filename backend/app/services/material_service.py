@@ -25,6 +25,7 @@ from backend.app.exceptions import (
     MaterialDuplicadoException,
     MaterialNaoEncontradoException,
     SessaoEstadoInvalidaException,
+    SessaoNaoEncontradaException,
 )
 from backend.app.models.identidade import Docente, SessaoGeracao
 from backend.app.models.materiais import MaterialReferencia
@@ -75,9 +76,12 @@ def _travar_sessao(db: Session, sessao_id: int) -> SessaoGeracao:
     "rascunho" e gravaria material numa sessão já congelada.
     populate_existing re-lê o estado sob o lock — o objeto pode já estar no
     identity map com `estado` obsoleto (lido antes do freeze)."""
-    return db.get(
+    sessao = db.get(
         SessaoGeracao, sessao_id, with_for_update=True, populate_existing=True
     )
+    if sessao is None:
+        raise SessaoNaoEncontradaException(sessao_id)
+    return sessao
 
 
 def _exigir_rascunho(sessao: SessaoGeracao) -> None:

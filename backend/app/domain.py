@@ -81,6 +81,14 @@ class FaixaDificuldade(str, Enum):
     DIFICIL = "dificil"
 
 
+class TipoQuestao(str, Enum):
+    """Discriminador do item. Decide schema, prompt, validador e o
+    que é persistido: alternativas ou aspectos esperados."""
+
+    OBJETIVA = "objetiva"
+    DISCURSIVA = "discursiva"
+
+
 class EstadoProva(str, Enum):
     RASCUNHO = "rascunho"
     MONTADA = "montada"
@@ -106,3 +114,5 @@ class RegraQualidade(str, Enum):
     MENCAO_FONTE = "mencao_fonte"
     GEMEOS_INSUFICIENTES = "gemeos_insuficientes"
     GEMEO_NA_CORRETA = "gemeo_na_correta"
+    COMANDO_AUSENTE = "comando_ausente"
+    ASPECTOS_REPETIDOS = "aspectos_repetidos"

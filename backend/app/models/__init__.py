@@ -3,6 +3,7 @@
 from backend.app.models.auditoria import RegistroAuditoria
 from backend.app.models.banco import (
     Alternativa,
+    AspectoEsperado,
     BancoQuestoes,
     FonteInterna,
     JustificativaEstruturada,
@@ -19,6 +20,7 @@ from backend.app.models.provas import ExportacaoDocx, Gabarito, ItemProva, Prova
 
 __all__ = [
     "Alternativa",
+    "AspectoEsperado",
     "BancoQuestoes",
     "Base",
     "ChunkMaterial",

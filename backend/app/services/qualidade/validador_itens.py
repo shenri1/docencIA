@@ -1,9 +1,9 @@
 """Validador de forma dos itens — Núcleo Determinístico, nunca chama LLM.
 
 Mede as regras (i)–(iv) e. A entrada é neutra
-(`ItemAvaliavel`): a geração a monta a partir da saída do modelo, e a
-auditoria da parte B vai montá-la a partir de uma Questao persistida. O
-validador não conhece nenhum dos dois.
+(`ItemObjetivo` ou `ItemDiscursivo`): a geração a monta a partir da saída do
+modelo, e a auditoria da parte B vai montá-la a partir de uma Questao
+persistida. O validador não conhece nenhum dos dois.
 """
 
 from __future__ import annotations
@@ -25,6 +25,28 @@ TERMOS_FONTE = frozenset(
     {"slide", "slides", "pdf", "livro", "livros", "aula", "aulas", "apostila"}
 )
 
+# Comando operacional da discursiva. Lista fechada em código, como as
+# anteriores: define o que a métrica mede. Um falso positivo ("Qual a relação
+# entre…?") vira violação registrada, não questão descartada.
+VERBOS_COMANDO = frozenset(
+    {
+        "explique",
+        "compare",
+        "justifique",
+        "descreva",
+        "analise",
+        "avalie",
+        "discuta",
+        "relacione",
+        "diferencie",
+        "demonstre",
+        "argumente",
+        "proponha",
+        "elabore",
+        "construa",
+    }
+)
+
 _PALAVRA = re.compile(r"\w+")
 
 
@@ -37,7 +59,7 @@ class AlternativaAvaliavel:
 
 
 @dataclass(frozen=True)
-class ItemAvaliavel:
+class ItemObjetivo:
     enunciado: str
     alternativas: list[AlternativaAvaliavel]
     trechos_base: list[str]
@@ -54,6 +76,19 @@ class Violacao:
 
     def como_dict(self) -> dict[str, str]:
         return {"regra": self.regra.value, "alvo": self.alvo, "detalhe": self.detalhe}
+
+
+@dataclass(frozen=True)
+class AspectoAvaliavel:
+    texto: str
+    trecho_base: str
+
+
+@dataclass(frozen=True)
+class ItemDiscursivo:
+    enunciado: str
+    aspectos: list[AspectoAvaliavel]
+    identificadores_fonte: list[str]
 
 
 def _normalizar(texto: str) -> str:
@@ -75,13 +110,13 @@ def _decimal(valor: float) -> str:
     return f"{valor:.1f}".replace(".", ",")
 
 
-def _textos(item: ItemAvaliavel) -> list[tuple[str, str]]:
+def _textos(item: ItemObjetivo) -> list[tuple[str, str]]:
     return [("enunciado", item.enunciado)] + [
         (a.letra, a.texto) for a in item.alternativas
     ]
 
 
-def _tamanho_alternativa(item: ItemAvaliavel) -> list[Violacao]:
+def _tamanho_alternativa(item: ItemObjetivo) -> list[Violacao]:
     contagens = [len(_palavras(a.texto)) for a in item.alternativas]
     total = sum(contagens)
     k = len(contagens)
@@ -102,7 +137,7 @@ def _tamanho_alternativa(item: ItemAvaliavel) -> list[Violacao]:
     return violacoes
 
 
-def _correta_longa(item: ItemAvaliavel) -> list[Violacao]:
+def _correta_longa(item: ItemObjetivo) -> list[Violacao]:
     corretas = [a for a in item.alternativas if a.correta]
     erradas = [a for a in item.alternativas if not a.correta]
     if len(corretas) != 1 or not erradas:
@@ -122,45 +157,23 @@ def _correta_longa(item: ItemAvaliavel) -> list[Violacao]:
     return []
 
 
-def _termo_absoluto(item: ItemAvaliavel) -> list[Violacao]:
+def _termo_absoluto(item: ItemObjetivo) -> list[Violacao]:
     # "Sustentado pela fonte" vira "o termo aparece no trecho-base": mais
     # estrito que o juízo humano, mas auditável sem LLM.
-    permitidos: set[str] = set()
-    for trecho in item.trechos_base:
-        permitidos |= _termos(trecho)
     violacoes = []
     for alvo, texto in _textos(item):
-        encontrados = sorted((TERMOS_ABSOLUTOS & _termos(texto)) - permitidos)
-        if encontrados:
-            violacoes.append(
-                Violacao(
-                    RegraQualidade.TERMO_ABSOLUTO,
-                    alvo,
-                    f"usa {', '.join(encontrados)} sem sustentação no trecho-base",
-                )
-            )
+        violacoes.extend(_termo_absoluto_em(alvo, texto, item.trechos_base))
     return violacoes
 
 
-def _mencao_fonte(item: ItemAvaliavel) -> list[Violacao]:
-    identificadores = {_normalizar(i): i for i in item.identificadores_fonte}
-    proibidos = TERMOS_FONTE | identificadores.keys()
+def _mencao_fonte(item: ItemObjetivo) -> list[Violacao]:
     violacoes = []
     for alvo, texto in _textos(item):
-        encontrados = sorted(proibidos & _termos(texto))
-        if encontrados:
-            legiveis = [identificadores.get(t, t) for t in encontrados]
-            violacoes.append(
-                Violacao(
-                    RegraQualidade.MENCAO_FONTE,
-                    alvo,
-                    f"menciona {', '.join(legiveis)} no corpo da questão",
-                )
-            )
+        violacoes.extend(_mencao_fonte_em(alvo, texto, item.identificadores_fonte))
     return violacoes
 
 
-def _gemeos_insuficientes(item: ItemAvaliavel) -> list[Violacao]:
+def _gemeos_insuficientes(item: ItemObjetivo) -> list[Violacao]:
     k = len(item.alternativas)
     minimo = 1 if k <= 5 else 2
     # Confere a marcação declarada pelo modelo, não a semelhança estrutural
@@ -178,7 +191,7 @@ def _gemeos_insuficientes(item: ItemAvaliavel) -> list[Violacao]:
     return []
 
 
-def _gemeo_na_correta(item: ItemAvaliavel) -> list[Violacao]:
+def _gemeo_na_correta(item: ItemObjetivo) -> list[Violacao]:
     return [
         Violacao(
             RegraQualidade.GEMEO_NA_CORRETA,
@@ -190,7 +203,7 @@ def _gemeo_na_correta(item: ItemAvaliavel) -> list[Violacao]:
     ]
 
 
-def validar_item(item: ItemAvaliavel) -> list[Violacao]:
+def validar_objetiva(item: ItemObjetivo) -> list[Violacao]:
     """Ordem determinística: a da tabela de regras, e dentro de cada
     regra, enunciado antes das alternativas, em ordem de letra."""
     return [
@@ -200,4 +213,84 @@ def validar_item(item: ItemAvaliavel) -> list[Violacao]:
         *_mencao_fonte(item),
         *_gemeos_insuficientes(item),
         *_gemeo_na_correta(item),
+    ]
+
+
+def _termo_absoluto_em(
+    alvo: str, texto: str, trechos_base: list[str]
+) -> list[Violacao]:
+    permitidos: set[str] = set()
+    for trecho in trechos_base:
+        permitidos |= _termos(trecho)
+    encontrados = sorted((TERMOS_ABSOLUTOS & _termos(texto)) - permitidos)
+    if not encontrados:
+        return []
+    return [
+        Violacao(
+            RegraQualidade.TERMO_ABSOLUTO,
+            alvo,
+            f"usa {', '.join(encontrados)} sem sustentação no trecho-base",
+        )
+    ]
+
+
+def _mencao_fonte_em(
+    alvo: str, texto: str, identificadores_fonte: list[str]
+) -> list[Violacao]:
+    identificadores = {_normalizar(i): i for i in identificadores_fonte}
+    encontrados = sorted((TERMOS_FONTE | identificadores.keys()) & _termos(texto))
+    if not encontrados:
+        return []
+    legiveis = [identificadores.get(t, t) for t in encontrados]
+    return [
+        Violacao(
+            RegraQualidade.MENCAO_FONTE,
+            alvo,
+            f"menciona {', '.join(legiveis)} no corpo da questão",
+        )
+    ]
+
+
+def _comando_ausente(item: ItemDiscursivo) -> list[Violacao]:
+    if VERBOS_COMANDO & _termos(item.enunciado):
+        return []
+    return [
+        Violacao(
+            RegraQualidade.COMANDO_AUSENTE,
+            "enunciado",
+            "nenhum verbo de comando operacional (explique, compare, justifique…)",
+        )
+    ]
+
+
+def _aspectos_repetidos(item: ItemDiscursivo) -> list[Violacao]:
+    vistos: dict[tuple[str, ...], int] = {}
+    violacoes = []
+    for ordem, aspecto in enumerate(item.aspectos, start=1):
+        # Sequência de palavras normalizadas: pontuação e espaço extra não
+        # distinguem dois aspectos iguais.
+        chave = tuple(_normalizar(p) for p in _palavras(aspecto.texto))
+        if chave in vistos:
+            violacoes.append(
+                Violacao(
+                    RegraQualidade.ASPECTOS_REPETIDOS,
+                    f"aspecto {ordem}",
+                    f"repete o aspecto {vistos[chave]}",
+                )
+            )
+        else:
+            vistos[chave] = ordem
+    return violacoes
+
+
+def validar_discursiva(item: ItemDiscursivo) -> list[Violacao]:
+    """Só forma. "O enunciado revela os aspectos" e "o aspecto é observável"
+    são juízo semântico — do crítico e do docente. Aspectos ficam fora de
+    termo absoluto e menção de fonte: são para o docente, não para o aluno."""
+    trechos = [a.trecho_base for a in item.aspectos]
+    return [
+        *_termo_absoluto_em("enunciado", item.enunciado, trechos),
+        *_mencao_fonte_em("enunciado", item.enunciado, item.identificadores_fonte),
+        *_comando_ausente(item),
+        *_aspectos_repetidos(item),
     ]

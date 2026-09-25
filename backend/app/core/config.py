@@ -66,6 +66,12 @@ class Settings(BaseSettings):
     llm_temperatura_padrao: float = 0.3
     llm_max_tokens_padrao: int = 2048
 
+    # --- Geração ---
+    # Acima do llm_temperatura_padrao de propósito: com 29 questões sobre o
+    # mesmo material, repetição é o risco maior.
+    geracao_temperatura: float = 0.4
+    geracao_max_tokens: int = 2048
+
 
 settings = Settings()
 

@@ -11,13 +11,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from backend.app.core.config import settings
-from backend.app.domain import FaixaDificuldade
+from backend.app.domain import FaixaDificuldade, TipoQuestao
 from backend.app.models.identidade import SessaoGeracao
 from backend.app.prompt.montagem import montar_sistema_critico
 from backend.app.schemas.geracao import (
     LETRAS,
     InsuficienciaFonte,
-    montar_schema_questao,
+    montar_schema,
 )
 from backend.app.services.calculo_distribuicao_service import DistribuicaoQuestoes
 from backend.app.services.geracao.contexto import (
@@ -27,7 +27,9 @@ from backend.app.services.geracao.contexto import (
 from backend.app.services.provedor.tipos import RequisicaoLLM
 from backend.app.services.qualidade.validador_itens import (
     AlternativaAvaliavel,
-    ItemAvaliavel,
+    AspectoAvaliavel,
+    ItemDiscursivo,
+    ItemObjetivo,
     Violacao,
 )
 from backend.app.services.rag.retrieval_service import TrechoRecuperado
@@ -40,9 +42,9 @@ class ResultadoRevisao:
     modelo: str
 
 
-def item_de(questao, trechos: list[TrechoRecuperado]) -> ItemAvaliavel:
+def item_objetivo_de(questao, trechos: list[TrechoRecuperado]) -> ItemObjetivo:
     """Mesma regra da persistência: letra por posição, correta pela letra."""
-    return ItemAvaliavel(
+    return ItemObjetivo(
         enunciado=questao.enunciado,
         alternativas=[
             AlternativaAvaliavel(
@@ -54,6 +56,17 @@ def item_de(questao, trechos: list[TrechoRecuperado]) -> ItemAvaliavel:
             for letra, alternativa in zip(LETRAS, questao.alternativas, strict=False)
         ],
         trechos_base=[fonte.trecho_base for fonte in questao.fontes],
+        identificadores_fonte=sorted({t.identificador_curto for t in trechos}),
+    )
+
+
+def item_discursivo_de(questao, trechos: list[TrechoRecuperado]) -> ItemDiscursivo:
+    return ItemDiscursivo(
+        enunciado=questao.enunciado,
+        aspectos=[
+            AspectoAvaliavel(texto=a.texto, trecho_base=a.fonte.trecho_base)
+            for a in questao.aspectos_esperados
+        ],
         identificadores_fonte=sorted({t.identificador_curto for t in trechos}),
     )
 
@@ -70,7 +83,19 @@ def _montar_usuario(
     violacoes: list[Violacao],
     faixa: FaixaDificuldade,
     k: int,
+    tipo: TipoQuestao,
 ) -> str:
+    if tipo is TipoQuestao.DISCURSIVA:
+        frase_final = (
+            f"\n\nDevolva a questão revisada, de dificuldade {faixa.value}, com "
+            "2 a 5 aspectos esperados, cada um com a sua fonte, usando apenas os "
+            "trechos acima."
+        )
+    else:
+        frase_final = (
+            f"\n\nDevolva a questão revisada, de dificuldade {faixa.value}, com "
+            f"exatamente {k} alternativas, usando apenas os trechos acima."
+        )
     return (
         "Trechos disponíveis:\n"
         + formatar_trechos(trechos)
@@ -78,8 +103,7 @@ def _montar_usuario(
         + rascunho.model_dump_json(indent=2)
         + "\n\nViolações de forma medidas pelo sistema:\n"
         + _formatar_violacoes(violacoes)
-        + f"\n\nDevolva a questão revisada, de dificuldade {faixa.value}, com "
-        f"exatamente {k} alternativas, usando apenas os trechos acima."
+        + frase_final
     )
 
 
@@ -91,17 +115,20 @@ def revisar_questao(
     violacoes: list[Violacao],
     faixa: FaixaDificuldade,
     distribuicao: DistribuicaoQuestoes,
+    tipo: TipoQuestao = TipoQuestao.OBJETIVA,
 ) -> ResultadoRevisao:
     resposta = provedor.gerar(
         sessao.id,
         RequisicaoLLM(
-            sistema=montar_sistema_critico(parametros_da_sessao(sessao, distribuicao)),
+            sistema=montar_sistema_critico(
+                tipo, parametros_da_sessao(sessao, distribuicao)
+            ),
             usuario=_montar_usuario(
-                trechos, rascunho, violacoes, faixa, sessao.k_alternativas
+                trechos, rascunho, violacoes, faixa, sessao.k_alternativas, tipo
             ),
             # Mesmo schema da geração: o crítico reemite a questão inteira, e
             # pode declarar insuficiência se concluir que ela não se sustenta.
-            formato=montar_schema_questao(sessao.k_alternativas),
+            formato=montar_schema(tipo, sessao.k_alternativas),
             temperatura=settings.critico_temperatura,
             max_tokens=settings.critico_max_tokens,
         ),

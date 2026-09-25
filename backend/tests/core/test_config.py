@@ -64,3 +64,11 @@ def test_defaults_do_provider_adapter():
     assert settings.llm_tentativas_por_provedor == 2
     assert settings.llm_temperatura_padrao == 0.3
     assert settings.llm_max_tokens_padrao == 2048
+
+
+def test_defaults_da_geracao():
+    # Mais alta que llm_temperatura_padrao (0.3): 29 itens idênticos são pior
+    # que 29 itens imperfeitos.
+    assert settings.geracao_temperatura == 0.4
+    # Medido: 920 tokens em k=5, 1172 em k=11 — 57% do teto no pior caso.
+    assert settings.geracao_max_tokens == 2048

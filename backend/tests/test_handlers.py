@@ -260,3 +260,30 @@ def test_prompt_divergente_e_409_e_traz_os_dois_hashes():
     assert exc.status_code == 409
     assert exc.corpo()["hash_gravado"] == "aaa"
     assert exc.corpo()["hash_em_disco"] == "bbb"
+
+
+from backend.app.exceptions import (
+    BancoCongeladoException,
+    FonteInvalidaException,
+    MaterialInsuficienteParaBancoException,
+)
+
+
+def test_material_insuficiente_e_409_e_diz_os_dois_numeros():
+    exc = MaterialInsuficienteParaBancoException(chunks=12, pedidos=29)
+    assert exc.status_code == 409
+    assert exc.corpo()["chunks_disponiveis"] == 12
+    assert exc.corpo()["questoes_pedidas"] == 29
+
+
+def test_banco_congelado_e_409():
+    exc = BancoCongeladoException("1.0.0")
+    assert exc.status_code == 409
+    assert exc.corpo()["versao"] == "1.0.0"
+
+
+def test_fonte_invalida_e_502_e_lista_os_disponiveis():
+    exc = FonteInvalidaException("P9", ["P1", "S2"])
+    assert exc.status_code == 502
+    assert exc.corpo()["identificador"] == "P9"
+    assert exc.corpo()["disponiveis"] == ["P1", "S2"]

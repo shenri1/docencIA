@@ -432,6 +432,27 @@ class BancoCongeladoException(DomainException):
         )
 
 
+class ParametrosBancoDivergentesException(DomainException):
+    """As contagens por tipo ficam fixas na criação do banco.
+    Mudá-las na retomada deslocaria quais números são objetivos e quais são
+    discursivos, e recalcularia as âncoras com outro espaçamento."""
+
+    status_code = 409
+    codigo = "PARAMETROS_BANCO_DIVERGENTES"
+
+    def __init__(
+        self, versao: str, gravado: tuple[int, int], pedido: tuple[int, int]
+    ) -> None:
+        super().__init__(
+            f"O banco {versao} foi criado com {gravado[0]} objetivas e "
+            f"{gravado[1]} discursivas; a retomada pediu {pedido[0]} e "
+            f"{pedido[1]}. Retome com as mesmas contagens ou crie outra versão.",
+            versao=versao,
+            gravado={"objetivas": gravado[0], "discursivas": gravado[1]},
+            pedido={"objetivas": pedido[0], "discursivas": pedido[1]},
+        )
+
+
 class FonteInvalidaException(DomainException):
     """O modelo citou material que não estava entre os trechos enviados. Sem
     esta checagem a rastreabilidade seria ficção."""

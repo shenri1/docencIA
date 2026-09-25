@@ -1,0 +1,118 @@
+"""Agente Crítico, revisão na geração — Núcleo Semântico.
+
+Uma chamada sem histórico: o mesmo modelo recebe os mesmos trechos, o próprio
+rascunho e as violações de forma que o validador determinístico mediu, e
+reemite a questão no mesmo schema. O determinístico guia o semântico; o
+crítico não precisa descobrir o que o código já mediu.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from backend.app.core.config import settings
+from backend.app.domain import FaixaDificuldade
+from backend.app.models.identidade import SessaoGeracao
+from backend.app.prompt.montagem import montar_sistema_critico
+from backend.app.schemas.geracao import (
+    LETRAS,
+    InsuficienciaFonte,
+    montar_schema_questao,
+)
+from backend.app.services.calculo_distribuicao_service import DistribuicaoQuestoes
+from backend.app.services.geracao.contexto import (
+    formatar_trechos,
+    parametros_da_sessao,
+)
+from backend.app.services.provedor.tipos import RequisicaoLLM
+from backend.app.services.qualidade.validador_itens import (
+    AlternativaAvaliavel,
+    ItemAvaliavel,
+    Violacao,
+)
+from backend.app.services.rag.retrieval_service import TrechoRecuperado
+
+
+@dataclass(frozen=True)
+class ResultadoRevisao:
+    questao: object | None
+    motivo_insuficiencia: str | None
+    modelo: str
+
+
+def item_de(questao, trechos: list[TrechoRecuperado]) -> ItemAvaliavel:
+    """Mesma regra da persistência: letra por posição, correta pela letra."""
+    return ItemAvaliavel(
+        enunciado=questao.enunciado,
+        alternativas=[
+            AlternativaAvaliavel(
+                letra=letra,
+                texto=alternativa.texto,
+                correta=letra == questao.letra_correta,
+                e_gemeo_malvado=alternativa.e_gemeo_malvado,
+            )
+            for letra, alternativa in zip(LETRAS, questao.alternativas, strict=False)
+        ],
+        trechos_base=[fonte.trecho_base for fonte in questao.fontes],
+        identificadores_fonte=sorted({t.identificador_curto for t in trechos}),
+    )
+
+
+def _formatar_violacoes(violacoes: list[Violacao]) -> str:
+    if not violacoes:
+        return "Nenhuma violação de forma foi detectada."
+    return "\n".join(f"- [{v.regra.value}] {v.alvo}: {v.detalhe}" for v in violacoes)
+
+
+def _montar_usuario(
+    trechos: list[TrechoRecuperado],
+    rascunho,
+    violacoes: list[Violacao],
+    faixa: FaixaDificuldade,
+    k: int,
+) -> str:
+    return (
+        "Trechos disponíveis:\n"
+        + formatar_trechos(trechos)
+        + "\n\nRascunho a revisar (JSON):\n"
+        + rascunho.model_dump_json(indent=2)
+        + "\n\nViolações de forma medidas pelo sistema:\n"
+        + _formatar_violacoes(violacoes)
+        + f"\n\nDevolva a questão revisada, de dificuldade {faixa.value}, com "
+        f"exatamente {k} alternativas, usando apenas os trechos acima."
+    )
+
+
+def revisar_questao(
+    provedor,
+    sessao: SessaoGeracao,
+    trechos: list[TrechoRecuperado],
+    rascunho,
+    violacoes: list[Violacao],
+    faixa: FaixaDificuldade,
+    distribuicao: DistribuicaoQuestoes,
+) -> ResultadoRevisao:
+    resposta = provedor.gerar(
+        sessao.id,
+        RequisicaoLLM(
+            sistema=montar_sistema_critico(parametros_da_sessao(sessao, distribuicao)),
+            usuario=_montar_usuario(
+                trechos, rascunho, violacoes, faixa, sessao.k_alternativas
+            ),
+            # Mesmo schema da geração: o crítico reemite a questão inteira, e
+            # pode declarar insuficiência se concluir que ela não se sustenta.
+            formato=montar_schema_questao(sessao.k_alternativas),
+            temperatura=settings.critico_temperatura,
+            max_tokens=settings.critico_max_tokens,
+        ),
+    )
+    conteudo = resposta.conteudo.resultado
+    if isinstance(conteudo, InsuficienciaFonte):
+        return ResultadoRevisao(
+            questao=None,
+            motivo_insuficiencia=conteudo.informacao_faltante,
+            modelo=resposta.modelo,
+        )
+    return ResultadoRevisao(
+        questao=conteudo, motivo_insuficiencia=None, modelo=resposta.modelo
+    )

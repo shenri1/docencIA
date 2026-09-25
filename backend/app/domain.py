@@ -95,3 +95,14 @@ class TipoGabarito(str, Enum):
 class TipoExportacao(str, Enum):
     CONTEUDO_PURO = "conteudo_puro"
     METADADOS = "metadados"
+
+
+class RegraQualidade(str, Enum):
+    """Regras de forma e, medidas sem LLM."""
+
+    TAMANHO_ALTERNATIVA = "tamanho_alternativa"
+    CORRETA_LONGA = "correta_longa"
+    TERMO_ABSOLUTO = "termo_absoluto"
+    MENCAO_FONTE = "mencao_fonte"
+    GEMEOS_INSUFICIENTES = "gemeos_insuficientes"
+    GEMEO_NA_CORRETA = "gemeo_na_correta"

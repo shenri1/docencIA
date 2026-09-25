@@ -72,6 +72,12 @@ class Settings(BaseSettings):
     geracao_temperatura: float = 0.4
     geracao_max_tokens: int = 2048
 
+    # --- Crítico ---
+    # Abaixo da temperatura do Gerador: revisar pede conservadorismo. A saída
+    # tem o mesmo schema da geração, então o teto de tokens é o mesmo.
+    critico_temperatura: float = 0.2
+    critico_max_tokens: int = 2048
+
 
 settings = Settings()
 

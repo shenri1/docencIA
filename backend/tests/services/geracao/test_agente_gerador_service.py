@@ -1,7 +1,4 @@
-import pytest
-
 from backend.app.domain import EstadoSessao, FaixaDificuldade, NivelBloom
-from backend.app.exceptions import FonteInvalidaException
 from backend.app.services.calculo_distribuicao_service import calcular_distribuicao
 from backend.app.services.geracao.agente_gerador_service import gerar_questao
 from backend.app.services.rag.chunking import ConfigChunking
@@ -57,8 +54,13 @@ def test_questao_valida_volta_preenchida(
     assert resultado.numero == 1
     assert resultado.questao.nivel_bloom is NivelBloom.APLICAR
     assert len(resultado.questao.alternativas) == sessao_rascunho.k_alternativas
-    # A fonte textual "P1" foi resolvida para o id real do material.
-    assert resultado.fontes_resolvidas[0][0] > 0
+    # Os trechos enviados voltam no resultado: o crítico precisa ver o mesmo
+    # material, e as fontes só são resolvidas depois da revisão.
+    assert [t.identificador_curto for t in resultado.trechos] == ["P1"] * len(
+        resultado.trechos
+    )
+    assert resultado.trechos
+    assert resultado.modelo == "fake"
 
 
 def test_insuficiencia_volta_sem_questao_e_com_motivo(
@@ -85,29 +87,27 @@ def test_insuficiencia_volta_sem_questao_e_com_motivo(
     assert resultado.localizacao_ancora == ancora.localizacao
 
 
-def test_fonte_inventada_e_rejeitada(
+def test_rascunho_com_fonte_inventada_nao_e_rejeitado_na_geracao(
     db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
 ):
-    """Sem esta checagem a rastreabilidade seria ficção: o modelo
-    pode citar material que nunca lhe foi mostrado."""
+    """Só a versão revisada vira FonteInterna: o crítico ainda pode corrigir
+    a citação, então rejeitar aqui jogaria fora uma questão recuperável."""
     ancora = preparar(db_session, armazenamento, embeddings_fake, sessao_rascunho)
     provedor = ProvedorLLMFake(
         [corpo_questao(sessao_rascunho.k_alternativas, identificador="P9")]
     )
-
-    with pytest.raises(FonteInvalidaException) as capturado:
-        gerar_questao(
-            db_session,
-            embeddings_fake,
-            reranker_fake,
-            provedor,
-            sessao_rascunho,
-            ancora,
-            FaixaDificuldade.MEDIA,
-            numero=1,
-            distribuicao=DISTRIBUICAO,
-        )
-    assert capturado.value.corpo()["identificador"] == "P9"
+    resultado = gerar_questao(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        provedor,
+        sessao_rascunho,
+        ancora,
+        FaixaDificuldade.MEDIA,
+        numero=1,
+        distribuicao=DISTRIBUICAO,
+    )
+    assert resultado.questao.fontes[0].identificador_material == "P9"
 
 
 def test_o_texto_da_ancora_vira_a_consulta_do_rag(

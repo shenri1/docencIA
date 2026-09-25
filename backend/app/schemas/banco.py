@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 
+from backend.app.domain import RegraQualidade
+
 
 class BancoCriar(BaseModel):
     n_alvo: int = Field(
@@ -16,6 +18,23 @@ class AncoraImprodutivaResposta(BaseModel):
     motivo: str = Field(..., description="O que faltou para sustentar a questão.")
 
 
+class ViolacaoResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    regra: RegraQualidade = Field(..., description="Regra /020b violada.")
+    alvo: str = Field(..., description='Letra da alternativa, "enunciado" ou "questao".')
+    detalhe: str = Field(..., description="O que foi medido.")
+
+
+class ItemComViolacaoResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    numero: int
+    violacoes: list[ViolacaoResposta] = Field(
+        ..., description="Violações que sobreviveram à revisão."
+    )
+
+
 class ResumoBancoResposta(BaseModel):
     """A lista de âncoras improdutivas só existe aqui — não é persistida."""
 
@@ -28,4 +47,9 @@ class ResumoBancoResposta(BaseModel):
     )
     improdutivas: list[AncoraImprodutivaResposta] = Field(
         ..., description="Âncoras que não sustentaram questão."
+    )
+    com_violacoes: list[ItemComViolacaoResposta] = Field(
+        ...,
+        description="Questões persistidas com violação de forma, para o docente "
+        "decidir na janela de exclusões.",
     )

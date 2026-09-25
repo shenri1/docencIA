@@ -25,7 +25,7 @@ def gerar(
     embeddings: Embeddings = Depends(get_embeddings),
     reranker: Reranker = Depends(get_reranker),
 ) -> ResumoBanco:
-    # Chamada longa: ~19s por questão. A retomada do banco_service é o que
+    # Chamada longa: ~38s por questão (geração + revisão). A retomada do banco_service é o que
     # torna um timeout de proxy não destrutivo.
     sessao = obter_sessao(db, docente, sessao_id)
     return gerar_banco(

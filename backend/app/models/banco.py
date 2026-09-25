@@ -94,6 +94,9 @@ class Questao(Base):
     justificativa: Mapped[JustificativaEstruturada | None] = relationship(
         back_populates="questao", cascade="all, delete-orphan"
     )
+    revisao: Mapped[RevisaoQuestao | None] = relationship(
+        back_populates="questao", cascade="all, delete-orphan"
+    )
     exclusoes: Mapped[list[RegistroExclusao]] = relationship(back_populates="questao")
     itens_prova: Mapped[list[ItemProva]] = relationship(back_populates="questao")
 
@@ -146,6 +149,28 @@ class JustificativaEstruturada(Base):
     texto_verificacao_unicidade: Mapped[str] = mapped_column(Text)
 
     questao: Mapped[Questao] = relationship(back_populates="justificativa")
+
+
+class RevisaoQuestao(Base):
+    """o rascunho e as violações de forma antes e depois da revisão.
+    Tabela própria pelo mesmo motivo da JustificativaEstruturada: nada daqui
+    pode vazar no corpo da questão. "Aprovada na autoauditoria" não é coluna:
+    é violacoes_final vazio, e coluna derivada seria mais um lugar para
+    divergir."""
+
+    __tablename__ = "revisoes_questao"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    questao_id: Mapped[int] = mapped_column(
+        ForeignKey("questoes.id"), unique=True, index=True
+    )
+    rascunho: Mapped[dict] = mapped_column(JSONB)
+    violacoes_rascunho: Mapped[list[dict]] = mapped_column(JSONB)
+    violacoes_final: Mapped[list[dict]] = mapped_column(JSONB)
+    modelo_geracao: Mapped[str] = mapped_column(String(100))
+    modelo_revisao: Mapped[str] = mapped_column(String(100))
+
+    questao: Mapped[Questao] = relationship(back_populates="revisao")
 
 
 class RegistroExclusao(Base):

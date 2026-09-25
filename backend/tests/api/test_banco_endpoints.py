@@ -29,3 +29,21 @@ def test_rota_de_banco_esta_no_swagger(client):
     schema = client.get("/openapi.json").json()
     assert "/sessoes/{sessao_id}/banco" in schema["paths"]
     assert "ResumoBancoResposta" in schema["components"]["schemas"]
+
+
+def test_resumo_expoe_violacoes_e_nunca_o_rascunho(client):
+    schema = client.get("/openapi.json").json()
+    componentes = schema["components"]["schemas"]
+    assert "com_violacoes" in componentes["ResumoBancoResposta"]["properties"]
+    assert set(componentes["ViolacaoResposta"]["properties"]) == {
+        "regra",
+        "alvo",
+        "detalhe",
+    }
+    # O rascunho é dado de pesquisa, nunca payload do docente. Checa
+    # a chave de propriedade, não substring: EstadoSessao.RASCUNHO já é um
+    # valor de enum legítimo e apareceria numa checagem ingênua de substring.
+    assert not any(
+        "rascunho" in schema_obj.get("properties", {})
+        for schema_obj in componentes.values()
+    )

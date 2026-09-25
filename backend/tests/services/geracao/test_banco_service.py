@@ -3,7 +3,9 @@ import pytest
 from backend.app.domain import EstadoBanco, EstadoSessao, FaixaDificuldade
 from backend.app.exceptions import (
     BancoCongeladoException,
+    FonteInvalidaException,
     MaterialInsuficienteParaBancoException,
+    PromptDivergenteException,
 )
 from backend.app.models.banco import (
     Alternativa,
@@ -11,6 +13,7 @@ from backend.app.models.banco import (
     FonteInterna,
     JustificativaEstruturada,
     Questao,
+    RevisaoQuestao,
 )
 from backend.app.models.materiais import ChunkMaterial
 from backend.app.prompt.parametros import ParametrosGeracao
@@ -58,7 +61,8 @@ def preparar(db, armazenamento, sessao, chunks: int = 20):
 
 
 def roteiro(n: int, k: int = 5) -> list[dict]:
-    return [corpo_questao(k) for _ in range(n)]
+    """Duas respostas por questão: rascunho do Gerador e revisão do crítico."""
+    return [corpo_questao(k) for _ in range(2 * n)]
 
 
 def test_banco_respeita_a_distribuicao_por_faixa(
@@ -125,7 +129,7 @@ def test_letras_sao_atribuidas_por_posicao_e_correta_segue_letra_correta(
         db_session,
         embeddings_fake,
         reranker_fake,
-        ProvedorLLMFake([corpo_questao(5, letra_correta="C")]),
+        ProvedorLLMFake([corpo_questao(5, letra_correta="C")] * 2),
         sessao_rascunho,
         n_alvo=1,
         versao="v1",
@@ -149,7 +153,13 @@ def test_insuficiencia_nao_aborta_o_banco(
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
     provedor = ProvedorLLMFake(
-        [corpo_questao(5), corpo_insuficiencia("faltou o critério"), corpo_questao(5)]
+        [
+            corpo_questao(5),
+            corpo_questao(5),
+            corpo_insuficiencia("faltou o critério"),
+            corpo_questao(5),
+            corpo_questao(5),
+        ]
     )
 
     resumo = gerar_banco(
@@ -219,7 +229,7 @@ def test_retomada_nao_regenera_o_que_ja_existe(
 
     assert resumo.ja_existentes == 2
     assert resumo.geradas == 2
-    assert segundo.chamadas == 2
+    assert segundo.chamadas == 4
     numeros = [
         q.numero
         for q in db_session.query(Questao).filter_by(banco_id=resumo.banco_id).all()
@@ -282,7 +292,15 @@ def test_n_atual_reflete_o_que_foi_persistido(
         db_session,
         embeddings_fake,
         reranker_fake,
-        ProvedorLLMFake([corpo_questao(5), corpo_insuficiencia(), corpo_questao(5)]),
+        ProvedorLLMFake(
+            [
+                corpo_questao(5),
+                corpo_questao(5),
+                corpo_insuficiencia(),
+                corpo_questao(5),
+                corpo_questao(5),
+            ]
+        ),
         sessao_rascunho,
         n_alvo=3,
         versao="v1",
@@ -290,3 +308,168 @@ def test_n_atual_reflete_o_que_foi_persistido(
     banco = db_session.get(BancoQuestoes, resumo.banco_id)
     assert banco.n_atual == 2
     assert banco.n_alvo == 3
+
+
+LONGA = "opção com texto muito mais longo que todas as outras juntas somadas"
+
+
+def alternativas(textos: list[str], gemeo: int = 1) -> list[dict]:
+    return [{"texto": t, "e_gemeo_malvado": i == gemeo} for i, t in enumerate(textos)]
+
+
+CURTAS = [f"opção {i}" for i in range(5)]
+COM_LONGA = [CURTAS[0], CURTAS[1], LONGA, CURTAS[3], CURTAS[4]]
+
+
+def gerar(db, emb, rer, sessao, provedor, n_alvo=1):
+    return gerar_banco(db, emb, rer, provedor, sessao, n_alvo=n_alvo, versao="v1")
+
+
+def test_cada_questao_custa_duas_chamadas(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    provedor = ProvedorLLMFake(roteiro(3))
+    resumo = gerar(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor, 3
+    )
+    assert resumo.geradas == 3
+    assert provedor.chamadas == 6
+
+
+def test_revisao_persistida_com_rascunho_e_violacoes(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    rascunho = corpo_questao(
+        5, enunciado="Rascunho?", alternativas=alternativas(COM_LONGA)
+    )
+    provedor = ProvedorLLMFake([rascunho, corpo_questao(5)])
+    resumo = gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
+
+    questao = db_session.query(Questao).filter_by(banco_id=resumo.banco_id).one()
+    revisao = db_session.query(RevisaoQuestao).filter_by(questao_id=questao.id).one()
+    assert revisao.rascunho["enunciado"] == "Rascunho?"
+    assert [v["regra"] for v in revisao.violacoes_rascunho] == ["tamanho_alternativa"]
+    assert revisao.violacoes_rascunho[0]["alvo"] == "C"
+    assert revisao.violacoes_final == []
+    assert revisao.modelo_geracao == "fake"
+    assert revisao.modelo_revisao == "fake"
+    # O que vai para Questao é a versão revisada.
+    assert questao.enunciado == corpo_questao(5)["resultado"]["enunciado"]
+    assert resumo.com_violacoes == []
+
+
+def test_violacoes_do_rascunho_chegam_ao_critico(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    rascunho = corpo_questao(5, alternativas=alternativas(COM_LONGA))
+    provedor = ProvedorLLMFake([rascunho, corpo_questao(5)])
+    gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
+    assert "tamanho_alternativa" in provedor.requisicoes[1].usuario
+
+
+def test_revisao_que_nao_corrige_mantem_a_violacao(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    ruim = corpo_questao(5, alternativas=alternativas(COM_LONGA))
+    resumo = gerar(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake([ruim, ruim]),
+    )
+    revisao = db_session.query(RevisaoQuestao).one()
+    assert [v["regra"] for v in revisao.violacoes_final] == ["tamanho_alternativa"]
+    assert [item.numero for item in resumo.com_violacoes] == [1]
+    assert resumo.com_violacoes[0].violacoes[0].alvo == "C"
+
+
+def test_fonte_persistida_vem_da_revisao_mesmo_com_rascunho_invalido(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    """Só a revisada vira FonteInterna. Um P9 no rascunho que o crítico corrige
+    não pode derrubar a questão."""
+    preparar(db_session, armazenamento, sessao_rascunho)
+    revisada = corpo_questao(
+        5,
+        fontes=[
+            {
+                "identificador_material": "P1",
+                "localizacao": "página 77",
+                "trecho_base": "Trecho citado pela revisão.",
+            }
+        ],
+    )
+    provedor = ProvedorLLMFake([corpo_questao(5, identificador="P9"), revisada])
+    resumo = gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
+
+    questao = db_session.query(Questao).filter_by(banco_id=resumo.banco_id).one()
+    fonte = db_session.query(FonteInterna).filter_by(questao_id=questao.id).one()
+    assert fonte.localizacao == "página 77"
+    assert fonte.trecho_base == "Trecho citado pela revisão."
+
+
+def test_fonte_inventada_na_revisao_e_rejeitada_sem_persistir(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    provedor = ProvedorLLMFake([corpo_questao(5), corpo_questao(5, identificador="P9")])
+    with pytest.raises(FonteInvalidaException):
+        gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
+    assert not db_session.new
+    db_session.rollback()
+    assert db_session.query(Questao).count() == 0
+    assert db_session.query(RevisaoQuestao).count() == 0
+
+
+def test_insuficiencia_declarada_pelo_critico_vira_improdutiva(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    provedor = ProvedorLLMFake(
+        [corpo_questao(5), corpo_insuficiencia("o trecho não define o critério")]
+    )
+    resumo = gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
+    assert resumo.geradas == 0
+    assert resumo.improdutivas[0].motivo == "revisão: o trecho não define o critério"
+    assert db_session.query(Questao).count() == 0
+
+
+def test_ancora_recusada_pelo_critico_e_tentada_de_novo_na_retomada(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    gerar(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake([corpo_questao(5), corpo_insuficiencia()]),
+    )
+    resumo = gerar(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho, ProvedorLLMFake(roteiro(1))
+    )
+    assert resumo.ja_existentes == 0
+    assert resumo.geradas == 1
+
+
+def test_prompt_do_critico_editado_sem_versao_bloqueia_antes_do_modelo(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho, monkeypatch
+):
+    from backend.app.prompt import montagem
+    from backend.app.services import prompt_mestre_service
+
+    preparar(db_session, armazenamento, sessao_rascunho)
+    monkeypatch.setattr(
+        prompt_mestre_service,
+        "carregar_modulos_versionados",
+        lambda: montagem.carregar_modulos() + [("critico/01_revisor.md", "editado")],
+    )
+    provedor = ProvedorLLMFake(roteiro(1))
+    with pytest.raises(PromptDivergenteException):
+        gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
+    assert provedor.chamadas == 0

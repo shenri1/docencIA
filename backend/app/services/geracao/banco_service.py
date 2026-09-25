@@ -1,7 +1,7 @@
 """Laço do banco — orquestração de caso de uso.
 
-O commit é por questão, não por banco. 29 questões custam ~9 minutos (medido:
-19,1s cada com oito trechos reais); falha no minuto 7 preserva o que já foi
+O commit é por questão, não por banco. Cada questão custa duas chamadas ao
+modelo (Gerador + Crítico), cerca de 38 s; falha no meio preserva o que já foi
 gerado, e chamar de novo continua de onde parou.
 """
 
@@ -20,16 +20,24 @@ from backend.app.models.banco import (
     FonteInterna,
     JustificativaEstruturada,
     Questao,
+    RevisaoQuestao,
 )
 from backend.app.models.identidade import SessaoGeracao
 from backend.app.schemas.geracao import LETRAS
 from backend.app.services.calculo_distribuicao_service import calcular_distribuicao
+from backend.app.services.critico.agente_critico_service import (
+    ResultadoRevisao,
+    item_de,
+    revisar_questao,
+)
 from backend.app.services.geracao.agente_gerador_service import (
     ResultadoGeracao,
     gerar_questao,
 )
 from backend.app.services.geracao.ancoras import selecionar_ancoras
+from backend.app.services.geracao.contexto import resolver_fontes
 from backend.app.services.prompt_mestre_service import verificar_integridade
+from backend.app.services.qualidade.validador_itens import Violacao, validar_item
 from backend.app.services.sessao_service import exigir_indice_confirmado
 
 
@@ -41,11 +49,20 @@ class AncoraImprodutiva:
 
 
 @dataclass(frozen=True)
+class ItemComViolacao:
+    numero: int
+    violacoes: list[Violacao]
+
+
+@dataclass(frozen=True)
 class ResumoBanco:
     banco_id: int
     geradas: int
     ja_existentes: int
     improdutivas: list[AncoraImprodutiva]
+    # Violações que sobreviveram à revisão. É por aqui que o docente sabe
+    # quais questões olhar antes da janela de exclusões.
+    com_violacoes: list[ItemComViolacao]
 
 
 def _obter_ou_criar_banco(
@@ -72,34 +89,41 @@ def _obter_ou_criar_banco(
 def _persistir(
     db: Session,
     banco: BancoQuestoes,
-    resultado: ResultadoGeracao,
     faixa: FaixaDificuldade,
+    resultado: ResultadoGeracao,
+    revisao: ResultadoRevisao,
+    violacoes_rascunho: list[Violacao],
+    violacoes_final: list[Violacao],
 ) -> None:
-    gerada = resultado.questao
+    final = revisao.questao
+    # Antes de qualquer db.add: fonte inválida levanta sem deixar objeto
+    # pendente na sessão. Só a versão revisada vira FonteInterna.
+    fontes = resolver_fontes(final.fontes, resultado.trechos)
+
     questao = Questao(
         banco_id=banco.id,
         numero=resultado.numero,
-        enunciado=gerada.enunciado,
-        nivel_bloom=gerada.nivel_bloom,
+        enunciado=final.enunciado,
+        nivel_bloom=final.nivel_bloom,
         # A faixa vem do plano, não do modelo: o código já a conhece.
         faixa_dificuldade=faixa,
-        tema=gerada.tema,
+        tema=final.tema,
         estado=EstadoQuestao.ATIVA,
     )
     db.add(questao)
     db.flush()  # precisa do id para os filhos
 
-    for letra, alternativa in zip(LETRAS, gerada.alternativas, strict=False):
+    for letra, alternativa in zip(LETRAS, final.alternativas, strict=False):
         db.add(
             Alternativa(
                 questao_id=questao.id,
                 letra=letra,
                 texto=alternativa.texto,
-                correta=letra == gerada.letra_correta,
+                correta=letra == final.letra_correta,
                 e_gemeo_malvado=alternativa.e_gemeo_malvado,
             )
         )
-    for material_id, localizacao, trecho in resultado.fontes_resolvidas:
+    for material_id, localizacao, trecho in fontes:
         db.add(
             FonteInterna(
                 questao_id=questao.id,
@@ -108,7 +132,7 @@ def _persistir(
                 trecho_base=trecho,
             )
         )
-    justificativa = gerada.justificativa
+    justificativa = final.justificativa
     db.add(
         JustificativaEstruturada(
             questao_id=questao.id,
@@ -117,6 +141,16 @@ def _persistir(
             invalidacao_distratores=list(justificativa.invalidacao_distratores),
             verificacao_unicidade=justificativa.verificacao_unicidade,
             texto_verificacao_unicidade=justificativa.texto_verificacao_unicidade,
+        )
+    )
+    db.add(
+        RevisaoQuestao(
+            questao_id=questao.id,
+            rascunho=resultado.questao.model_dump(mode="json"),
+            violacoes_rascunho=[v.como_dict() for v in violacoes_rascunho],
+            violacoes_final=[v.como_dict() for v in violacoes_final],
+            modelo_geracao=resultado.modelo,
+            modelo_revisao=revisao.modelo,
         )
     )
     banco.n_atual += 1
@@ -156,6 +190,7 @@ def gerar_banco(
 
     geradas = 0
     improdutivas: list[AncoraImprodutiva] = []
+    com_violacoes: list[ItemComViolacao] = []
     for numero, faixa in plano:
         if numero in ja_existentes:
             continue
@@ -179,12 +214,50 @@ def gerar_banco(
                 )
             )
             continue
-        _persistir(db, banco, resultado, faixa)
+
+        # o determinístico mede, o semântico revisa com essa medida
+        # como feedback, e o determinístico mede de novo.
+        violacoes_rascunho = validar_item(item_de(resultado.questao, resultado.trechos))
+        revisao = revisar_questao(
+            provedor,
+            sessao,
+            resultado.trechos,
+            resultado.questao,
+            violacoes_rascunho,
+            faixa,
+            distribuicao,
+        )
+        if revisao.questao is None:
+            # O crítico concluiu que o material não sustenta a questão: 
+            # funcionando. Nada é persistido, e a retomada tenta de novo.
+            improdutivas.append(
+                AncoraImprodutiva(
+                    numero=numero,
+                    localizacao=resultado.localizacao_ancora,
+                    motivo="revisão: "
+                    + (revisao.motivo_insuficiencia or "sem motivo declarado"),
+                )
+            )
+            continue
+
+        violacoes_final = validar_item(item_de(revisao.questao, resultado.trechos))
+        _persistir(
+            db,
+            banco,
+            faixa,
+            resultado,
+            revisao,
+            violacoes_rascunho,
+            violacoes_final,
+        )
         geradas += 1
+        if violacoes_final:
+            com_violacoes.append(ItemComViolacao(numero, violacoes_final))
 
     return ResumoBanco(
         banco_id=banco.id,
         geradas=geradas,
         ja_existentes=len(ja_existentes),
         improdutivas=improdutivas,
+        com_violacoes=com_violacoes,
     )

@@ -1,25 +1,30 @@
 """Validador de forma — puro, sem banco e sem LLM."""
 
+import pytest
+
 from backend.app.domain import RegraQualidade
 from backend.app.services.qualidade.validador_itens import (
     AlternativaAvaliavel,
-    ItemAvaliavel,
+    AspectoAvaliavel,
+    ItemDiscursivo,
+    ItemObjetivo,
     Violacao,
-    validar_item,
+    validar_discursiva,
+    validar_objetiva,
 )
 
 LETRAS = "ABCDEFGHIJK"
 
 
-def item(
+def objetiva(
     textos: list[str],
     correta: str = "A",
     gemeos: tuple[str, ...] = ("B",),
     enunciado: str = "Qual estrutura a busca em largura utiliza?",
     trechos: tuple[str, ...] = ("A busca em largura usa uma fila.",),
     identificadores: tuple[str, ...] = ("P1",),
-) -> ItemAvaliavel:
-    return ItemAvaliavel(
+) -> ItemObjetivo:
+    return ItemObjetivo(
         enunciado=enunciado,
         alternativas=[
             AlternativaAvaliavel(
@@ -42,8 +47,8 @@ def regras(violacoes: list[Violacao]) -> list[RegraQualidade]:
 LIMPO = ["Usa fila.", "Usa pilha.", "Usa heap.", "Usa lista."]
 
 
-def test_item_limpo_nao_tem_violacao():
-    assert validar_item(item(LIMPO)) == []
+def test_objetiva_limpa_nao_tem_violacao():
+    assert validar_objetiva(objetiva(LIMPO)) == []
 
 
 # --- (i): nenhuma alternativa excede 1,5× a média das demais ---
@@ -51,7 +56,7 @@ def test_item_limpo_nao_tem_violacao():
 
 def test_alternativa_longa_viola_tamanho():
     textos = ["Usa uma fila de vértices ainda não visitados.", *LIMPO[1:]]
-    violacoes = validar_item(item(textos, correta="B", gemeos=("C",)))
+    violacoes = validar_objetiva(objetiva(textos, correta="B", gemeos=("C",)))
     assert regras(violacoes) == [RegraQualidade.TAMANHO_ALTERNATIVA]
     assert violacoes[0].alvo == "A"
     assert "8 palavras" in violacoes[0].detalhe
@@ -60,32 +65,32 @@ def test_alternativa_longa_viola_tamanho():
 def test_fronteira_exata_de_1_5x_nao_viola():
     # A tem 3 palavras; média das demais = (2 + 2) / 2 = 2; 3 == 1,5 × 2.
     textos = ["Usa uma fila.", "Usa pilha.", "Usa heap."]
-    assert validar_item(item(textos, correta="B", gemeos=("C",))) == []
+    assert validar_objetiva(objetiva(textos, correta="B", gemeos=("C",))) == []
 
 
 def test_um_acima_da_fronteira_viola():
     textos = ["Usa uma fila curta.", "Usa pilha.", "Usa heap."]
-    violacoes = validar_item(item(textos, correta="B", gemeos=("C",)))
+    violacoes = validar_objetiva(objetiva(textos, correta="B", gemeos=("C",)))
     assert regras(violacoes) == [RegraQualidade.TAMANHO_ALTERNATIVA]
 
 
 def test_k_2_compara_com_a_unica_outra():
     # 3 contra 2 = 1,5× exato: não viola. 4 contra 2: viola.
     assert (
-        validar_item(
-            item(["Usa uma fila.", "Usa pilha."], correta="B", gemeos=("A",))
+        validar_objetiva(
+            objetiva(["Usa uma fila.", "Usa pilha."], correta="B", gemeos=("A",))
         )
         == []
     )
-    violacoes = validar_item(
-        item(["Usa uma fila curta.", "Usa pilha."], correta="B", gemeos=("A",))
+    violacoes = validar_objetiva(
+        objetiva(["Usa uma fila curta.", "Usa pilha."], correta="B", gemeos=("A",))
     )
     assert regras(violacoes) == [RegraQualidade.TAMANHO_ALTERNATIVA]
 
 
 def test_alternativa_vazia_nao_quebra():
     textos = ["", "Usa pilha.", "Usa heap.", "Usa lista."]
-    assert validar_item(item(textos, correta="B", gemeos=("C",))) == []
+    assert validar_objetiva(objetiva(textos, correta="B", gemeos=("C",))) == []
 
 
 # --- (ii): correta no máximo 20% maior que a errada mais longa ---
@@ -99,7 +104,7 @@ def test_fronteira_exata_de_1_2x_nao_viola():
         "um dois tres quatro cinco",
         "um dois tres quatro cinco",
     ]
-    assert validar_item(item(textos)) == []
+    assert validar_objetiva(objetiva(textos)) == []
 
 
 def test_correta_longa_viola():
@@ -109,7 +114,7 @@ def test_correta_longa_viola():
         "um dois tres quatro cinco",
         "um dois tres quatro cinco",
     ]
-    violacoes = validar_item(item(textos))
+    violacoes = validar_objetiva(objetiva(textos))
     assert regras(violacoes) == [RegraQualidade.CORRETA_LONGA]
     assert violacoes[0].alvo == "A"
 
@@ -119,7 +124,7 @@ def test_correta_longa_viola():
 
 def test_termo_absoluto_viola_com_pontuacao_e_caixa():
     textos = ["NUNCA, usa fila.", "Usa pilha.", "Usa heap.", "Sempre. usa lista"]
-    violacoes = validar_item(item(textos))
+    violacoes = validar_objetiva(objetiva(textos))
     assert regras(violacoes) == [
         RegraQualidade.TERMO_ABSOLUTO,
         RegraQualidade.TERMO_ABSOLUTO,
@@ -128,7 +133,7 @@ def test_termo_absoluto_viola_com_pontuacao_e_caixa():
 
 
 def test_termo_absoluto_no_enunciado_viola():
-    violacoes = validar_item(item(LIMPO, enunciado="O percurso sempre usa qual estrutura?"))
+    violacoes = validar_objetiva(objetiva(LIMPO, enunciado="O percurso sempre usa qual estrutura?"))
     assert regras(violacoes) == [RegraQualidade.TERMO_ABSOLUTO]
     assert violacoes[0].alvo == "enunciado"
 
@@ -139,8 +144,8 @@ def test_termo_absoluto_sustentado_pelo_trecho_base_nao_viola():
     textos = ["Sempre usa fila.", "Usa pilha.", "Usa heap.", "Usa lista."]
     trechos = ("A busca em largura sempre usa uma fila.",)
     assert (
-        validar_item(
-            item(textos, correta="B", gemeos=("C",), trechos=trechos)
+        validar_objetiva(
+            objetiva(textos, correta="B", gemeos=("C",), trechos=trechos)
         )
         == []
     )
@@ -148,15 +153,15 @@ def test_termo_absoluto_sustentado_pelo_trecho_base_nao_viola():
 
 def test_palavra_que_contem_termo_absoluto_nao_viola():
     textos = ["Usa sempreviva.", "Usa pilha.", "Usa heap.", "Usa lista."]
-    assert validar_item(item(textos)) == []
+    assert validar_objetiva(objetiva(textos)) == []
 
 
 # --- (iv): nenhuma referência de fonte no corpo ---
 
 
 def test_mencao_a_slide_no_enunciado_viola():
-    violacoes = validar_item(
-        item(LIMPO, enunciado="Segundo o slide, qual estrutura?")
+    violacoes = validar_objetiva(
+        objetiva(LIMPO, enunciado="Segundo o slide, qual estrutura?")
     )
     assert regras(violacoes) == [RegraQualidade.MENCAO_FONTE]
     assert violacoes[0].alvo == "enunciado"
@@ -165,7 +170,7 @@ def test_mencao_a_slide_no_enunciado_viola():
 def test_identificador_de_material_enviado_viola():
     # Duas palavras, como as demais: isola a regra (iv) das regras de tamanho.
     textos = ["Usa P1.", "Usa pilha.", "Usa heap.", "Usa lista."]
-    violacoes = validar_item(item(textos, correta="B", gemeos=("C",)))
+    violacoes = validar_objetiva(objetiva(textos, correta="B", gemeos=("C",)))
     assert regras(violacoes) == [RegraQualidade.MENCAO_FONTE]
     assert "P1" in violacoes[0].detalhe
 
@@ -173,15 +178,15 @@ def test_identificador_de_material_enviado_viola():
 def test_termo_de_conteudo_parecido_com_identificador_nao_viola():
     """"cache L2" é conteúdo de computação. Só é violação se L2 for um material
     enviado nesta chamada."""
-    violacoes = validar_item(
-        item(LIMPO, enunciado="Qual estrutura aproveita melhor a cache L2?")
+    violacoes = validar_objetiva(
+        objetiva(LIMPO, enunciado="Qual estrutura aproveita melhor a cache L2?")
     )
     assert violacoes == []
 
 
 def test_pdf_e_detectado_sem_distinguir_caixa():
     textos = ["Usa fila.", "Usa Pdf.", "Usa heap.", "Usa lista."]
-    assert regras(validar_item(item(textos))) == [RegraQualidade.MENCAO_FONTE]
+    assert regras(validar_objetiva(objetiva(textos))) == [RegraQualidade.MENCAO_FONTE]
 
 
 # --- densidade de gêmeos malvados ---
@@ -189,7 +194,7 @@ def test_pdf_e_detectado_sem_distinguir_caixa():
 
 def test_k5_com_um_gemeo_passa():
     textos = ["Usa fila.", "Usa pilha.", "Usa heap.", "Usa lista.", "Usa vetor."]
-    assert validar_item(item(textos, gemeos=("B",))) == []
+    assert validar_objetiva(objetiva(textos, gemeos=("B",))) == []
 
 
 def test_k6_com_um_gemeo_viola():
@@ -201,7 +206,7 @@ def test_k6_com_um_gemeo_viola():
         "Usa vetor.",
         "Usa mapa.",
     ]
-    violacoes = validar_item(item(textos, gemeos=("B",)))
+    violacoes = validar_objetiva(objetiva(textos, gemeos=("B",)))
     assert regras(violacoes) == [RegraQualidade.GEMEOS_INSUFICIENTES]
     assert violacoes[0].alvo == "questao"
 
@@ -215,11 +220,11 @@ def test_k6_com_dois_gemeos_passa():
         "Usa vetor.",
         "Usa mapa.",
     ]
-    assert validar_item(item(textos, gemeos=("B", "C"))) == []
+    assert validar_objetiva(objetiva(textos, gemeos=("B", "C"))) == []
 
 
 def test_gemeo_na_correta_viola_e_nao_conta_como_gemeo():
-    violacoes = validar_item(item(LIMPO, gemeos=("A",)))
+    violacoes = validar_objetiva(objetiva(LIMPO, gemeos=("A",)))
     assert regras(violacoes) == [
         RegraQualidade.GEMEOS_INSUFICIENTES,
         RegraQualidade.GEMEO_NA_CORRETA,
@@ -232,8 +237,8 @@ def test_gemeo_na_correta_viola_e_nao_conta_como_gemeo():
 
 def test_ordem_segue_a_tabela_de_regras():
     textos = ["Usa uma fila de vértices ainda não visitados.", *LIMPO[1:]]
-    violacoes = validar_item(
-        item(
+    violacoes = validar_objetiva(
+        objetiva(
             textos,
             correta="B",
             gemeos=("C",),
@@ -253,3 +258,92 @@ def test_como_dict_serializa_o_valor_do_enum():
         "alvo": "enunciado",
         "detalhe": "menciona slide",
     }
+
+
+# --- Discursiva ---
+
+
+def discursiva(
+    enunciado: str = "Explique por que a busca em largura usa uma fila.",
+    aspectos: tuple[str, ...] = ("visita por camadas", "fila preserva a ordem"),
+    trecho: str = "A busca em largura usa uma fila.",
+    identificadores: tuple[str, ...] = ("P1",),
+) -> ItemDiscursivo:
+    return ItemDiscursivo(
+        enunciado=enunciado,
+        aspectos=[AspectoAvaliavel(texto=a, trecho_base=trecho) for a in aspectos],
+        identificadores_fonte=list(identificadores),
+    )
+
+
+def test_discursiva_limpa_nao_tem_violacao():
+    assert validar_discursiva(discursiva()) == []
+
+
+@pytest.mark.parametrize(
+    "enunciado", ["EXPLIQUE, com suas palavras, a busca.", "Compare: largura e profundidade."]
+)
+def test_comando_com_pontuacao_e_caixa_casa(enunciado):
+    assert validar_discursiva(discursiva(enunciado=enunciado)) == []
+
+
+@pytest.mark.parametrize(
+    "enunciado",
+    [
+        "Qual estrutura a busca em largura usa?",
+        "Faça uma explicação da busca em largura.",
+        "Dê um exemplo comparativo entre as buscas.",
+    ],
+)
+def test_sem_verbo_de_comando_viola(enunciado):
+    violacoes = validar_discursiva(discursiva(enunciado=enunciado))
+    assert regras(violacoes) == [RegraQualidade.COMANDO_AUSENTE]
+    assert violacoes[0].alvo == "enunciado"
+
+
+def test_termo_absoluto_no_enunciado_discursivo_viola():
+    violacoes = validar_discursiva(
+        discursiva(enunciado="Explique por que a busca sempre termina.")
+    )
+    assert regras(violacoes) == [RegraQualidade.TERMO_ABSOLUTO]
+
+
+def test_termo_absoluto_liberado_pelo_trecho_de_um_aspecto():
+    item = discursiva(
+        enunciado="Explique por que a busca sempre termina.",
+        trecho="Em grafo finito, a busca sempre termina.",
+    )
+    assert validar_discursiva(item) == []
+
+
+def test_mencao_fonte_no_enunciado_viola():
+    violacoes = validar_discursiva(
+        discursiva(enunciado="Explique, conforme o slide, a busca em largura.")
+    )
+    assert regras(violacoes) == [RegraQualidade.MENCAO_FONTE]
+
+
+def test_mencao_fonte_nos_aspectos_e_permitida():
+    """Aspectos são para o docente: citar a fonte neles é legítimo."""
+    item = discursiva(aspectos=("como no slide P1, visita por camadas", "usa fila"))
+    assert validar_discursiva(item) == []
+
+
+def test_aspectos_repetidos_violam_uma_vez_por_repeticao():
+    item = discursiva(aspectos=("Usa fila.", "visita por camadas", "usa  FILA"))
+    violacoes = validar_discursiva(item)
+    assert regras(violacoes) == [RegraQualidade.ASPECTOS_REPETIDOS]
+    assert violacoes[0].alvo == "aspecto 3"
+
+
+def test_ordem_da_discursiva_segue_a_tabela():
+    item = discursiva(
+        enunciado="Segundo o slide, qual estrutura sempre é usada?",
+        aspectos=("usa fila", "usa fila"),
+    )
+    assert regras(validar_discursiva(item)) == [
+        RegraQualidade.TERMO_ABSOLUTO,
+        RegraQualidade.MENCAO_FONTE,
+        RegraQualidade.COMANDO_AUSENTE,
+        RegraQualidade.ASPECTOS_REPETIDOS,
+    ]

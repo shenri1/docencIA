@@ -46,6 +46,7 @@ from backend.app.main import app
 from backend.app.models import Base
 from backend.app.models.banco import (
     Alternativa,
+    AspectoEsperado,
     BancoQuestoes,
     FonteInterna,
     JustificativaEstruturada,
@@ -69,6 +70,8 @@ from backend.app.services.rag.rerank import RerankerFake, get_reranker
 # e os oito seguintes morriam com VersaoPromptDuplicadaException — cada um
 # passava isolado e todos falhavam juntos.
 _MODELOS_PARA_LIMPAR = (
+    # Referencia FonteInterna e Questao — precisa sair antes de ambos.
+    AspectoEsperado,
     # Filhos de Questao
     RevisaoQuestao,
     JustificativaEstruturada,

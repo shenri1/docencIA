@@ -1,10 +1,11 @@
-from backend.app.domain import EstadoSessao, FaixaDificuldade, NivelBloom
+from backend.app.domain import EstadoSessao, FaixaDificuldade, TipoQuestao
 from backend.app.services.calculo_distribuicao_service import calcular_distribuicao
 from backend.app.services.geracao.agente_gerador_service import gerar_questao
 from backend.app.services.rag.chunking import ConfigChunking
 from backend.app.services.rag.indexacao_service import indexar_sessao
 from backend.tests.services.geracao.duplos import (
     ProvedorLLMFake,
+    corpo_discursiva,
     corpo_insuficiencia,
     corpo_questao,
 )
@@ -52,7 +53,7 @@ def test_questao_valida_volta_preenchida(
     assert resultado.questao is not None
     assert resultado.motivo_insuficiencia is None
     assert resultado.numero == 1
-    assert resultado.questao.nivel_bloom is NivelBloom.APLICAR
+    assert resultado.questao.nivel_bloom == "aplicar"
     assert len(resultado.questao.alternativas) == sessao_rascunho.k_alternativas
     # Os trechos enviados voltam no resultado: o crítico precisa ver o mesmo
     # material, e as fontes só são resolvidas depois da revisão.
@@ -170,3 +171,48 @@ def test_a_faixa_pedida_aparece_na_mensagem_de_usuario(
     )
     assert "dificil" in provedor.ultima.usuario.lower()
     assert "P1" in provedor.ultima.usuario
+
+
+def test_discursiva_usa_schema_sistema_e_pedido_proprios(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    ancora = preparar(db_session, armazenamento, embeddings_fake, sessao_rascunho)
+    provedor = ProvedorLLMFake([corpo_discursiva()])
+    resultado = gerar_questao(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        provedor,
+        sessao_rascunho,
+        ancora,
+        FaixaDificuldade.MEDIA,
+        numero=1,
+        distribuicao=DISTRIBUICAO,
+        tipo=TipoQuestao.DISCURSIVA,
+    )
+    requisicao = provedor.requisicoes[0]
+    assert "<formato_discursiva>" in requisicao.sistema
+    assert "<qualidade_alternativas>" not in requisicao.sistema
+    assert "discursiva" in requisicao.usuario
+    assert "2 a 5 aspectos esperados" in requisicao.usuario
+    assert "alternativas" not in requisicao.usuario
+    assert len(resultado.questao.aspectos_esperados) == 2
+
+
+def test_objetiva_continua_o_default(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    ancora = preparar(db_session, armazenamento, embeddings_fake, sessao_rascunho)
+    provedor = ProvedorLLMFake([corpo_questao(sessao_rascunho.k_alternativas)])
+    gerar_questao(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        provedor,
+        sessao_rascunho,
+        ancora,
+        FaixaDificuldade.MEDIA,
+        numero=1,
+        distribuicao=DISTRIBUICAO,
+    )
+    assert "<formato_objetiva>" in provedor.requisicoes[0].sistema

@@ -1,14 +1,22 @@
 import pytest
 
-from backend.app.domain import EstadoBanco, EstadoSessao, FaixaDificuldade
+from backend.app.domain import (
+    EstadoBanco,
+    EstadoSessao,
+    FaixaDificuldade,
+    NivelBloom,
+    TipoQuestao,
+)
 from backend.app.exceptions import (
     BancoCongeladoException,
     FonteInvalidaException,
     MaterialInsuficienteParaBancoException,
+    ParametrosBancoDivergentesException,
     PromptDivergenteException,
 )
 from backend.app.models.banco import (
     Alternativa,
+    AspectoEsperado,
     BancoQuestoes,
     FonteInterna,
     JustificativaEstruturada,
@@ -21,6 +29,7 @@ from backend.app.services.geracao.banco_service import gerar_banco
 from backend.app.services.prompt_mestre_service import ativar, registrar_versao
 from backend.tests.services.geracao.duplos import (
     ProvedorLLMFake,
+    corpo_discursiva,
     corpo_insuficiencia,
     corpo_questao,
 )
@@ -76,7 +85,8 @@ def test_banco_respeita_a_distribuicao_por_faixa(
         reranker_fake,
         ProvedorLLMFake(roteiro(10)),
         sessao_rascunho,
-        n_alvo=10,
+        n_objetivas=10,
+        n_discursivas=0,
         versao="v1",
     )
 
@@ -102,7 +112,8 @@ def test_questao_persiste_com_alternativas_fontes_e_justificativa(
         reranker_fake,
         ProvedorLLMFake(roteiro(2)),
         sessao_rascunho,
-        n_alvo=2,
+        n_objetivas=2,
+        n_discursivas=0,
         versao="v1",
     )
 
@@ -131,7 +142,8 @@ def test_letras_sao_atribuidas_por_posicao_e_correta_segue_letra_correta(
         reranker_fake,
         ProvedorLLMFake([corpo_questao(5, letra_correta="C")] * 2),
         sessao_rascunho,
-        n_alvo=1,
+        n_objetivas=1,
+        n_discursivas=0,
         versao="v1",
     )
 
@@ -168,7 +180,8 @@ def test_insuficiencia_nao_aborta_o_banco(
         reranker_fake,
         provedor,
         sessao_rascunho,
-        n_alvo=3,
+        n_objetivas=3,
+        n_discursivas=0,
         versao="v1",
     )
 
@@ -190,7 +203,8 @@ def test_numeracao_e_sequencial_atraves_das_faixas(
         reranker_fake,
         ProvedorLLMFake(roteiro(10)),
         sessao_rascunho,
-        n_alvo=10,
+        n_objetivas=10,
+        n_discursivas=0,
         versao="v1",
     )
     numeros = sorted(
@@ -203,28 +217,20 @@ def test_numeracao_e_sequencial_atraves_das_faixas(
 def test_retomada_nao_regenera_o_que_ja_existe(
     db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
 ):
+    """Primeira chamada interrompida (roteiro acaba na questão 3), segunda
+    continua com as MESMAS contagens e só gera o que falta."""
     preparar(db_session, armazenamento, sessao_rascunho)
-    primeiro = ProvedorLLMFake(roteiro(2))
-    gerar_banco(
-        db_session,
-        embeddings_fake,
-        reranker_fake,
-        primeiro,
-        sessao_rascunho,
-        n_alvo=2,
-        versao="v1",
-    )
+    interrompido = ProvedorLLMFake(roteiro(2) + [RuntimeError("queda do Ollama")])
+    with pytest.raises(RuntimeError):
+        gerar_banco(
+            db_session, embeddings_fake, reranker_fake, interrompido,
+            sessao_rascunho, n_objetivas=4, n_discursivas=0, versao="v1",
+        )
 
-    # Segunda chamada com n_alvo maior: só as duas novas devem ser geradas.
-    segundo = ProvedorLLMFake(roteiro(4))
+    segundo = ProvedorLLMFake(roteiro(2))
     resumo = gerar_banco(
-        db_session,
-        embeddings_fake,
-        reranker_fake,
-        segundo,
-        sessao_rascunho,
-        n_alvo=4,
-        versao="v1",
+        db_session, embeddings_fake, reranker_fake, segundo,
+        sessao_rascunho, n_objetivas=4, n_discursivas=0, versao="v1",
     )
 
     assert resumo.ja_existentes == 2
@@ -235,7 +241,6 @@ def test_retomada_nao_regenera_o_que_ja_existe(
         for q in db_session.query(Questao).filter_by(banco_id=resumo.banco_id).all()
     ]
     assert sorted(numeros) == [1, 2, 3, 4]
-    assert len(numeros) == len(set(numeros))
 
 
 def test_banco_congelado_falha_sem_chamar_o_modelo(
@@ -247,6 +252,8 @@ def test_banco_congelado_falha_sem_chamar_o_modelo(
         versao="v1",
         estado=EstadoBanco.CONGELADO,
         n_alvo=5,
+        n_alvo_objetivas=5,
+        n_alvo_discursivas=0,
         n_atual=0,
     )
     db_session.add(banco)
@@ -260,7 +267,8 @@ def test_banco_congelado_falha_sem_chamar_o_modelo(
             reranker_fake,
             provedor,
             sessao_rascunho,
-            n_alvo=5,
+            n_objetivas=5,
+            n_discursivas=0,
             versao="v1",
         )
     assert provedor.chamadas == 0
@@ -278,7 +286,8 @@ def test_material_insuficiente_falha_sem_chamar_o_modelo(
             reranker_fake,
             provedor,
             sessao_rascunho,
-            n_alvo=29,
+            n_objetivas=29,
+            n_discursivas=0,
             versao="v1",
         )
     assert provedor.chamadas == 0
@@ -302,12 +311,14 @@ def test_n_atual_reflete_o_que_foi_persistido(
             ]
         ),
         sessao_rascunho,
-        n_alvo=3,
+        n_objetivas=3,
+        n_discursivas=0,
         versao="v1",
     )
     banco = db_session.get(BancoQuestoes, resumo.banco_id)
     assert banco.n_atual == 2
     assert banco.n_alvo == 3
+    assert (banco.n_alvo_objetivas, banco.n_alvo_discursivas) == (3, 0)
 
 
 LONGA = "opção com texto muito mais longo que todas as outras juntas somadas"
@@ -321,8 +332,11 @@ CURTAS = [f"opção {i}" for i in range(5)]
 COM_LONGA = [CURTAS[0], CURTAS[1], LONGA, CURTAS[3], CURTAS[4]]
 
 
-def gerar(db, emb, rer, sessao, provedor, n_alvo=1):
-    return gerar_banco(db, emb, rer, provedor, sessao, n_alvo=n_alvo, versao="v1")
+def gerar(db, emb, rer, sessao, provedor, n_alvo=1, n_discursivas=0):
+    return gerar_banco(
+        db, emb, rer, provedor, sessao,
+        n_objetivas=n_alvo, n_discursivas=n_discursivas, versao="v1",
+    )
 
 
 def test_cada_questao_custa_duas_chamadas(
@@ -467,9 +481,193 @@ def test_prompt_do_critico_editado_sem_versao_bloqueia_antes_do_modelo(
     monkeypatch.setattr(
         prompt_mestre_service,
         "carregar_modulos_versionados",
-        lambda: montagem.carregar_modulos() + [("critico/01_revisor.md", "editado")],
+        lambda: [
+            (nome, "editado" if nome == "critico/01_revisor.md" else conteudo)
+            for nome, conteudo in montagem.carregar_modulos_versionados()
+        ],
     )
     provedor = ProvedorLLMFake(roteiro(1))
     with pytest.raises(PromptDivergenteException):
         gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
     assert provedor.chamadas == 0
+
+
+def test_bloom_da_objetiva_e_persistido_como_enum(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, ProvedorLLMFake(roteiro(1)))
+    db_session.expire_all()
+    assert db_session.query(Questao).one().nivel_bloom is NivelBloom.APLICAR
+
+
+def roteiro_misto(n_obj: int, n_disc: int) -> list[dict]:
+    return [corpo_questao(5)] * (2 * n_obj) + [corpo_discursiva()] * (2 * n_disc)
+
+
+def gerar_misto(db, emb, rer, sessao, provedor, n_obj, n_disc):
+    return gerar_banco(
+        db, emb, rer, provedor, sessao,
+        n_objetivas=n_obj, n_discursivas=n_disc, versao="v1",
+    )
+
+
+def test_banco_misto_distribui_cada_tipo_e_numera_objetivas_primeiro(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    # 30/40/30: 10 objetivas -> 3/4/3; 5 discursivas -> 1/2/2 (maior resto,
+    # desempate por dificuldade — calcular_distribuicao(5, 30, 40, 30)).
+    resumo = gerar_misto(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
+        ProvedorLLMFake(roteiro_misto(10, 5)), 10, 5,
+    )
+    questoes = (
+        db_session.query(Questao)
+        .filter_by(banco_id=resumo.banco_id)
+        .order_by(Questao.numero)
+        .all()
+    )
+    assert [q.tipo for q in questoes] == [TipoQuestao.OBJETIVA] * 10 + [
+        TipoQuestao.DISCURSIVA
+    ] * 5
+
+    def contagem(tipo):
+        return [
+            sum(1 for q in questoes if q.tipo is tipo and q.faixa_dificuldade is f)
+            for f in FaixaDificuldade
+        ]
+
+    assert contagem(TipoQuestao.OBJETIVA) == [3, 4, 3]
+    assert contagem(TipoQuestao.DISCURSIVA) == [1, 2, 2]
+    assert resumo.geradas_por_tipo == {
+        TipoQuestao.OBJETIVA: 10,
+        TipoQuestao.DISCURSIVA: 5,
+    }
+
+
+def test_discursiva_persiste_aspectos_com_fonte_deduplicada(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    """Review Focus 1: os dois aspectos do duplo citam a mesma fonte."""
+    preparar(db_session, armazenamento, sessao_rascunho)
+    resumo = gerar_misto(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
+        ProvedorLLMFake(roteiro_misto(0, 1)), 0, 1,
+    )
+    questao = db_session.query(Questao).filter_by(banco_id=resumo.banco_id).one()
+    assert questao.tipo is TipoQuestao.DISCURSIVA
+    assert questao.numero == 1
+    assert db_session.query(Alternativa).filter_by(questao_id=questao.id).count() == 0
+
+    fontes = db_session.query(FonteInterna).filter_by(questao_id=questao.id).all()
+    assert len(fontes) == 1
+    aspectos = (
+        db_session.query(AspectoEsperado)
+        .filter_by(questao_id=questao.id)
+        .order_by(AspectoEsperado.ordem)
+        .all()
+    )
+    assert [a.ordem for a in aspectos] == [1, 2]
+    assert {a.fonte_interna_id for a in aspectos} == {fontes[0].id}
+
+    justificativa = (
+        db_session.query(JustificativaEstruturada).filter_by(questao_id=questao.id).one()
+    )
+    assert justificativa.objetivo_cognitivo == "explicar a estrutura auxiliar da busca"
+    assert justificativa.justificativa_correta is None
+    assert justificativa.invalidacao_distratores is None
+
+
+def test_discursiva_pode_ser_criar(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    criar = corpo_discursiva(nivel_bloom="criar")
+    gerar_misto(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
+        ProvedorLLMFake([criar, criar]), 0, 1,
+    )
+    assert db_session.query(Questao).one().nivel_bloom is NivelBloom.CRIAR
+
+
+def test_aspecto_com_fonte_inventada_e_rejeitado(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    provedor = ProvedorLLMFake([corpo_discursiva(), corpo_discursiva(identificador="P9")])
+    with pytest.raises(FonteInvalidaException):
+        gerar_misto(
+            db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor, 0, 1
+        )
+    db_session.rollback()
+    assert db_session.query(AspectoEsperado).count() == 0
+
+
+def test_discursiva_e_validada_e_revisada_como_discursiva(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    sem_comando = corpo_discursiva(enunciado="Qual estrutura a busca em largura usa?")
+    provedor = ProvedorLLMFake([sem_comando, corpo_discursiva()])
+    gerar_misto(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor, 0, 1
+    )
+    assert "comando_ausente" in provedor.requisicoes[1].usuario
+    assert "<revisao_discursiva>" in provedor.requisicoes[1].sistema
+    revisao = db_session.query(RevisaoQuestao).one()
+    assert [v["regra"] for v in revisao.violacoes_rascunho] == ["comando_ausente"]
+    assert revisao.violacoes_final == []
+
+
+def test_so_discursivas_comeca_em_q1(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    """Review Focus 3: nenhum calcular_distribuicao(0, ...)."""
+    preparar(db_session, armazenamento, sessao_rascunho)
+    resumo = gerar_misto(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
+        ProvedorLLMFake(roteiro_misto(0, 3)), 0, 3,
+    )
+    assert resumo.geradas_por_tipo == {
+        TipoQuestao.OBJETIVA: 0,
+        TipoQuestao.DISCURSIVA: 3,
+    }
+    numeros = sorted(q.numero for q in db_session.query(Questao).all())
+    assert numeros == [1, 2, 3]
+
+
+def test_retomada_com_contagens_diferentes_e_409_sem_chamar_o_modelo(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    gerar_misto(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
+        ProvedorLLMFake(roteiro_misto(1, 1)), 1, 1,
+    )
+    provedor = ProvedorLLMFake(roteiro_misto(2, 0))
+    with pytest.raises(ParametrosBancoDivergentesException):
+        gerar_misto(
+            db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor, 2, 0
+        )
+    assert provedor.chamadas == 0
+
+
+def test_banco_anterior_a_10c_e_retomado_como_so_objetivas(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    """Review Focus 2: banco criado antes da migração tem n_alvo_objetivas =
+    n_alvo e n_alvo_discursivas = 0."""
+    preparar(db_session, armazenamento, sessao_rascunho)
+    db_session.add(
+        BancoQuestoes(
+            sessao_id=sessao_rascunho.id, versao="v1", n_alvo=2,
+            n_alvo_objetivas=2, n_alvo_discursivas=0, n_atual=0,
+        )
+    )
+    db_session.commit()
+    resumo = gerar_misto(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
+        ProvedorLLMFake(roteiro(2)), 2, 0,
+    )
+    assert resumo.geradas == 2

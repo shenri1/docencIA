@@ -28,6 +28,7 @@ TABELAS_ESPERADAS = {
     "gabaritos",
     "exportacoes_docx",
     "registros_auditoria",
+    "aspectos_esperados",
 }
 
 
@@ -149,3 +150,55 @@ def test_prompt_mestre_tem_conteudo_critico_opcional():
 
     # NULL só nas versões registradas antes.
     assert PromptMestre.__table__.columns["conteudo_critico"].nullable is True
+
+
+def test_questao_tem_tipo_obrigatorio():
+    from backend.app.models.banco import Questao
+
+    coluna = Questao.__table__.columns["tipo"]
+    assert coluna.nullable is False
+    # Sem default de servidor nem default Python: o código sempre diz o tipo
+    # explicitamente (`_persistir` passa `tipo=item.tipo`).
+    assert coluna.server_default is None
+
+
+def test_aspecto_esperado_aponta_fonte_da_questao():
+    from backend.app.models.banco import AspectoEsperado
+
+    colunas = AspectoEsperado.__table__.columns
+    assert colunas["fonte_interna_id"].nullable is False
+    assert colunas["texto"].nullable is False
+    nomes = {c.name for c in AspectoEsperado.__table__.constraints}
+    assert "aspecto_por_questao_ordem" in nomes
+
+
+def test_justificativa_so_exige_objetivo_cognitivo():
+    from backend.app.models.banco import JustificativaEstruturada
+
+    colunas = JustificativaEstruturada.__table__.columns
+    assert colunas["objetivo_cognitivo"].nullable is False
+    for nome in (
+        "justificativa_correta",
+        "invalidacao_distratores",
+        "verificacao_unicidade",
+        "texto_verificacao_unicidade",
+    ):
+        assert colunas[nome].nullable is True
+
+
+def test_banco_guarda_contagem_por_tipo():
+    from backend.app.models.banco import BancoQuestoes
+
+    colunas = BancoQuestoes.__table__.columns
+    assert colunas["n_alvo_objetivas"].nullable is False
+    assert colunas["n_alvo_discursivas"].nullable is False
+    nomes = {c.name for c in BancoQuestoes.__table__.constraints}
+    assert "n_alvo_soma_tipos" in nomes
+
+
+def test_prompt_mestre_guarda_textos_da_discursiva():
+    from backend.app.models.prompt_provedor import PromptMestre
+
+    colunas = PromptMestre.__table__.columns
+    assert colunas["conteudo_discursiva"].nullable is True
+    assert colunas["conteudo_critico_discursiva"].nullable is True

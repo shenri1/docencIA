@@ -287,3 +287,13 @@ def test_fonte_invalida_e_502_e_lista_os_disponiveis():
     assert exc.status_code == 502
     assert exc.corpo()["identificador"] == "P9"
     assert exc.corpo()["disponiveis"] == ["P1", "S2"]
+
+
+def test_parametros_banco_divergentes_e_409_e_traz_os_dois_pares():
+    from backend.app.exceptions import ParametrosBancoDivergentesException
+
+    exc = ParametrosBancoDivergentesException("v1", gravado=(10, 5), pedido=(12, 3))
+    assert exc.status_code == 409
+    corpo = exc.corpo()
+    assert corpo["gravado"] == {"objetivas": 10, "discursivas": 5}
+    assert corpo["pedido"] == {"objetivas": 12, "discursivas": 3}

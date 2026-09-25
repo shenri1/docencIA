@@ -1,5 +1,6 @@
 import pytest
 
+from backend.app.domain import TipoQuestao
 from backend.app.exceptions import (
     NenhumPromptAtivoException,
     PromptDivergenteException,
@@ -38,14 +39,21 @@ PARAMS = ParametrosGeracao(
 
 def test_registrar_grava_o_texto_montado_e_o_hash(db_session):
     prompt = registrar_versao(db_session, "1.0.0", "docente universitário", PARAMS)
-    assert prompt.conteudo == montar_sistema(PARAMS)
+    assert prompt.conteudo == montar_sistema(TipoQuestao.OBJETIVA, PARAMS)
     assert prompt.hash_modulos == calcular_hash(carregar_modulos_versionados())
     assert prompt.criado_em is not None
 
 
-def test_registrar_grava_o_texto_do_critico(db_session):
+def test_registrar_grava_os_quatro_textos(db_session):
     prompt = registrar_versao(db_session, "1.0.0", "papel", PARAMS)
-    assert prompt.conteudo_critico == montar_sistema_critico(PARAMS)
+    assert prompt.conteudo == montar_sistema(TipoQuestao.OBJETIVA, PARAMS)
+    assert prompt.conteudo_critico == montar_sistema_critico(
+        TipoQuestao.OBJETIVA, PARAMS
+    )
+    assert prompt.conteudo_discursiva == montar_sistema(TipoQuestao.DISCURSIVA, PARAMS)
+    assert prompt.conteudo_critico_discursiva == montar_sistema_critico(
+        TipoQuestao.DISCURSIVA, PARAMS
+    )
 
 
 def test_primeira_versao_nasce_inativa(db_session):
@@ -119,8 +127,10 @@ def test_editar_o_prompt_do_critico_sem_versao_nova_e_divergencia(
     monkeypatch.setattr(
         prompt_mestre_service,
         "carregar_modulos_versionados",
-        lambda: montagem.carregar_modulos()
-        + [("critico/01_revisor.md", "texto editado")],
+        lambda: [
+            (nome, "texto editado" if nome == "critico/01_revisor.md" else conteudo)
+            for nome, conteudo in montagem.carregar_modulos_versionados()
+        ],
     )
     with pytest.raises(PromptDivergenteException):
         verificar_integridade(db_session)

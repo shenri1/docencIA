@@ -7,8 +7,15 @@ from backend.app.exceptions import (
     VersaoPromptNaoEncontradaException,
 )
 from backend.app.models.prompt_provedor import PromptMestre
-from backend.app.prompt.montagem import calcular_hash, carregar_modulos, montar_sistema
+from backend.app.prompt import montagem
+from backend.app.prompt.montagem import (
+    calcular_hash,
+    carregar_modulos_versionados,
+    montar_sistema,
+    montar_sistema_critico,
+)
 from backend.app.prompt.parametros import ParametrosGeracao
+from backend.app.services import prompt_mestre_service
 from backend.app.services.prompt_mestre_service import (
     ativar,
     listar_versoes,
@@ -32,8 +39,13 @@ PARAMS = ParametrosGeracao(
 def test_registrar_grava_o_texto_montado_e_o_hash(db_session):
     prompt = registrar_versao(db_session, "1.0.0", "docente universitário", PARAMS)
     assert prompt.conteudo == montar_sistema(PARAMS)
-    assert prompt.hash_modulos == calcular_hash(carregar_modulos())
+    assert prompt.hash_modulos == calcular_hash(carregar_modulos_versionados())
     assert prompt.criado_em is not None
+
+
+def test_registrar_grava_o_texto_do_critico(db_session):
+    prompt = registrar_versao(db_session, "1.0.0", "papel", PARAMS)
+    assert prompt.conteudo_critico == montar_sistema_critico(PARAMS)
 
 
 def test_primeira_versao_nasce_inativa(db_session):
@@ -95,5 +107,20 @@ def test_integridade_acusa_divergencia(db_session):
     # Simula edição de um .md sem registrar versão nova.
     prompt.hash_modulos = "0" * 64
     db_session.commit()
+    with pytest.raises(PromptDivergenteException):
+        verificar_integridade(db_session)
+
+
+def test_editar_o_prompt_do_critico_sem_versao_nova_e_divergencia(
+    db_session, monkeypatch
+):
+    registrar_versao(db_session, "1.0.0", "papel", PARAMS)
+    ativar(db_session, "1.0.0")
+    monkeypatch.setattr(
+        prompt_mestre_service,
+        "carregar_modulos_versionados",
+        lambda: montagem.carregar_modulos()
+        + [("critico/01_revisor.md", "texto editado")],
+    )
     with pytest.raises(PromptDivergenteException):
         verificar_integridade(db_session)

@@ -9,6 +9,7 @@ from backend.app.models.banco import (
     Questao,
     RegistroExclusao,
     RelatorioImpacto,
+    RevisaoQuestao,
 )
 from backend.app.models.base import Base
 from backend.app.models.identidade import Docente, SessaoGeracao
@@ -36,5 +37,6 @@ __all__ = [
     "RegistroAuditoria",
     "RegistroExclusao",
     "RelatorioImpacto",
+    "RevisaoQuestao",
     "SessaoGeracao",
 ]

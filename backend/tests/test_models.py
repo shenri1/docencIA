@@ -20,6 +20,7 @@ TABELAS_ESPERADAS = {
     "alternativas",
     "fontes_internas",
     "justificativas_estruturadas",
+    "revisoes_questao",
     "registros_exclusao",
     "relatorios_impacto",
     "provas",
@@ -128,3 +129,23 @@ def test_prompt_mestre_tem_criado_em_e_hash():
     assert colunas["criado_em"].server_default is not None
     # 64 = SHA-256 em hexadecimal.
     assert colunas["hash_modulos"].type.length == 64
+
+
+def test_revisao_questao_e_1_para_1_com_questao():
+    from backend.app.models.banco import RevisaoQuestao
+
+    colunas = RevisaoQuestao.__table__.columns
+    assert colunas["questao_id"].unique is True
+    for nome in ("rascunho", "violacoes_rascunho", "violacoes_final"):
+        assert colunas[nome].type.__class__.__name__ == "JSONB"
+        assert colunas[nome].nullable is False
+    # O fallback pode servir as duas chamadas com modelos diferentes.
+    assert colunas["modelo_geracao"].nullable is False
+    assert colunas["modelo_revisao"].nullable is False
+
+
+def test_prompt_mestre_tem_conteudo_critico_opcional():
+    from backend.app.models.prompt_provedor import PromptMestre
+
+    # NULL só nas versões registradas antes.
+    assert PromptMestre.__table__.columns["conteudo_critico"].nullable is True

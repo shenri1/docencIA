@@ -52,6 +52,7 @@ from backend.app.models.banco import (
     Questao,
     RegistroExclusao,
     RelatorioImpacto,
+    RevisaoQuestao,
 )
 from backend.app.models.identidade import Docente, SessaoGeracao
 from backend.app.models.materiais import ChunkMaterial, MaterialReferencia
@@ -69,6 +70,7 @@ from backend.app.services.rag.rerank import RerankerFake, get_reranker
 # passava isolado e todos falhavam juntos.
 _MODELOS_PARA_LIMPAR = (
     # Filhos de Questao
+    RevisaoQuestao,
     JustificativaEstruturada,
     Alternativa,
     FonteInterna,

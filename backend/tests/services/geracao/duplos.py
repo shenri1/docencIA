@@ -10,9 +10,11 @@ class ProvedorLLMFake:
     def __init__(self, roteiro: list) -> None:
         self.roteiro = list(roteiro)
         self.chamadas = 0
+        self.requisicoes: list = []
 
     def gerar(self, sessao_id: int, requisicao) -> RespostaLLM:
         self.chamadas += 1
+        self.requisicoes.append(requisicao)
         if not self.roteiro:
             raise AssertionError(
                 f"ProvedorLLMFake ficou sem roteiro na chamada {self.chamadas}"

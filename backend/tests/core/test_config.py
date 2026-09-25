@@ -72,3 +72,10 @@ def test_defaults_da_geracao():
     assert settings.geracao_temperatura == 0.4
     # Medido: 920 tokens em k=5, 1172 em k=11 — 57% do teto no pior caso.
     assert settings.geracao_max_tokens == 2048
+
+
+def test_defaults_do_critico():
+    # Revisar pede conservadorismo, não variedade: abaixo dos 0.4 do Gerador.
+    assert settings.critico_temperatura == 0.2
+    # A saída tem o mesmo schema da geração: mesmo teto.
+    assert settings.critico_max_tokens == 2048

@@ -17,7 +17,12 @@ from backend.app.exceptions import (
     VersaoPromptNaoEncontradaException,
 )
 from backend.app.models.prompt_provedor import PromptMestre
-from backend.app.prompt.montagem import calcular_hash, carregar_modulos, montar_sistema
+from backend.app.prompt.montagem import (
+    calcular_hash,
+    carregar_modulos_versionados,
+    montar_sistema,
+    montar_sistema_critico,
+)
 from backend.app.prompt.parametros import ParametrosGeracao
 
 
@@ -27,12 +32,12 @@ def registrar_versao(
     if db.scalar(select(PromptMestre).where(PromptMestre.versao == versao)):
         raise VersaoPromptDuplicadaException(versao)
 
-    modulos = carregar_modulos()
     prompt = PromptMestre(
         versao=versao,
         conteudo=montar_sistema(params),
+        conteudo_critico=montar_sistema_critico(params),
         papel_definido=papel_definido,
-        hash_modulos=calcular_hash(modulos),
+        hash_modulos=calcular_hash(carregar_modulos_versionados()),
         # Nasce inativa de propósito: ativar é ato separado.
         ativo=False,
     )
@@ -83,7 +88,7 @@ def verificar_integridade(db: Session) -> None:
     """Os módulos em disco mudaram sem versão nova? Então `conteudo` descreve
     algo que não seria mais enviado, e a auditoria passa a mentir."""
     ativo = obter_ativo(db)
-    em_disco = calcular_hash(carregar_modulos())
+    em_disco = calcular_hash(carregar_modulos_versionados())
     if ativo.hash_modulos != em_disco:
         raise PromptDivergenteException(
             gravado=ativo.hash_modulos, em_disco=em_disco

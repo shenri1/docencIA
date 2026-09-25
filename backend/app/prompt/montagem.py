@@ -38,9 +38,29 @@ def calcular_hash(modulos: list[tuple[str, str]]) -> str:
     return digestor.hexdigest()
 
 
-def montar_sistema(params: ParametrosGeracao) -> str:
-    modulos = carregar_modulos()
-    texto = "\n\n".join(conteudo for _, conteudo in modulos)
+_PASTA_CRITICO = "critico"
+# Módulos do Gerador reaproveitados pelo crítico: as regras de qualidade e a
+# política de fontes têm uma única fonte de verdade.
+_COMPARTILHADOS_COM_CRITICO = ("02_qualidade_alternativas.md", "03_politica_fontes.md")
+
+
+def carregar_modulos_critico() -> list[tuple[str, str]]:
+    """O caminho relativo entra no nome para que mover um arquivo entre pastas
+    também mude o hash."""
+    pasta = DIRETORIO_MODULOS / _PASTA_CRITICO
+    return [
+        (f"{_PASTA_CRITICO}/{caminho.name}", caminho.read_text(encoding="utf-8"))
+        for caminho in sorted(pasta.glob("*.md"))
+    ]
+
+
+def carregar_modulos_versionados() -> list[tuple[str, str]]:
+    """Tudo que o hash de versão cobre: Gerador e crítico. Sem o crítico aqui,
+    editar o prompt de revisão não exigiria versão nova."""
+    return carregar_modulos() + carregar_modulos_critico()
+
+
+def _injetar(texto: str, params: ParametrosGeracao) -> str:
     valores = params.como_dicionario()
 
     def substituir(casamento: re.Match[str]) -> str:
@@ -52,3 +72,19 @@ def montar_sistema(params: ParametrosGeracao) -> str:
     if restantes:
         raise PlaceholderNaoResolvidoException(restantes)
     return montado
+
+
+def montar_sistema(params: ParametrosGeracao) -> str:
+    return _injetar(
+        "\n\n".join(conteudo for _, conteudo in carregar_modulos()), params
+    )
+
+
+def montar_sistema_critico(params: ParametrosGeracao) -> str:
+    """Módulos do crítico + qualidade + fontes. Persona do gerador e few-shot
+    ficam de fora: o crítico já recebe o rascunho, que é o exemplo relevante."""
+    do_gerador = dict(carregar_modulos())
+    partes = [conteudo for _, conteudo in carregar_modulos_critico()] + [
+        do_gerador[nome] for nome in _COMPARTILHADOS_COM_CRITICO
+    ]
+    return _injetar("\n\n".join(partes), params)

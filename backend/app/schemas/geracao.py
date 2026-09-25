@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, create_model
 
-from backend.app.domain import NivelBloom
+from backend.app.domain import NivelBloom, TipoQuestao
 
 _K_MINIMO = 2
 _K_MAXIMO = 11
@@ -19,6 +19,10 @@ _K_MAXIMO = 11
 # modelo, nada impedia letra duplicada (que quebra a unique constraint no meio
 # do laço) nem zero ou duas corretas.
 LETRAS = "ABCDEFGHIJK"
+
+# O remove "Criar" da múltipla escolha. Na discursiva ele volta a
+# ser operacionalizável, então a restrição vive no schema, não no enum.
+BLOOM_OBJETIVA = tuple(n.value for n in NivelBloom if n is not NivelBloom.CRIAR)
 
 
 class AlternativaGerada(BaseModel):
@@ -43,7 +47,7 @@ class InsuficienciaFonte(BaseModel):
     informacao_faltante: str
 
 
-def montar_schema_questao(k: int) -> type[BaseModel]:
+def montar_schema_objetiva(k: int) -> type[BaseModel]:
     """Devolve um modelo com um único campo `resultado`, união discriminada
     entre questão gerada e insuficiência de fonte."""
     if not _K_MINIMO <= k <= _K_MAXIMO:
@@ -65,7 +69,7 @@ def montar_schema_questao(k: int) -> type[BaseModel]:
         f"QuestaoGerada{k}",
         tipo=(Literal["questao"], ...),
         enunciado=(str, ...),
-        nivel_bloom=(NivelBloom, ...),
+        nivel_bloom=(Literal[BLOOM_OBJETIVA], ...),
         tema=(str, ...),
         alternativas=(
             list[AlternativaGerada],
@@ -84,3 +88,39 @@ def montar_schema_questao(k: int) -> type[BaseModel]:
             Field(discriminator="tipo"),
         ),
     )
+
+
+class AspectoGerado(BaseModel):
+    """A fonte vive dentro do aspecto: pedir ao modelo um índice para
+    outra lista é a referência cruzada que modelo pequeno erra, e assim
+    aspecto sem fonte é irrepresentável."""
+
+    texto: str
+    fonte: FonteGerada
+
+
+class QuestaoDiscursivaGerada(BaseModel):
+    tipo: Literal["questao_discursiva"]
+    enunciado: str
+    nivel_bloom: NivelBloom
+    tema: str
+    objetivo_cognitivo: str
+    aspectos_esperados: list[AspectoGerado] = Field(min_length=2, max_length=5)
+
+
+class ResultadoGeracaoDiscursiva(BaseModel):
+    resultado: QuestaoDiscursivaGerada | InsuficienciaFonte = Field(
+        discriminator="tipo"
+    )
+
+
+def montar_schema_discursiva() -> type[BaseModel]:
+    """Sem K: a discursiva não tem alternativas. Fixo, mas exposto como função
+    para ter a mesma forma de uso que a objetiva."""
+    return ResultadoGeracaoDiscursiva
+
+
+def montar_schema(tipo: TipoQuestao, k: int) -> type[BaseModel]:
+    if tipo is TipoQuestao.OBJETIVA:
+        return montar_schema_objetiva(k)
+    return montar_schema_discursiva()

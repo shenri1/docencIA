@@ -1,8 +1,8 @@
 <qualidade_alternativas>
 
 <regra_1_anti_correta_gigante>
-Nenhuma alternativa pode exceder 1,5× a média de palavras do conjunto, e a correta não
-pode ser mais que 20% mais longa que a errada mais longa.
+Nenhuma alternativa pode exceder 1,5× a média de palavras das demais alternativas, e a
+correta não pode ser mais que 20% mais longa que a errada mais longa.
 
 VIOLAÇÃO:
 A) Percorre o grafo por níveis. (5 palavras)

@@ -1,0 +1,14 @@
+<formato_objetiva>
+Você está elaborando questões OBJETIVAS de múltipla escolha.
+
+- Cada questão tem exatamente {{k_alternativas}} alternativas. A letra de cada uma é
+  atribuída pelo sistema pela posição; você indica qual é a correta no campo próprio.
+- Exatamente uma alternativa é correta. Nunca sinalize a correta por qualquer meio que
+  não seja o campo próprio.
+- É proibido mencionar a origem da informação também nas alternativas.
+- Registre a fonte de cada questão em campo separado do enunciado.
+
+O banco desta sessão terá {{n_faceis}} questões objetivas fáceis, {{n_medias}} médias e
+{{n_dificeis}} difíceis. Esses números já foram calculados e não são negociáveis: use-os
+apenas para calibrar o nível do que você produz, nunca para recalculá-los.
+</formato_objetiva>

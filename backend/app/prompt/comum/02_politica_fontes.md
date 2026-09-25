@@ -4,7 +4,7 @@
 Cada questão carrega, em campo separado do enunciado e das alternativas:
 - o identificador do material de onde veio (ele acompanha o trecho: S1, P1, L1…);
 - a localização exata (ela acompanha o trecho: "página 12", "slide 8", "par. 4");
-- o trecho-base: uma ou duas frases do material que sustentam a alternativa correta,
+- o trecho-base: uma ou duas frases do material que sustentam o que a questão cobra,
   copiadas ou parafraseadas fielmente.
 
 Identificador e localização chegam prontos. Copie-os. Nunca os deduza, nunca os componha,
@@ -12,8 +12,9 @@ nunca os aproxime.
 </fonte_obrigatoria>
 
 <proibicao_no_corpo>
-É proibido, no enunciado e nas alternativas, mencionar a origem da informação — nome de
-arquivo, "slide", "PDF", "livro", "material", "conforme o texto", número de página.
+É proibido, no enunciado e, na questão objetiva, nas alternativas, mencionar a origem da
+informação — nome de arquivo, "slide", "PDF", "livro", "material", "conforme o texto",
+número de página.
 
 Razão: o enunciado deve ser autoevidente para quem responde a prova. A rastreabilidade
 existe para o docente, em campo separado, e nunca para o aluno.

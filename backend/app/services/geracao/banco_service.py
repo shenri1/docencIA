@@ -22,6 +22,7 @@ from backend.app.models.banco import (
     Questao,
 )
 from backend.app.models.identidade import SessaoGeracao
+from backend.app.schemas.geracao import LETRAS
 from backend.app.services.calculo_distribuicao_service import calcular_distribuicao
 from backend.app.services.geracao.agente_gerador_service import (
     ResultadoGeracao,
@@ -88,13 +89,13 @@ def _persistir(
     db.add(questao)
     db.flush()  # precisa do id para os filhos
 
-    for alternativa in gerada.alternativas:
+    for letra, alternativa in zip(LETRAS, gerada.alternativas, strict=False):
         db.add(
             Alternativa(
                 questao_id=questao.id,
-                letra=alternativa.letra,
+                letra=letra,
                 texto=alternativa.texto,
-                correta=alternativa.correta,
+                correta=letra == gerada.letra_correta,
                 e_gemeo_malvado=alternativa.e_gemeo_malvado,
             )
         )

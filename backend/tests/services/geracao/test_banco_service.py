@@ -117,6 +117,33 @@ def test_questao_persiste_com_alternativas_fontes_e_justificativa(
     assert len(justificativa.invalidacao_distratores) == 4
 
 
+def test_letras_sao_atribuidas_por_posicao_e_correta_segue_letra_correta(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    resumo = gerar_banco(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake([corpo_questao(5, letra_correta="C")]),
+        sessao_rascunho,
+        n_alvo=1,
+        versao="v1",
+    )
+
+    questao = db_session.query(Questao).filter_by(banco_id=resumo.banco_id).one()
+    alternativas = (
+        db_session.query(Alternativa)
+        .filter_by(questao_id=questao.id)
+        .order_by(Alternativa.letra)
+        .all()
+    )
+    assert [a.letra for a in alternativas] == ["A", "B", "C", "D", "E"]
+    assert [a.texto for a in alternativas] == [f"opção {i}" for i in range(5)]
+    assert [a.letra for a in alternativas if a.correta] == ["C"]
+    assert [a.letra for a in alternativas if a.e_gemeo_malvado] == ["B"]
+
+
 def test_insuficiencia_nao_aborta_o_banco(
     db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
 ):

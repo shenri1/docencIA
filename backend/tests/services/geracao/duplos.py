@@ -29,21 +29,15 @@ class ProvedorLLMFake:
 
 
 def corpo_questao(k: int, identificador: str = "P1", **sobrescritas) -> dict:
-    letras = "ABCDEFGHIJK"[:k]
     questao = {
         "tipo": "questao",
         "enunciado": "Qual estrutura a busca em largura utiliza?",
         "nivel_bloom": "aplicar",
         "tema": "Grafos",
         "alternativas": [
-            {
-                "letra": letra,
-                "texto": f"opção {letra}",
-                "correta": letra == "A",
-                "e_gemeo_malvado": letra == "B",
-            }
-            for letra in letras
+            {"texto": f"opção {i}", "e_gemeo_malvado": i == 1} for i in range(k)
         ],
+        "letra_correta": "A",
         "fontes": [
             {
                 "identificador_material": identificador,

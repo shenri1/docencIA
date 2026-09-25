@@ -4,13 +4,16 @@ import pytest
 
 from backend.app.domain import NivelBloom
 from backend.app.schemas.geracao import (
+    LETRAS,
+    AlternativaGerada,
     InsuficienciaFonte,
     montar_schema_questao,
 )
 
 
-def corpo_questao(k: int, invalidacoes: int | None = None) -> dict:
-    letras = "ABCDEFGHIJK"[:k]
+def corpo_questao(
+    k: int, invalidacoes: int | None = None, letra_correta: str = "A"
+) -> dict:
     return {
         "resultado": {
             "tipo": "questao",
@@ -18,14 +21,9 @@ def corpo_questao(k: int, invalidacoes: int | None = None) -> dict:
             "nivel_bloom": "aplicar",
             "tema": "Grafos",
             "alternativas": [
-                {
-                    "letra": letra,
-                    "texto": f"opção {letra}",
-                    "correta": letra == "A",
-                    "e_gemeo_malvado": letra == "B",
-                }
-                for letra in letras
+                {"texto": f"opção {i}", "e_gemeo_malvado": i == 1} for i in range(k)
             ],
+            "letra_correta": letra_correta,
             "fontes": [
                 {
                     "identificador_material": "P1",
@@ -118,3 +116,30 @@ def test_k_fora_da_faixa_permitida_e_erro_de_programacao():
     for k in (1, 12):
         with pytest.raises(ValueError):
             montar_schema_questao(k)
+
+
+def _questao(esquema: dict) -> dict:
+    return next(
+        v for nome, v in esquema["$defs"].items() if nome.startswith("QuestaoGerada")
+    )
+
+
+@pytest.mark.parametrize("k", [2, 4, 11])
+def test_letra_correta_e_enum_das_k_primeiras_letras(k):
+    """Um único campo enum torna zero ou duas corretas irrepresentáveis: a
+    decodificação restrita não consegue emitir outra coisa."""
+    esquema = montar_schema_questao(k).model_json_schema()
+    campo = _questao(esquema)["properties"]["letra_correta"]
+    assert campo["enum"] == list(LETRAS[:k])
+
+
+def test_letra_correta_fora_das_k_letras_e_rejeitada():
+    with pytest.raises(ValueError):
+        montar_schema_questao(4).model_validate(corpo_questao(4, letra_correta="E"))
+
+
+def test_alternativa_nao_carrega_letra_nem_correta():
+    """Letra é posição, atribuída pelo código; correta é o campo da questão.
+    Deixá-las com o modelo permitia letra duplicada e 0 ou 2 corretas."""
+    propriedades = AlternativaGerada.model_json_schema()["properties"]
+    assert set(propriedades) == {"texto", "e_gemeo_malvado"}

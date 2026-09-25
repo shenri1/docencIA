@@ -15,11 +15,14 @@ from backend.app.domain import NivelBloom
 _K_MINIMO = 2
 _K_MAXIMO = 11
 
+# Letra é posição, atribuída pelo código. Com `letra` e `correta` na mão do
+# modelo, nada impedia letra duplicada (que quebra a unique constraint no meio
+# do laço) nem zero ou duas corretas.
+LETRAS = "ABCDEFGHIJK"
+
 
 class AlternativaGerada(BaseModel):
-    letra: str
     texto: str
-    correta: bool
     # distrator que espelha a estrutura da correta.
     e_gemeo_malvado: bool
 
@@ -68,6 +71,9 @@ def montar_schema_questao(k: int) -> type[BaseModel]:
             list[AlternativaGerada],
             Field(min_length=k, max_length=k),
         ),
+        # Enum das k primeiras letras: exatamente uma correta vira restrição
+        # da decodificação, como o NivelBloom, em vez de regra a validar.
+        letra_correta=(Literal[tuple(LETRAS[:k])], ...),
         fontes=(list[FonteGerada], Field(min_length=1)),
         justificativa=(justificativa, ...),
     )

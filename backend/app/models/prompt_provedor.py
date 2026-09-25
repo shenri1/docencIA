@@ -35,6 +35,9 @@ class PromptMestre(Base):
     # Texto montado do prompt do crítico. NULL nas versões
     # registradas antes dele existir.
     conteudo_critico: Mapped[str | None] = mapped_column(Text)
+    # Textos da discursiva. NULL nas versões anteriores a ela.
+    conteudo_discursiva: Mapped[str | None] = mapped_column(Text)
+    conteudo_critico_discursiva: Mapped[str | None] = mapped_column(Text)
     papel_definido: Mapped[str] = mapped_column(String(255))
     # Uma linha por versão: histórico completo fica no próprio conjunto,
     # rollback = reativar versão anterior.

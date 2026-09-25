@@ -10,6 +10,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from backend.app.domain import TipoQuestao
 from backend.app.exceptions import (
     NenhumPromptAtivoException,
     PromptDivergenteException,
@@ -34,8 +35,12 @@ def registrar_versao(
 
     prompt = PromptMestre(
         versao=versao,
-        conteudo=montar_sistema(params),
-        conteudo_critico=montar_sistema_critico(params),
+        conteudo=montar_sistema(TipoQuestao.OBJETIVA, params),
+        conteudo_critico=montar_sistema_critico(TipoQuestao.OBJETIVA, params),
+        conteudo_discursiva=montar_sistema(TipoQuestao.DISCURSIVA, params),
+        conteudo_critico_discursiva=montar_sistema_critico(
+            TipoQuestao.DISCURSIVA, params
+        ),
         papel_definido=papel_definido,
         hash_modulos=calcular_hash(carregar_modulos_versionados()),
         # Nasce inativa de propósito: ativar é ato separado.

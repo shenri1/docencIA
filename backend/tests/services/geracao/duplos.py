@@ -1,0 +1,72 @@
+"""Duplos para a geração. Nenhum toca a rede."""
+
+from backend.app.services.provedor.tipos import RespostaLLM, UsoTokens
+
+
+class ProvedorLLMFake:
+    """Executa um roteiro: cada item é o dicionário que o modelo "devolveria".
+    Exceções no roteiro são levantadas."""
+
+    def __init__(self, roteiro: list) -> None:
+        self.roteiro = list(roteiro)
+        self.chamadas = 0
+
+    def gerar(self, sessao_id: int, requisicao) -> RespostaLLM:
+        self.chamadas += 1
+        if not self.roteiro:
+            raise AssertionError(
+                f"ProvedorLLMFake ficou sem roteiro na chamada {self.chamadas}"
+            )
+        item = self.roteiro.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return RespostaLLM(
+            conteudo=requisicao.formato.model_validate(item),
+            uso=UsoTokens(entrada=1000, saida=500),
+            provedor_id=1,
+            modelo="fake",
+        )
+
+
+def corpo_questao(k: int, identificador: str = "P1", **sobrescritas) -> dict:
+    letras = "ABCDEFGHIJK"[:k]
+    questao = {
+        "tipo": "questao",
+        "enunciado": "Qual estrutura a busca em largura utiliza?",
+        "nivel_bloom": "aplicar",
+        "tema": "Grafos",
+        "alternativas": [
+            {
+                "letra": letra,
+                "texto": f"opção {letra}",
+                "correta": letra == "A",
+                "e_gemeo_malvado": letra == "B",
+            }
+            for letra in letras
+        ],
+        "fontes": [
+            {
+                "identificador_material": identificador,
+                "localizacao": "página 12",
+                "trecho_base": "A busca em largura usa uma fila.",
+            }
+        ],
+        "justificativa": {
+            "objetivo_cognitivo": "identificar a estrutura",
+            "justificativa_correta": "o trecho afirma o uso de fila",
+            "invalidacao_distratores": [f"distrator {i}" for i in range(k - 1)],
+            "verificacao_unicidade": True,
+            "texto_verificacao_unicidade": "nenhuma errada é defensável",
+        },
+    }
+    questao.update(sobrescritas)
+    return {"resultado": questao}
+
+
+def corpo_insuficiencia(motivo: str = "não há trecho sobre o tema pedido") -> dict:
+    return {
+        "resultado": {
+            "tipo": "insuficiencia_de_fonte",
+            "informacao_faltante": motivo,
+        }
+    }

@@ -59,6 +59,29 @@ def corpo_questao(k: int, identificador: str = "P1", **sobrescritas) -> dict:
     return {"resultado": questao}
 
 
+def corpo_discursiva(identificador: str = "P1", **sobrescritas) -> dict:
+    """Dois aspectos citando a MESMA fonte, de propósito: é o caso comum do
+    modelo, e a persistência deve deduplicar."""
+    fonte = {
+        "identificador_material": identificador,
+        "localizacao": "página 12",
+        "trecho_base": "A busca em largura usa uma fila.",
+    }
+    questao = {
+        "tipo": "questao_discursiva",
+        "enunciado": "Explique por que a busca em largura usa uma fila.",
+        "nivel_bloom": "entender",
+        "tema": "Grafos",
+        "objetivo_cognitivo": "explicar a estrutura auxiliar da busca",
+        "aspectos_esperados": [
+            {"texto": "a fila preserva a ordem de descoberta", "fonte": fonte},
+            {"texto": "a visita acontece por camadas de distância", "fonte": fonte},
+        ],
+    }
+    questao.update(sobrescritas)
+    return {"resultado": questao}
+
+
 def corpo_insuficiencia(motivo: str = "não há trecho sobre o tema pedido") -> dict:
     return {
         "resultado": {

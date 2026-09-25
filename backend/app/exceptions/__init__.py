@@ -397,3 +397,52 @@ class PromptDivergenteException(DomainException):
             hash_gravado=gravado,
             hash_em_disco=em_disco,
         )
+
+
+# --- Agente Gerador ---
+
+
+class MaterialInsuficienteParaBancoException(DomainException):
+    """Levantada antes da primeira chamada ao modelo: descobrir isso no
+    minuto 7 desperdiçaria minutos de GPU."""
+
+    status_code = 409
+    codigo = "MATERIAL_INSUFICIENTE_PARA_BANCO"
+
+    def __init__(self, chunks: int, pedidos: int) -> None:
+        super().__init__(
+            f"A sessão tem {chunks} trechos indexados, insuficientes para "
+            f"{pedidos} questões — cada questão nasce de um trecho distinto. "
+            "Envie mais material ou reduza o tamanho do banco.",
+            chunks_disponiveis=chunks,
+            questoes_pedidas=pedidos,
+        )
+
+
+class BancoCongeladoException(DomainException):
+    """depois da janela de exclusões o banco é congelado."""
+
+    status_code = 409
+    codigo = "BANCO_CONGELADO"
+
+    def __init__(self, versao: str) -> None:
+        super().__init__(
+            f"O banco {versao} está congelado e não aceita novas questões.",
+            versao=versao,
+        )
+
+
+class FonteInvalidaException(DomainException):
+    """O modelo citou material que não estava entre os trechos enviados. Sem
+    esta checagem a rastreabilidade seria ficção."""
+
+    status_code = 502
+    codigo = "FONTE_INVALIDA"
+
+    def __init__(self, identificador: str, disponiveis: list[str]) -> None:
+        super().__init__(
+            f"O modelo citou o material {identificador}, que não estava entre "
+            f"os trechos fornecidos ({', '.join(disponiveis)}).",
+            identificador=identificador,
+            disponiveis=disponiveis,
+        )

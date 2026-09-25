@@ -44,15 +44,48 @@ from backend.app.core.db import get_db
 from backend.app.core.storage import ArmazenamentoLocal, get_armazenamento
 from backend.app.main import app
 from backend.app.models import Base
+from backend.app.models.banco import (
+    Alternativa,
+    BancoQuestoes,
+    FonteInterna,
+    JustificativaEstruturada,
+    Questao,
+    RegistroExclusao,
+    RelatorioImpacto,
+)
 from backend.app.models.identidade import Docente, SessaoGeracao
 from backend.app.models.materiais import ChunkMaterial, MaterialReferencia
+from backend.app.models.prompt_provedor import PromptMestre
 from backend.app.schemas.identidade import DocenteCriar
 from backend.app.services.auth_service import registrar_docente
 from backend.app.services.rag.embeddings import EmbeddingsFake, get_embeddings
 from backend.app.services.rag.rerank import RerankerFake, get_reranker
 
 # Ordem importa: filhos antes dos pais, senão a FK bloqueia o DELETE.
-_MODELOS_PARA_LIMPAR = (ChunkMaterial, MaterialReferencia, SessaoGeracao, Docente)
+#
+# Tabela que nasce num teste e não é limpa vaza para os seguintes. Foi o que
+# aconteceu com `prompts_mestres`: a versão "1.0.0" do primeiro teste sobrevivia
+# e os oito seguintes morriam com VersaoPromptDuplicadaException — cada um
+# passava isolado e todos falhavam juntos.
+_MODELOS_PARA_LIMPAR = (
+    # Filhos de Questao
+    JustificativaEstruturada,
+    Alternativa,
+    FonteInterna,
+    RegistroExclusao,
+    # Filhos de BancoQuestoes
+    Questao,
+    RelatorioImpacto,
+    BancoQuestoes,
+    # Filhos de MaterialReferencia
+    ChunkMaterial,
+    MaterialReferencia,
+    # Raízes
+    SessaoGeracao,
+    Docente,
+    # Sem FK, mas com `versao` unique — é o caso que motivou esta lista.
+    PromptMestre,
+)
 
 
 def _garantir_banco_de_teste_existe() -> None:

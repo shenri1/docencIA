@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Integer,
@@ -19,12 +20,14 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.schema import conv
 
 from backend.app.domain import (
     EstadoBanco,
     EstadoQuestao,
     FaixaDificuldade,
     NivelBloom,
+    TipoQuestao,
 )
 from backend.app.models.base import Base
 
@@ -38,6 +41,13 @@ class BancoQuestoes(Base):
     __tablename__ = "bancos_questoes"
     __table_args__ = (
         UniqueConstraint("sessao_id", "versao", name="banco_por_sessao_versao"),
+        CheckConstraint(
+            "n_alvo = n_alvo_objetivas + n_alvo_discursivas",
+            # conv(): CheckConstraint aplica a convenção de nomes mesmo com
+            # nome explícito — sem isso viraria "ck_bancos_questoes_..." e
+            # divergiria do nome literal usado na migração.
+            name=conv("n_alvo_soma_tipos"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -47,6 +57,11 @@ class BancoQuestoes(Base):
         SAEnum(EstadoBanco, name="estado_banco"), default=EstadoBanco.ABERTO, index=True
     )
     n_alvo: Mapped[int] = mapped_column(Integer)
+    # Fixas na criação: mudar a contagem na retomada deslocaria
+    # quais números são objetivos e quais são discursivos, e recalcularia as
+    # âncoras com outro espaçamento.
+    n_alvo_objetivas: Mapped[int] = mapped_column(Integer)
+    n_alvo_discursivas: Mapped[int] = mapped_column(Integer)
     n_atual: Mapped[int] = mapped_column(Integer, default=0)
 
     sessao: Mapped[SessaoGeracao] = relationship(back_populates="bancos")
@@ -68,6 +83,10 @@ class Questao(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     banco_id: Mapped[int] = mapped_column(ForeignKey("bancos_questoes.id"), index=True)
     numero: Mapped[int] = mapped_column(Integer)
+    tipo: Mapped[TipoQuestao] = mapped_column(
+        SAEnum(TipoQuestao, name="tipo_questao"),
+        index=True,
+    )
 
     enunciado: Mapped[str] = mapped_column(Text)
     nivel_bloom: Mapped[NivelBloom] = mapped_column(
@@ -96,6 +115,11 @@ class Questao(Base):
     )
     revisao: Mapped[RevisaoQuestao | None] = relationship(
         back_populates="questao", cascade="all, delete-orphan"
+    )
+    aspectos: Mapped[list[AspectoEsperado]] = relationship(
+        back_populates="questao",
+        cascade="all, delete-orphan",
+        order_by="AspectoEsperado.ordem",
     )
     exclusoes: Mapped[list[RegistroExclusao]] = relationship(back_populates="questao")
     itens_prova: Mapped[list[ItemProva]] = relationship(back_populates="questao")
@@ -134,7 +158,9 @@ class FonteInterna(Base):
 
 
 class JustificativaEstruturada(Base):
-    """Os 5 campos. Nunca aparece no corpo da questão."""
+    """Os 5 campos na objetiva; na discursiva só `objetivo_cognitivo`
+    — invalidação de distratores e unicidade não existem sem alternativas.
+    Nunca aparece no corpo da questão."""
 
     __tablename__ = "justificativas_estruturadas"
 
@@ -143,10 +169,10 @@ class JustificativaEstruturada(Base):
         ForeignKey("questoes.id"), unique=True, index=True
     )
     objetivo_cognitivo: Mapped[str] = mapped_column(Text)
-    justificativa_correta: Mapped[str] = mapped_column(Text)
-    invalidacao_distratores: Mapped[list[str]] = mapped_column(JSONB)
-    verificacao_unicidade: Mapped[bool] = mapped_column(Boolean)
-    texto_verificacao_unicidade: Mapped[str] = mapped_column(Text)
+    justificativa_correta: Mapped[str | None] = mapped_column(Text)
+    invalidacao_distratores: Mapped[list[str] | None] = mapped_column(JSONB)
+    verificacao_unicidade: Mapped[bool | None] = mapped_column(Boolean)
+    texto_verificacao_unicidade: Mapped[str | None] = mapped_column(Text)
 
     questao: Mapped[Questao] = relationship(back_populates="justificativa")
 
@@ -171,6 +197,26 @@ class RevisaoQuestao(Base):
     modelo_revisao: Mapped[str] = mapped_column(String(100))
 
     questao: Mapped[Questao] = relationship(back_populates="revisao")
+
+
+class AspectoEsperado(Base):
+    """o que uma boa resposta discursiva deveria abordar. Orienta a
+    correção do docente; não é gabarito nem rubrica. Cada aspecto aponta a
+    fonte que o sustenta — é isso que mantém a discursiva rastreável."""
+
+    __tablename__ = "aspectos_esperados"
+    __table_args__ = (
+        UniqueConstraint("questao_id", "ordem", name="aspecto_por_questao_ordem"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    questao_id: Mapped[int] = mapped_column(ForeignKey("questoes.id"), index=True)
+    ordem: Mapped[int] = mapped_column(Integer)
+    texto: Mapped[str] = mapped_column(Text)
+    fonte_interna_id: Mapped[int] = mapped_column(ForeignKey("fontes_internas.id"))
+
+    questao: Mapped[Questao] = relationship(back_populates="aspectos")
+    fonte: Mapped[FonteInterna] = relationship()
 
 
 class RegistroExclusao(Base):

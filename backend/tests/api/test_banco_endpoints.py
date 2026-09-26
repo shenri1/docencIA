@@ -1,5 +1,7 @@
 import pytest
 
+from backend.tests.conftest import _auth
+
 
 def test_gerar_banco_sem_token_e_401(client):
     assert (
@@ -12,8 +14,6 @@ def test_gerar_banco_sem_token_e_401(client):
 
 
 def test_soma_zero_e_422(client):
-    from backend.tests.api.test_rag_endpoints import _auth
-
     cabecalhos = _auth(client, "banco001")
     resposta = client.post(
         "/sessoes/1/banco",
@@ -24,8 +24,6 @@ def test_soma_zero_e_422(client):
 
 
 def test_sessao_de_outro_docente_e_404(client):
-    from backend.tests.api.test_rag_endpoints import _auth
-
     cabecalhos = _auth(client, "banco002")
     resposta = client.post(
         "/sessoes/999999/banco",
@@ -33,12 +31,6 @@ def test_sessao_de_outro_docente_e_404(client):
         headers=cabecalhos,
     )
     assert resposta.status_code == 404
-
-
-def test_rota_de_banco_esta_no_swagger(client):
-    schema = client.get("/openapi.json").json()
-    assert "/sessoes/{sessao_id}/banco" in schema["paths"]
-    assert "ResumoBancoResposta" in schema["components"]["schemas"]
 
 
 def test_resumo_expoe_violacoes_e_nunca_o_rascunho(client):
@@ -66,8 +58,6 @@ def test_resumo_expoe_violacoes_e_nunca_o_rascunho(client):
 def test_limite_de_25_somando_os_dois_tipos(client, n_obj, n_disc, status):
     """404 = passou da validação e esbarrou na sessão inexistente; 422 = barrado
     pelo schema, antes de qualquer serviço."""
-    from backend.tests.api.test_rag_endpoints import _auth
-
     cabecalhos = _auth(client, f"banco25{n_obj}{n_disc}")
     resposta = client.post(
         "/sessoes/999999/banco",

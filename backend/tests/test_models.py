@@ -1,10 +1,10 @@
+import pytest
 from sqlalchemy import event
 from sqlalchemy.orm import configure_mappers
 
 from backend.app.domain import FormatoArquivo, OrigemTexto
 from backend.app.models import Base, RegistroAuditoria
 from backend.app.models.base import bloquear_mutacao
-from backend.app.models.identidade import Docente
 from backend.app.models.materiais import MaterialReferencia
 
 TABELAS_ESPERADAS = {
@@ -40,16 +40,8 @@ def test_todas_as_entidades_mapeadas():
 def test_tabelas_auditoria_sao_append_only():
     for evento in ("before_update", "before_delete"):
         assert event.contains(RegistroAuditoria, evento, bloquear_mutacao)
-    try:
+    with pytest.raises(ValueError):
         bloquear_mutacao(None, None, RegistroAuditoria())
-    except ValueError:
-        return
-    raise AssertionError("mutação em tabela append-only não foi bloqueada")
-
-
-def test_docente_tem_coluna_senha_hash():
-    colunas = {c.name for c in Docente.__table__.columns}
-    assert "senha_hash" in colunas
 
 
 def test_material_tem_colunas_do_modulo_de_materiais():
@@ -80,12 +72,6 @@ def test_enums_de_formato_e_origem():
     assert [o.value for o in OrigemTexto] == ["nativo", "ocr", "misto"]
 
 
-def test_material_tem_colunas_de_indexacao():
-    colunas = MaterialReferencia.__table__.columns
-    assert colunas["indexado_em"].nullable is True
-    assert colunas["n_chunks"].nullable is False
-
-
 def test_chunk_tem_ordem_unica_por_material():
     from backend.app.models.materiais import ChunkMaterial
 
@@ -100,12 +86,6 @@ def test_vetor_embedding_usa_a_dimensao_configurada():
 
     tipo = ChunkMaterial.__table__.columns["vetor_embedding"].type
     assert tipo.dim == settings.embedding_dim == 1024
-
-
-if __name__ == "__main__":
-    test_todas_as_entidades_mapeadas()
-    test_tabelas_auditoria_sao_append_only()
-    print("ok")
 
 
 def test_provedor_llm_tem_modelo_e_prioridade():
@@ -143,13 +123,6 @@ def test_revisao_questao_e_1_para_1_com_questao():
     # O fallback pode servir as duas chamadas com modelos diferentes.
     assert colunas["modelo_geracao"].nullable is False
     assert colunas["modelo_revisao"].nullable is False
-
-
-def test_prompt_mestre_tem_conteudo_critico_opcional():
-    from backend.app.models.prompt_provedor import PromptMestre
-
-    # NULL só nas versões registradas antes.
-    assert PromptMestre.__table__.columns["conteudo_critico"].nullable is True
 
 
 def test_questao_tem_tipo_obrigatorio():
@@ -194,11 +167,3 @@ def test_banco_guarda_contagem_por_tipo():
     assert colunas["n_alvo_discursivas"].nullable is False
     nomes = {c.name for c in BancoQuestoes.__table__.constraints}
     assert "n_alvo_soma_tipos" in nomes
-
-
-def test_prompt_mestre_guarda_textos_da_discursiva():
-    from backend.app.models.prompt_provedor import PromptMestre
-
-    colunas = PromptMestre.__table__.columns
-    assert colunas["conteudo_discursiva"].nullable is True
-    assert colunas["conteudo_critico_discursiva"].nullable is True

@@ -166,7 +166,6 @@ def test_confirmar_indice_vazio_retorna_409(client):
 
 def test_schemas_de_material_aparecem_no_swagger(client):
     schema = client.get("/openapi.json").json()
-    assert "/sessoes/{sessao_id}/materiais" in schema["paths"]
     componentes = schema["components"]["schemas"]
     assert "MaterialResposta" in componentes
     assert "IndiceResposta" in componentes

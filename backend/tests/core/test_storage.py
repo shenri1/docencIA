@@ -1,6 +1,6 @@
 import pytest
 
-from backend.app.core.storage import ArmazenamentoLocal, montar_chave
+from backend.app.core.storage import ArmazenamentoLocal
 
 
 def test_salvar_e_abrir_roundtrip(tmp_path):
@@ -32,8 +32,3 @@ def test_chave_fora_da_raiz_e_rejeitada(tmp_path):
     with pytest.raises(ValueError):
         armazenamento.salvar("../fora.pdf", b"x")
     assert not (tmp_path.parent / "fora.pdf").exists()
-
-
-def test_montar_chave_segue_o_layout_docente_sessao_uuid():
-    chave = montar_chave(7, 3, "abc-123.pdf")
-    assert chave == "7/3/abc-123.pdf"

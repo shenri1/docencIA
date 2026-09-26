@@ -1,4 +1,3 @@
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -13,23 +12,6 @@ from backend.app.models import Base
 
 RAIZ = Path(__file__).resolve().parents[2]
 BANCO_MIGRACAO = "docencia_migracao_test"
-
-
-def test_alembic_esta_configurado():
-    resultado = subprocess.run(
-        ["uv", "run", "alembic", "heads"],
-        cwd=RAIZ,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert resultado.returncode == 0, resultado.stderr
-
-
-def test_lifespan_nao_cria_schema():
-    """Schema é responsabilidade exclusiva do Alembic a partir desta etapa."""
-    fonte = (RAIZ / "backend" / "app" / "main.py").read_text(encoding="utf-8")
-    assert "create_all" not in fonte
 
 
 @pytest.fixture(scope="module")

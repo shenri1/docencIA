@@ -233,6 +233,8 @@ def test_discursiva_nao_tem_alternativas_nem_letra():
 
 
 def test_montar_schema_escolhe_pelo_tipo():
-    assert montar_schema(TipoQuestao.OBJETIVA, 4) is not None
+    esquema_obj = montar_schema(TipoQuestao.OBJETIVA, 4).model_json_schema()
+    assert "alternativas" in json.dumps(esquema_obj)
+    assert "letra_correta" in json.dumps(esquema_obj)
     esquema = montar_schema(TipoQuestao.DISCURSIVA, 4).model_json_schema()
     assert "aspectos_esperados" in json.dumps(esquema)

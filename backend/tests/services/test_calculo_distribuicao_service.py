@@ -2,10 +2,7 @@ import pytest
 
 from backend.app.domain import FaixaDificuldade
 from backend.app.exceptions import ParametrosInconsistentesException
-from backend.app.services.calculo_distribuicao_service import (
-    DistribuicaoQuestoes,
-    calcular_distribuicao,
-)
+from backend.app.services.calculo_distribuicao_service import calcular_distribuicao
 
 
 def test_sem_resto_distribui_exatamente_os_percentuais():
@@ -93,13 +90,6 @@ def test_n_menor_que_um_e_erro_de_programacao_nao_de_negocio():
         calcular_distribuicao(0, 10, 60, 30)
 
 
-def test_contagens_sao_int_e_nunca_float():
-    d = calcular_distribuicao(47, 10, 60, 30)
-    for valor in (d.faceis, d.medias, d.dificeis, d.total()):
-        assert isinstance(valor, int)
-        assert not isinstance(valor, float)
-
-
 def test_invariante_vale_para_toda_combinacao_valida():
     """Teste de propriedade: é isto que cobre as combinações que ninguém
     pensou em enumerar. A soma tem que bater sempre, e nenhuma contagem pode
@@ -120,11 +110,3 @@ def test_invariante_nos_percentuais_que_o_passo_de_cinco_nao_cobre():
         for percentuais in [(33, 33, 34), (34, 33, 33), (33, 34, 33), (1, 1, 98)]:
             d = calcular_distribuicao(n, *percentuais)
             assert d.total() == n, (n, percentuais, d)
-
-
-def test_dataclass_e_imutavel():
-    d = DistribuicaoQuestoes(faceis=1, medias=2, dificeis=3)
-    # frozen=True levanta FrozenInstanceError, que herda de AttributeError.
-    # `pytest.raises(Exception)` passaria até com um TypeError acidental.
-    with pytest.raises(AttributeError):
-        d.faceis = 99

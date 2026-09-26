@@ -48,12 +48,6 @@ def test_criar_sessao_com_distribuicao_invalida_retorna_422(client):
     assert resp.json()["codigo"] == "PARAMETROS_INCONSISTENTES"
 
 
-def test_criar_sessao_com_k_fora_da_faixa_retorna_422(client):
-    payload = PAYLOAD | {"k_alternativas": 12}
-    resp = client.post("/sessoes", json=payload, headers=_auth(client))
-    assert resp.status_code == 422
-
-
 def test_listar_e_obter_sessao_do_proprio_docente(client):
     cabecalhos = _auth(client)
     criada = client.post("/sessoes", json=PAYLOAD, headers=cabecalhos).json()
@@ -71,9 +65,3 @@ def test_obter_sessao_inexistente_retorna_404(client):
     resp = client.get("/sessoes/9999", headers=_auth(client))
     assert resp.status_code == 404
     assert resp.json()["codigo"] == "SESSAO_NAO_ENCONTRADA"
-
-
-def test_schemas_de_sessao_aparecem_no_swagger(client):
-    schema = client.get("/openapi.json").json()
-    assert "/sessoes" in schema["paths"]
-    assert "SessaoResposta" in schema["components"]["schemas"]

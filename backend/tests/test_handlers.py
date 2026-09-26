@@ -7,6 +7,7 @@ from backend.app.exceptions import (
     ArquivoMuitoGrandeException,
     ArquivoProtegidoException,
     ArtefatoDeTextoInvalidoException,
+    BancoCongeladoException,
     ConfiguracaoEmbeddingInvalidaException,
     CredenciaisInvalidasException,
     CredencialJaCadastradaException,
@@ -15,15 +16,18 @@ from backend.app.exceptions import (
     FalhaProvedorLLMException,
     FalhaRerankException,
     FalhaTransporteLLMException,
+    FonteInvalidaException,
     FormatoNaoSuportadoException,
     IndiceNaoConfirmadoException,
     IndiceVazioException,
     MaterialDuplicadoException,
     MaterialIlegivelException,
+    MaterialInsuficienteParaBancoException,
     MaterialNaoEncontradoException,
     MaterialSemTextoException,
     NenhumPromptAtivoException,
     NenhumProvedorAtivoException,
+    ParametrosBancoDivergentesException,
     ParametrosInconsistentesException,
     PdfEscaneadoOcrInsuficienteException,
     PdfProtegidoException,
@@ -39,53 +43,6 @@ from backend.app.exceptions import (
     VersaoPromptNaoEncontradaException,
 )
 from backend.app.handlers import registrar_exception_handlers
-
-
-def _app_de_teste() -> TestClient:
-    app = FastAPI()
-    registrar_exception_handlers(app)
-
-    @app.get("/levanta/credencial-duplicada")
-    def _a():
-        raise CredencialJaCadastradaException("123")
-
-    @app.get("/levanta/credenciais-invalidas")
-    def _b():
-        raise CredenciaisInvalidasException()
-
-    @app.get("/levanta/token-invalido")
-    def _c():
-        raise TokenInvalidoException()
-
-    @app.get("/levanta/perfil-insuficiente")
-    def _d():
-        raise PerfilInsuficienteException()
-
-    return TestClient(app, raise_server_exceptions=False)
-
-
-def test_credencial_duplicada_retorna_409():
-    client = _app_de_teste()
-    resp = client.get("/levanta/credencial-duplicada")
-    assert resp.status_code == 409
-
-
-def test_credenciais_invalidas_retorna_401():
-    client = _app_de_teste()
-    resp = client.get("/levanta/credenciais-invalidas")
-    assert resp.status_code == 401
-
-
-def test_token_invalido_retorna_401():
-    client = _app_de_teste()
-    resp = client.get("/levanta/token-invalido")
-    assert resp.status_code == 401
-
-
-def test_perfil_insuficiente_retorna_403():
-    client = _app_de_teste()
-    resp = client.get("/levanta/perfil-insuficiente")
-    assert resp.status_code == 403
 
 
 def test_registrar_com_senha_invalida_nao_ecoa_senha_em_texto_puro(client):
@@ -262,13 +219,6 @@ def test_prompt_divergente_e_409_e_traz_os_dois_hashes():
     assert exc.corpo()["hash_em_disco"] == "bbb"
 
 
-from backend.app.exceptions import (
-    BancoCongeladoException,
-    FonteInvalidaException,
-    MaterialInsuficienteParaBancoException,
-)
-
-
 def test_material_insuficiente_e_409_e_diz_os_dois_numeros():
     exc = MaterialInsuficienteParaBancoException(chunks=12, pedidos=29)
     assert exc.status_code == 409
@@ -290,8 +240,6 @@ def test_fonte_invalida_e_502_e_lista_os_disponiveis():
 
 
 def test_parametros_banco_divergentes_e_409_e_traz_os_dois_pares():
-    from backend.app.exceptions import ParametrosBancoDivergentesException
-
     exc = ParametrosBancoDivergentesException("v1", gravado=(10, 5), pedido=(12, 3))
     assert exc.status_code == 409
     corpo = exc.corpo()

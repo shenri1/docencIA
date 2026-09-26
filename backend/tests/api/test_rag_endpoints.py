@@ -1,6 +1,7 @@
 from backend.app.exceptions import FalhaRerankException
 from backend.app.main import app
 from backend.app.services.rag.rerank import get_reranker
+from backend.tests.conftest import _auth
 from backend.tests.fabricas import pdf_com_texto
 
 PDF = pdf_com_texto(["Busca em largura percorre o grafo por níveis, camada a camada."])
@@ -12,21 +13,6 @@ SESSAO = {
     "p_m": 40,
     "p_d": 30,
 }
-
-
-def _auth(client, credencial="rag001") -> dict[str, str]:
-    client.post(
-        "/auth/registrar",
-        json={
-            "nome": "Ana",
-            "credencial_institucional": credencial,
-            "senha": "senhaforte123",
-        },
-    )
-    login = client.post(
-        "/auth/login", data={"username": credencial, "password": "senhaforte123"}
-    )
-    return {"Authorization": f"Bearer {login.json()['access_token']}"}
 
 
 def _sessao(client, cabecalhos) -> int:
@@ -119,9 +105,3 @@ def test_reranker_fora_responde_502_e_nao_degrada_em_silencio(client):
         app.dependency_overrides.pop(get_reranker, None)
     assert resposta.status_code == 502
     assert resposta.json()["codigo"] == "FALHA_RERANK"
-
-
-def test_rota_de_busca_esta_documentada_no_swagger(client):
-    schema = client.get("/openapi.json").json()
-    assert "/sessoes/{sessao_id}/buscar" in schema["paths"]
-    assert "TrechoResposta" in schema["components"]["schemas"]

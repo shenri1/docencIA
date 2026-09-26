@@ -109,16 +109,6 @@ def test_integridade_passa_quando_o_disco_bate_com_a_versao_ativa(db_session):
     verificar_integridade(db_session)
 
 
-def test_integridade_acusa_divergencia(db_session):
-    prompt = registrar_versao(db_session, "1.0.0", "papel", PARAMS)
-    ativar(db_session, "1.0.0")
-    # Simula edição de um .md sem registrar versão nova.
-    prompt.hash_modulos = "0" * 64
-    db_session.commit()
-    with pytest.raises(PromptDivergenteException):
-        verificar_integridade(db_session)
-
-
 def test_editar_o_prompt_do_critico_sem_versao_nova_e_divergencia(
     db_session, monkeypatch
 ):

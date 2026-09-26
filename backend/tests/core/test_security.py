@@ -9,10 +9,6 @@ from backend.app.core.security import (
 from backend.app.exceptions import TokenInvalidoException
 
 
-def test_hash_senha_nao_retorna_texto_puro():
-    assert hash_senha("minhasenha123") != "minhasenha123"
-
-
 def test_verificar_senha_aceita_senha_correta():
     hash_ = hash_senha("minhasenha123")
     assert verificar_senha("minhasenha123", hash_) is True

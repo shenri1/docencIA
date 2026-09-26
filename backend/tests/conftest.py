@@ -63,6 +63,22 @@ from backend.app.services.auth_service import registrar_docente
 from backend.app.services.rag.embeddings import EmbeddingsFake, get_embeddings
 from backend.app.services.rag.rerank import RerankerFake, get_reranker
 
+
+def _auth(client, credencial="rag001") -> dict[str, str]:
+    client.post(
+        "/auth/registrar",
+        json={
+            "nome": "Ana",
+            "credencial_institucional": credencial,
+            "senha": "senhaforte123",
+        },
+    )
+    login = client.post(
+        "/auth/login", data={"username": credencial, "password": "senhaforte123"}
+    )
+    return {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+
 # Ordem importa: filhos antes dos pais, senão a FK bloqueia o DELETE.
 #
 # Tabela que nasce num teste e não é limpa vaza para os seguintes. Foi o que

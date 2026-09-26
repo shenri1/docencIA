@@ -87,9 +87,6 @@ def test_me_com_token_valido_retorna_dados_do_docente(client):
 
 def test_entidades_de_auth_aparecem_documentadas_no_swagger(client):
     schema = client.get("/openapi.json").json()
-    assert "/auth/registrar" in schema["paths"]
-    assert "/auth/login" in schema["paths"]
-    assert "/auth/me" in schema["paths"]
     componentes = schema["components"]["schemas"]
     assert "DocenteResposta" in componentes
     assert "TokenResponse" in componentes

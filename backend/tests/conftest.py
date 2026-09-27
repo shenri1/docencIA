@@ -44,6 +44,7 @@ from backend.app.core.db import get_db
 from backend.app.core.storage import ArmazenamentoLocal, get_armazenamento
 from backend.app.main import app
 from backend.app.models import Base
+from backend.app.models.auditoria import RegistroAuditoria
 from backend.app.models.banco import (
     Alternativa,
     AspectoEsperado,
@@ -103,6 +104,9 @@ _MODELOS_PARA_LIMPAR = (
     # Filhos de MaterialReferencia
     ChunkMaterial,
     MaterialReferencia,
+    # Sem FK: pode sair em qualquer posição. Fica aqui para a lista continuar
+    # lida de filho para pai.
+    RegistroAuditoria,
     # Raízes
     SessaoGeracao,
     Docente,

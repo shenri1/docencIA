@@ -8,6 +8,7 @@ from backend.app.prompt.montagem import (
     carregar_modulos,
     carregar_modulos_versionados,
     montar_sistema,
+    montar_sistema_auditor,
     montar_sistema_critico,
 )
 from backend.app.prompt.parametros import ParametrosGeracao
@@ -153,3 +154,34 @@ def test_modulo_novo_em_pasta_entra_no_hash_e_no_tipo(tmp_path, monkeypatch):
     (tmp_path / "discursiva" / "04_extra.md").write_text("EXTRA")
     assert calcular_hash(carregar_modulos_versionados()) != antes
     assert "EXTRA" in montar_sistema(DISC, params())
+
+
+def _modulo(pasta: str, nome: str) -> str:
+    return (montagem.DIRETORIO_MODULOS / pasta / nome).read_text(encoding="utf-8")
+
+
+def test_sistema_auditor_tem_auditor_qualidade_e_fontes():
+    texto = montar_sistema_auditor(params())
+    assert texto.index("<auditor>") < texto.index("<politica_fontes>")
+    assert "<qualidade_alternativas>" in texto
+    assert "{{" not in texto
+
+
+def test_sistema_auditor_nao_tem_identidade_do_gerador_nem_exemplos():
+    texto = montar_sistema_auditor(params())
+    assert "<identidade>" not in texto
+    assert "<exemplos>" not in texto
+
+
+def test_sistema_do_gerador_nao_contem_texto_do_auditor():
+    auditor = _modulo("auditor", "01_auditor.md")
+    montado = montar_sistema(OBJ, params())
+    assert auditor.strip()[:60] not in montado
+    assert "<auditor>" not in montado
+
+
+def test_modulo_do_auditor_entra_no_hash_de_versao():
+    """`carregar_modulos_versionados` usa rglob, então a pasta nova entra no
+    hash sem ninguém listá-la."""
+    nomes = [nome for nome, _ in carregar_modulos_versionados()]
+    assert "auditor/01_auditor.md" in nomes

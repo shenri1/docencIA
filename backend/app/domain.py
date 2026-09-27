@@ -64,6 +64,28 @@ class EstadoBanco(str, Enum):
 class EstadoQuestao(str, Enum):
     ATIVA = "ativa"
     EXCLUIDA = "excluida"
+    # a original de uma substituição aceita. Mantém o número e o
+    # motivo da troca; não conta em n_atual.
+    SUBSTITUIDA = "substituida"
+    # Gerada por propor_substituicao e ainda não lida pelo docente: ocupa uma
+    # linha de `questoes` sem estar no banco. Toda consulta que conta ou lista
+    # questão precisa filtrar por estado.
+    CANDIDATA = "candidata"
+    # Candidata rejeitada pelo docente. Fica gravada: a rejeição é dado.
+    DESCARTADA = "descartada"
+
+
+class EventoBanco(str, Enum):
+    """O que motivou um RelatorioImpacto."""
+
+    EXCLUSAO = "exclusao"
+    SUBSTITUICAO = "substituicao"
+    CONGELAMENTO = "congelamento"
+
+
+class DecisaoSubstituicao(str, Enum):
+    ACEITA = "aceita"
+    REJEITADA = "rejeitada"
 
 
 class NivelBloom(str, Enum):

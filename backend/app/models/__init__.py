@@ -9,6 +9,7 @@ from backend.app.models.banco import (
     JustificativaEstruturada,
     Questao,
     RegistroExclusao,
+    RegistroSubstituicao,
     RelatorioImpacto,
     RevisaoQuestao,
 )
@@ -38,6 +39,7 @@ __all__ = [
     "Questao",
     "RegistroAuditoria",
     "RegistroExclusao",
+    "RegistroSubstituicao",
     "RelatorioImpacto",
     "RevisaoQuestao",
     "SessaoGeracao",

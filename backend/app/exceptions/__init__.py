@@ -467,3 +467,132 @@ class FonteInvalidaException(DomainException):
             identificador=identificador,
             disponiveis=disponiveis,
         )
+
+
+# --- Controle do Banco ---
+
+
+class BancoNaoEncontradoException(DomainException):
+    """Banco de outro docente responde 404, não 403: não revela existência."""
+
+    status_code = 404
+    codigo = "BANCO_NAO_ENCONTRADO"
+
+    def __init__(self, banco_id: int) -> None:
+        super().__init__(f"Banco {banco_id} não encontrado.", banco_id=banco_id)
+
+
+class QuestaoNaoEncontradaException(DomainException):
+    status_code = 404
+    codigo = "QUESTAO_NAO_ENCONTRADA"
+
+    def __init__(self, numero: int) -> None:
+        super().__init__(f"O banco não tem questão de número {numero}.", numero=numero)
+
+
+class RevisaoDesatualizadaException(DomainException):
+    """Human-in-the-loop: o comando vale sobre o banco que o docente viu. Sem
+    isto, "excluir Q5" poderia valer sobre um Q5 que ele nunca leu."""
+
+    status_code = 409
+    codigo = "REVISAO_DESATUALIZADA"
+
+    def __init__(self, atual: int, esperada: int) -> None:
+        super().__init__(
+            f"O banco está na revisão {atual} e o comando esperava a {esperada}. "
+            "Leia o banco de novo antes de decidir.",
+            revisao_atual=atual,
+            revisao_esperada=esperada,
+        )
+
+
+class JanelaExclusoesFechadaException(DomainException):
+    """o congelamento fecha a janela de exclusões. Substituição
+    com comando explícito continua permitida — é a exceção que abre."""
+
+    status_code = 409
+    codigo = "JANELA_EXCLUSOES_FECHADA"
+
+    def __init__(self, versao: str) -> None:
+        super().__init__(
+            f"O banco {versao} está congelado: a janela de exclusões fechou. "
+            "Substituir uma questão específica continua possível.",
+            versao=versao,
+        )
+
+
+class NumerosInvalidosException(DomainException):
+    """Tudo-ou-nada: aplicar metade da lista deixaria o docente num estado que
+    ele não pediu."""
+
+    status_code = 422
+    codigo = "NUMEROS_INVALIDOS"
+
+    def __init__(self, invalidos: list[dict[str, object]]) -> None:
+        numeros = ", ".join(str(item["numero"]) for item in invalidos)
+        super().__init__(
+            f"Nenhuma exclusão foi aplicada: {numeros} não pode(m) ser excluído(s).",
+            invalidos=invalidos,
+        )
+
+
+class BancoVazioException(DomainException):
+    status_code = 409
+    codigo = "BANCO_VAZIO"
+
+    def __init__(self, versao: str) -> None:
+        super().__init__(
+            f"O banco {versao} não tem nenhuma questão ativa para congelar.",
+            versao=versao,
+        )
+
+
+class CandidataPendenteException(DomainException):
+    status_code = 409
+    codigo = "CANDIDATA_PENDENTE"
+
+    def __init__(self, numero: int) -> None:
+        super().__init__(
+            f"A questão {numero} já tem uma candidata pendente. Aceite ou "
+            "rejeite antes de propor outra.",
+            numero=numero,
+        )
+
+
+class SemCandidataPendenteException(DomainException):
+    status_code = 409
+    codigo = "SEM_CANDIDATA_PENDENTE"
+
+    def __init__(self, numero: int) -> None:
+        super().__init__(
+            f"A questão {numero} não tem candidata pendente.", numero=numero
+        )
+
+
+class EstadoQuestaoInvalidoException(DomainException):
+    status_code = 409
+    codigo = "ESTADO_QUESTAO_INVALIDO"
+
+    def __init__(self, numero: int, estado: str) -> None:
+        super().__init__(
+            f"A questão {numero} está {estado} e não pode ser substituída. Só "
+            "questão ativa ou excluída aceita substituição.",
+            numero=numero,
+            estado=estado,
+        )
+
+
+class InconsistenciaDeEstadoException(DomainException):
+    """NÃO é bug: é o sistema se recusando a entregar estado
+    incoerente. Bloqueia leitura e congelamento, e nas 14 vai
+    bloquear provas, gabaritos e exportação."""
+
+    status_code = 409
+    codigo = "INCONSISTENCIA_DE_ESTADO"
+
+    def __init__(self, problemas: list[str]) -> None:
+        super().__init__(
+            f"O banco está em estado incoerente ({len(problemas)} problema(s)) e "
+            "não pode ser entregue.",
+            problemas=problemas,
+        )

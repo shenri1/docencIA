@@ -7,6 +7,10 @@ from backend.app.core.security import decodificar_token
 from backend.app.domain import PerfilDocente
 from backend.app.exceptions import PerfilInsuficienteException, TokenInvalidoException
 from backend.app.models.identidade import Docente
+from backend.app.services.provedor.provedor_service import (
+    ProvedorLLMService,
+    criar_provedor_service,
+)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -39,3 +43,9 @@ def require_perfil(minimo: PerfilDocente):
         return docente
 
     return _checar
+
+
+def get_provedor(db: Session = Depends(get_db)) -> ProvedorLLMService:
+    """Adaptador FastAPI para `criar_provedor_service`, que fica sem `Depends`
+    de propósito. É também o ponto de sobrescrita nos testes de API."""
+    return criar_provedor_service(db)

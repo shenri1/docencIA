@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from backend.app.api.endpoints import (
     auth,
     banco,
+    bancos,
     health,
     materiais,
     prompts,
@@ -18,3 +19,4 @@ router.include_router(materiais.router)
 router.include_router(rag.router)
 router.include_router(prompts.router)
 router.include_router(banco.router)
+router.include_router(bancos.router)

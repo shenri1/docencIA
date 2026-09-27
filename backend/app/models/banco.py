@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -9,11 +8,13 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy import (
     Enum as SAEnum,
@@ -23,13 +24,15 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.schema import conv
 
 from backend.app.domain import (
+    DecisaoSubstituicao,
     EstadoBanco,
     EstadoQuestao,
+    EventoBanco,
     FaixaDificuldade,
     NivelBloom,
     TipoQuestao,
 )
-from backend.app.models.base import Base
+from backend.app.models.base import Base, append_only
 
 if TYPE_CHECKING:
     from backend.app.models.identidade import SessaoGeracao
@@ -62,7 +65,12 @@ class BancoQuestoes(Base):
     # âncoras com outro espaçamento.
     n_alvo_objetivas: Mapped[int] = mapped_column(Integer)
     n_alvo_discursivas: Mapped[int] = mapped_column(Integer)
+    # n_atual é o número de questões ATIVA. Excluída, substituída, candidata e
+    # descartada não contam.
     n_atual: Mapped[int] = mapped_column(Integer, default=0)
+    # contador de revisão, incrementado a cada exclusão, substituição
+    # aceita e congelamento. Exibido como "v1.r3".
+    revisao: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     sessao: Mapped[SessaoGeracao] = relationship(back_populates="bancos")
     questoes: Mapped[list[Questao]] = relationship(
@@ -77,7 +85,26 @@ class BancoQuestoes(Base):
 class Questao(Base):
     __tablename__ = "questoes"
     __table_args__ = (
-        UniqueConstraint("banco_id", "numero", name="questao_por_banco_numero"),
+        # Índices parciais no lugar de UniqueConstraint("banco_id", "numero"):
+        # a substituição aceita deixa a original SUBSTITUIDA no mesmo número, e
+        # a segunda troca do mesmo número deixa duas. A regra real é "um
+        # ocupante (ATIVA ou EXCLUIDA) e uma candidata por número".
+        #
+        # Os enums nativos guardam o NOME do membro, em maiúsculas.
+        Index(
+            "questao_por_banco_numero_ocupado",
+            "banco_id",
+            "numero",
+            unique=True,
+            postgresql_where=text("estado IN ('ATIVA', 'EXCLUIDA')"),
+        ),
+        Index(
+            "candidata_por_banco_numero",
+            "banco_id",
+            "numero",
+            unique=True,
+            postgresql_where=text("estado = 'CANDIDATA'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -241,7 +268,39 @@ class RelatorioImpacto(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     n_final: Mapped[int] = mapped_column(Integer)
-    contagem_por_faixa: Mapped[dict[str, int]] = mapped_column(JSONB)
-    desvio_observado: Mapped[dict[str, Decimal]] = mapped_column(JSONB)
+    revisao: Mapped[int] = mapped_column(Integer)
+    evento: Mapped[EventoBanco] = mapped_column(
+        SAEnum(EventoBanco, name="evento_banco")
+    )
+    alerta_desvio: Mapped[bool] = mapped_column(Boolean)
+    # Aninhado por tipo desde a {"objetiva": {"facil": 6, ...}, ...}
+    contagem_por_faixa: Mapped[dict[str, dict[str, int]]] = mapped_column(JSONB)
+    # Desvio como TEXTO: Decimal não serializa em JSONB e float não é exato.
+    # null quando o tipo foi pedido e não tem nenhuma questão ativa.
+    desvio_observado: Mapped[dict[str, dict[str, str | None]]] = mapped_column(JSONB)
 
     banco: Mapped[BancoQuestoes] = relationship(back_populates="relatorios_impacto")
+
+
+class RegistroSubstituicao(Base):
+    """histórico de trocas, append-only. Sem relationship de
+    propósito — duas FKs para `questoes` exigiriam `foreign_keys` em cada uma,
+    e nenhuma consulta desta etapa navega por elas."""
+
+    __tablename__ = "registros_substituicao"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    questao_original_id: Mapped[int] = mapped_column(
+        ForeignKey("questoes.id"), index=True
+    )
+    candidata_id: Mapped[int] = mapped_column(ForeignKey("questoes.id"))
+    docente_id: Mapped[int] = mapped_column(ForeignKey("docentes.id"))
+    decisao: Mapped[DecisaoSubstituicao] = mapped_column(
+        SAEnum(DecisaoSubstituicao, name="decisao_substituicao")
+    )
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+append_only(RegistroSubstituicao)

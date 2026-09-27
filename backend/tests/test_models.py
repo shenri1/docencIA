@@ -22,6 +22,7 @@ TABELAS_ESPERADAS = {
     "justificativas_estruturadas",
     "revisoes_questao",
     "registros_exclusao",
+    "registros_substituicao",
     "relatorios_impacto",
     "provas",
     "itens_prova",
@@ -167,3 +168,45 @@ def test_banco_guarda_contagem_por_tipo():
     assert colunas["n_alvo_discursivas"].nullable is False
     nomes = {c.name for c in BancoQuestoes.__table__.constraints}
     assert "n_alvo_soma_tipos" in nomes
+
+
+def test_indice_parcial_permite_substituida_repetida_e_veta_dois_ocupantes(
+    db_session, sessao_rascunho
+):
+    """A regra do número é do banco de dados, não só do código: duas ATIVA no
+    mesmo número são impossíveis, mas duas SUBSTITUIDA são o caso normal da
+    segunda troca do mesmo número."""
+    from sqlalchemy.exc import IntegrityError
+
+    from backend.app.domain import EstadoQuestao
+    from backend.tests.fabrica_banco import criar_banco, criar_questao_objetiva
+
+    banco = criar_banco(db_session, sessao_rascunho, n_objetivas=3)
+    criar_questao_objetiva(db_session, banco, numero=1)
+    criar_questao_objetiva(db_session, banco, numero=1, estado=EstadoQuestao.SUBSTITUIDA)
+    criar_questao_objetiva(db_session, banco, numero=1, estado=EstadoQuestao.SUBSTITUIDA)
+    criar_questao_objetiva(db_session, banco, numero=1, estado=EstadoQuestao.CANDIDATA)
+    db_session.commit()
+
+    # A fábrica faz flush: o índice dispara ali, não no commit.
+    with pytest.raises(IntegrityError):
+        criar_questao_objetiva(db_session, banco, numero=1)
+    db_session.rollback()
+
+
+def test_indice_parcial_veta_duas_candidatas_no_mesmo_numero(
+    db_session, sessao_rascunho
+):
+    from sqlalchemy.exc import IntegrityError
+
+    from backend.app.domain import EstadoQuestao
+    from backend.tests.fabrica_banco import criar_banco, criar_questao_objetiva
+
+    banco = criar_banco(db_session, sessao_rascunho, n_objetivas=3)
+    criar_questao_objetiva(db_session, banco, numero=2, estado=EstadoQuestao.CANDIDATA)
+    db_session.commit()
+    with pytest.raises(IntegrityError):
+        criar_questao_objetiva(
+            db_session, banco, numero=2, estado=EstadoQuestao.CANDIDATA
+        )
+    db_session.rollback()

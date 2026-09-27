@@ -52,6 +52,7 @@ from backend.app.models.banco import (
     JustificativaEstruturada,
     Questao,
     RegistroExclusao,
+    RegistroSubstituicao,
     RelatorioImpacto,
     RevisaoQuestao,
 )
@@ -94,6 +95,7 @@ _MODELOS_PARA_LIMPAR = (
     Alternativa,
     FonteInterna,
     RegistroExclusao,
+    RegistroSubstituicao,
     # Filhos de BancoQuestoes
     Questao,
     RelatorioImpacto,

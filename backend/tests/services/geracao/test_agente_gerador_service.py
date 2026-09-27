@@ -216,3 +216,48 @@ def test_objetiva_continua_o_default(
         distribuicao=DISTRIBUICAO,
     )
     assert "<formato_objetiva>" in provedor.requisicoes[0].sistema
+
+
+def test_evitar_entra_na_mensagem_de_usuario(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    """A substituição pede ao Gerador para não repetir a original. Muda a
+    mensagem de usuário, não o prompt mestre — logo, não exige versão nova."""
+    ancora = preparar(db_session, armazenamento, embeddings_fake, sessao_rascunho)
+    provedor = ProvedorLLMFake([corpo_questao(sessao_rascunho.k_alternativas)])
+
+    gerar_questao(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        provedor,
+        sessao_rascunho,
+        ancora,
+        FaixaDificuldade.MEDIA,
+        numero=1,
+        distribuicao=DISTRIBUICAO,
+        evitar="Q4: Qual estrutura a busca em profundidade usa?",
+    )
+
+    usuario = provedor.requisicoes[0].usuario
+    assert "não a repita" in usuario
+    assert "Qual estrutura a busca em profundidade usa?" in usuario
+
+
+def test_sem_evitar_a_mensagem_nao_muda(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    ancora = preparar(db_session, armazenamento, embeddings_fake, sessao_rascunho)
+    provedor = ProvedorLLMFake([corpo_questao(sessao_rascunho.k_alternativas)])
+    gerar_questao(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        provedor,
+        sessao_rascunho,
+        ancora,
+        FaixaDificuldade.MEDIA,
+        numero=1,
+        distribuicao=DISTRIBUICAO,
+    )
+    assert "não a repita" not in provedor.requisicoes[0].usuario

@@ -671,3 +671,45 @@ def test_banco_anterior_a_10c_e_retomado_como_so_objetivas(
         ProvedorLLMFake(roteiro(2)), 2, 0,
     )
     assert resumo.geradas == 2
+
+
+def test_gerar_banco_move_a_sessao_para_banco_gerado(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    gerar(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
+        ProvedorLLMFake(roteiro(3)), n_alvo=3,
+    )
+    assert sessao_rascunho.estado is EstadoSessao.BANCO_GERADO
+
+
+def test_retomada_continua_funcionando_com_a_sessao_em_banco_gerado(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    """As guardas de índice e material testam `!= RASCUNHO`, então BANCO_GERADO
+    não bloqueia a retomada."""
+    preparar(db_session, armazenamento, sessao_rascunho)
+    gerar(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
+        ProvedorLLMFake(roteiro(1) + [corpo_insuficiencia()]), n_alvo=2,
+    )
+    assert sessao_rascunho.estado is EstadoSessao.BANCO_GERADO
+    resumo = gerar(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
+        ProvedorLLMFake(roteiro(1)), n_alvo=2,
+    )
+    assert resumo.geradas == 1
+    assert resumo.ja_existentes == 1
+    assert resumo.revisao == 0
+
+
+def test_banco_nao_muda_de_estado_de_sessao_quando_nada_e_gerado(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    gerar(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
+        ProvedorLLMFake([corpo_insuficiencia()]), n_alvo=1,
+    )
+    assert sessao_rascunho.estado is EstadoSessao.MATERIAIS_CONFIRMADOS

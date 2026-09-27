@@ -1,8 +1,18 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from backend.app.domain import RegraQualidade, TipoQuestao
+from backend.app.domain import (
+    EstadoBanco,
+    EstadoQuestao,
+    EventoBanco,
+    FaixaDificuldade,
+    NivelBloom,
+    RegraQualidade,
+    TipoQuestao,
+)
 
 # Regra de negócio, não configuração: duas chamadas ao modelo por questão
 # (~38 s) fazem 25 questões custarem ~16 minutos síncronos, e 25 ainda
@@ -57,6 +67,9 @@ class ResumoBancoResposta(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     banco_id: int
+    revisao: int = Field(
+        ..., description="Revisão do banco — é o que os comandos de controle exigem."
+    )
     geradas: int = Field(..., description="Questões persistidas nesta chamada.")
     ja_existentes: int = Field(
         ..., description="Questões puladas por já existirem (retomada)."
@@ -72,3 +85,129 @@ class ResumoBancoResposta(BaseModel):
     geradas_por_tipo: dict[TipoQuestao, int] = Field(
         ..., description="Questões persistidas nesta chamada, por tipo."
     )
+
+
+# --- Controle do Banco ---
+
+
+class ExclusaoCriar(BaseModel):
+    numeros: list[int] = Field(
+        ..., min_length=1, description="Números das questões a excluir."
+    )
+    revisao_esperada: int = Field(
+        ...,
+        ge=0,
+        description="Revisão que o docente estava vendo. Se o banco mudou, o "
+        "comando é recusado com 409.",
+    )
+
+
+class ComandoRevisao(BaseModel):
+    revisao_esperada: int = Field(..., ge=0, description="Revisão que o docente viu.")
+
+
+class RelatorioImpactoResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    revisao: int
+    evento: EventoBanco
+    n_final: int
+    contagem_por_faixa: dict[str, dict[str, int]] = Field(
+        ..., description="Questões ativas por tipo e faixa."
+    )
+    desvio_observado: dict[str, dict[str, str | None]] = Field(
+        ...,
+        description="Desvio em relação ao pF/pM/pD PEDIDO, em pontos percentuais, "
+        "por tipo e faixa. Texto, porque Decimal não serializa e float não é "
+        "exato. null quando o tipo não tem questão ativa.",
+    )
+    alerta_desvio: bool = Field(
+        ...,
+        description="Alguma faixa passou de 5 pontos de desvio em relação ao "
+        "pedido. É observação, nunca ação — o docente decide.",
+    )
+    timestamp: datetime
+
+
+class FonteResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    identificador_material: str
+    localizacao: str
+    trecho_base: str
+
+
+class AlternativaResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    letra: str
+    texto: str
+
+
+class AspectoEsperadoResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    ordem: int
+    texto: str
+    fonte: FonteResposta
+
+
+class QuestaoResposta(BaseModel):
+    """Sem justificativa e sem rascunho, de propósito: eles nunca
+    aparecem no corpo da questão."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    numero: int
+    tipo: TipoQuestao
+    estado: EstadoQuestao
+    faixa_dificuldade: FaixaDificuldade
+    nivel_bloom: NivelBloom
+    tema: str | None
+    enunciado: str
+    fontes: list[FonteResposta] = Field(..., description="Rastreabilidade.")
+    violacoes: list[ViolacaoResposta] = Field(
+        ..., description="Violações que sobreviveram à revisão."
+    )
+    alternativas: list[AlternativaResposta] = Field(
+        ..., description="Vazio na discursiva."
+    )
+    letra_correta: str | None = Field(
+        ..., description="Só com com_gabarito=true."
+    )
+    aspectos_esperados: list[AspectoEsperadoResposta] = Field(
+        ..., description="Só com com_gabarito=true — é o gabarito da discursiva."
+    )
+
+
+class BancoResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    banco_id: int
+    versao: str
+    revisao: int
+    rotulo: str = Field(..., description='Versão e revisão juntas, ex.: "v1.r3".')
+    estado: EstadoBanco
+    n_alvo: int
+    n_alvo_objetivas: int
+    n_alvo_discursivas: int
+    n_atual: int = Field(..., description="Questões ATIVA.")
+    ultimo_relatorio: RelatorioImpactoResposta | None
+    questoes: list[QuestaoResposta]
+
+
+class PropostaSubstituicaoResposta(BaseModel):
+    """A candidata vem COM gabarito: o docente precisa dele para julgar. Vem sem
+    justificativa, pelo mesmo motivo da leitura."""
+
+    numero: int
+    candidata: QuestaoResposta | None = None
+    motivo_insuficiencia: str | None = Field(
+        None, description="o material não sustentou outra questão."
+    )
+    localizacao: str | None = None
+
+
+class RejeicaoResposta(BaseModel):
+    numero: int
+    decisao: str = "rejeitada"

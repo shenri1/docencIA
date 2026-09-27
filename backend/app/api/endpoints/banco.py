@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_docente
+from backend.app.api.deps import get_current_docente, get_provedor
 from backend.app.core.db import get_db
 from backend.app.models.identidade import Docente
 from backend.app.schemas.banco import BancoCriar, ResumoBancoResposta
 from backend.app.services.geracao.banco_service import ResumoBanco, gerar_banco
-from backend.app.services.provedor.provedor_service import criar_provedor_service
+from backend.app.services.provedor.provedor_service import ProvedorLLMService
 from backend.app.services.rag.embeddings import Embeddings, get_embeddings
 from backend.app.services.rag.rerank import Reranker, get_reranker
 from backend.app.services.sessao_service import obter_sessao
@@ -24,6 +24,7 @@ def gerar(
     docente: Docente = Depends(get_current_docente),
     embeddings: Embeddings = Depends(get_embeddings),
     reranker: Reranker = Depends(get_reranker),
+    provedor: ProvedorLLMService = Depends(get_provedor),
 ) -> ResumoBanco:
     # Chamada longa: ~38 s por questão (geração + revisão). A retomada do banco_service é o que
     # torna um timeout de proxy não destrutivo.
@@ -32,7 +33,7 @@ def gerar(
         db,
         embeddings,
         reranker,
-        criar_provedor_service(db),
+        provedor,
         sessao,
         n_objetivas=dados.n_objetivas,
         n_discursivas=dados.n_discursivas,

@@ -36,7 +36,11 @@ class ResultadoGeracao:
 
 
 def _montar_usuario(
-    trechos: list[TrechoRecuperado], faixa: FaixaDificuldade, k: int, tipo: TipoQuestao
+    trechos: list[TrechoRecuperado],
+    faixa: FaixaDificuldade,
+    k: int,
+    tipo: TipoQuestao,
+    evitar: str | None = None,
 ) -> str:
     if tipo is TipoQuestao.DISCURSIVA:
         pedido = (
@@ -49,7 +53,13 @@ def _montar_usuario(
             f"Gere UMA questão de dificuldade {faixa.value} com exatamente {k} "
             "alternativas, usando apenas os trechos acima."
         )
-    return "Trechos disponíveis:\n" + formatar_trechos(trechos) + "\n\n" + pedido
+    partes = ["Trechos disponíveis:\n" + formatar_trechos(trechos)]
+    if evitar is not None:
+        # A substituição reusa a MESMA âncora: sem esta instrução, a mesma
+        # temperatura tenderia a devolver quase a mesma questão.
+        partes.append("Questão que está sendo substituída — não a repita:\n" + evitar)
+    partes.append(pedido)
+    return "\n\n".join(partes)
 
 
 def gerar_questao(
@@ -63,6 +73,7 @@ def gerar_questao(
     numero: int,
     distribuicao: DistribuicaoQuestoes,
     tipo: TipoQuestao = TipoQuestao.OBJETIVA,
+    evitar: str | None = None,
 ) -> ResultadoGeracao:
     # O texto da âncora É a consulta: ela já decidiu o assunto, e o RAG só
     # traz o contexto vizinho.
@@ -82,7 +93,9 @@ def gerar_questao(
         sessao.id,
         RequisicaoLLM(
             sistema=sistema,
-            usuario=_montar_usuario(trechos, faixa, sessao.k_alternativas, tipo),
+            usuario=_montar_usuario(
+                trechos, faixa, sessao.k_alternativas, tipo, evitar
+            ),
             formato=montar_schema(tipo, sessao.k_alternativas),
             temperatura=settings.geracao_temperatura,
             max_tokens=settings.geracao_max_tokens,

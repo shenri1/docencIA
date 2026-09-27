@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from backend.app.domain import (
     EstadoBanco,
     EstadoQuestao,
+    EstadoSessao,
     FaixaDificuldade,
     NivelBloom,
     TipoQuestao,
@@ -36,6 +37,7 @@ from backend.app.models.banco import (
     RevisaoQuestao,
 )
 from backend.app.models.identidade import SessaoGeracao
+from backend.app.models.materiais import ChunkMaterial
 from backend.app.schemas.geracao import LETRAS
 from backend.app.services.calculo_distribuicao_service import (
     DistribuicaoQuestoes,
@@ -63,10 +65,16 @@ from backend.app.services.sessao_service import exigir_indice_confirmado
 
 
 @dataclass(frozen=True)
-class AncoraImprodutiva:
+class Improdutiva:
     numero: int
     localizacao: str
     motivo: str
+
+
+@dataclass(frozen=True)
+class Produzida:
+    questao: Questao
+    violacoes_final: list[Violacao]
 
 
 @dataclass(frozen=True)
@@ -78,9 +86,12 @@ class ItemComViolacao:
 @dataclass(frozen=True)
 class ResumoBanco:
     banco_id: int
+    # A revisão que o docente precisa mandar de volta no primeiro comando de
+    # controle do banco.
+    revisao: int
     geradas: int
     ja_existentes: int
-    improdutivas: list[AncoraImprodutiva]
+    improdutivas: list[Improdutiva]
     # Violações que sobreviveram à revisão. É por aqui que o docente sabe
     # quais questões olhar antes da janela de exclusões.
     com_violacoes: list[ItemComViolacao]
@@ -161,16 +172,19 @@ def _validar(tipo: TipoQuestao, questao, trechos) -> list[Violacao]:
 def _persistir(
     db: Session,
     banco: BancoQuestoes,
-    item: ItemPlano,
+    numero: int,
+    tipo: TipoQuestao,
+    faixa: FaixaDificuldade,
     resultado: ResultadoGeracao,
     revisao: ResultadoRevisao,
     violacoes_rascunho: list[Violacao],
     violacoes_final: list[Violacao],
-) -> None:
+    estado: EstadoQuestao,
+) -> Questao:
     final = revisao.questao
     # Antes de qualquer db.add: fonte inválida levanta sem deixar objeto
     # pendente na sessão. Só a versão revisada vira FonteInterna.
-    if item.tipo is TipoQuestao.OBJETIVA:
+    if tipo is TipoQuestao.OBJETIVA:
         # Objetiva — como hoje: uma FonteInterna por item de `final.fontes`,
         # sem dedup, na ordem original.
         unicas = resolver_fontes(final.fontes, resultado.trechos)
@@ -183,13 +197,13 @@ def _persistir(
 
     questao = Questao(
         banco_id=banco.id,
-        numero=resultado.numero,
-        tipo=item.tipo,
+        numero=numero,
+        tipo=tipo,
         enunciado=final.enunciado,
         nivel_bloom=NivelBloom(final.nivel_bloom),
-        faixa_dificuldade=item.faixa,
+        faixa_dificuldade=faixa,
         tema=final.tema,
-        estado=EstadoQuestao.ATIVA,
+        estado=estado,
     )
     db.add(questao)
     db.flush()  # precisa do id para os filhos
@@ -207,7 +221,7 @@ def _persistir(
         fontes_por_chave[chave] = fonte
     db.flush()  # ids das fontes, para os aspectos
 
-    if item.tipo is TipoQuestao.OBJETIVA:
+    if tipo is TipoQuestao.OBJETIVA:
         for letra, alternativa in zip(LETRAS, final.alternativas, strict=False):
             db.add(
                 Alternativa(
@@ -258,8 +272,88 @@ def _persistir(
             modelo_revisao=revisao.modelo,
         )
     )
-    banco.n_atual += 1
+    if estado is EstadoQuestao.ATIVA:
+        # Candidata não está no banco: n_atual conta só as ATIVA.
+        banco.n_atual += 1
     db.commit()
+    return questao
+
+
+def produzir_questao(
+    db: Session,
+    embeddings,
+    reranker,
+    provedor,
+    sessao: SessaoGeracao,
+    banco: BancoQuestoes,
+    numero: int,
+    tipo: TipoQuestao,
+    faixa: FaixaDificuldade,
+    ancora: ChunkMaterial,
+    distribuicao: DistribuicaoQuestoes,
+    estado: EstadoQuestao = EstadoQuestao.ATIVA,
+    evitar: str | None = None,
+) -> Produzida | Improdutiva:
+    """Uma questão, do rascunho ao commit: gerar, medir, revisar, medir,
+    persistir. `gerar_banco` chama em laço; `propor_substituicao` chama uma vez.
+    A sequência existe só aqui."""
+    resultado = gerar_questao(
+        db,
+        embeddings,
+        reranker,
+        provedor,
+        sessao,
+        ancora,
+        faixa,
+        numero,
+        distribuicao,
+        tipo=tipo,
+        evitar=evitar,
+    )
+    if resultado.questao is None:
+        return Improdutiva(
+            numero=numero,
+            localizacao=resultado.localizacao_ancora,
+            motivo=resultado.motivo_insuficiencia or "sem motivo declarado",
+        )
+
+    # o determinístico mede, o semântico revisa com essa medida como
+    # feedback, e o determinístico mede de novo.
+    violacoes_rascunho = _validar(tipo, resultado.questao, resultado.trechos)
+    revisao = revisar_questao(
+        provedor,
+        sessao,
+        resultado.trechos,
+        resultado.questao,
+        violacoes_rascunho,
+        faixa,
+        distribuicao,
+        tipo=tipo,
+    )
+    if revisao.questao is None:
+        # O crítico concluiu que o material não sustenta a questão: 
+        # funcionando. Nada é persistido, e a retomada tenta de novo.
+        return Improdutiva(
+            numero=numero,
+            localizacao=resultado.localizacao_ancora,
+            motivo="revisão: "
+            + (revisao.motivo_insuficiencia or "sem motivo declarado"),
+        )
+
+    violacoes_final = _validar(tipo, revisao.questao, resultado.trechos)
+    questao = _persistir(
+        db,
+        banco,
+        numero,
+        tipo,
+        faixa,
+        resultado,
+        revisao,
+        violacoes_rascunho,
+        violacoes_final,
+        estado,
+    )
+    return Produzida(questao=questao, violacoes_final=violacoes_final)
 
 
 def gerar_banco(
@@ -295,76 +389,44 @@ def gerar_banco(
         TipoQuestao.OBJETIVA: 0,
         TipoQuestao.DISCURSIVA: 0,
     }
-    improdutivas: list[AncoraImprodutiva] = []
+    improdutivas: list[Improdutiva] = []
     com_violacoes: list[ItemComViolacao] = []
     for item in plano:
         if item.numero in ja_existentes:
             continue
-        resultado = gerar_questao(
+        produzida = produzir_questao(
             db,
             embeddings,
             reranker,
             provedor,
             sessao,
-            ancoras[item.numero - 1],
-            item.faixa,
-            item.numero,
-            item.distribuicao,
-            tipo=item.tipo,
-        )
-        if resultado.questao is None:
-            improdutivas.append(
-                AncoraImprodutiva(
-                    numero=item.numero,
-                    localizacao=resultado.localizacao_ancora,
-                    motivo=resultado.motivo_insuficiencia or "sem motivo declarado",
-                )
-            )
-            continue
-
-        # o determinístico mede, o semântico revisa com essa medida
-        # como feedback, e o determinístico mede de novo.
-        violacoes_rascunho = _validar(item.tipo, resultado.questao, resultado.trechos)
-        revisao = revisar_questao(
-            provedor,
-            sessao,
-            resultado.trechos,
-            resultado.questao,
-            violacoes_rascunho,
-            item.faixa,
-            item.distribuicao,
-            tipo=item.tipo,
-        )
-        if revisao.questao is None:
-            # O crítico concluiu que o material não sustenta a questão: 
-            # funcionando. Nada é persistido, e a retomada tenta de novo.
-            improdutivas.append(
-                AncoraImprodutiva(
-                    numero=item.numero,
-                    localizacao=resultado.localizacao_ancora,
-                    motivo="revisão: "
-                    + (revisao.motivo_insuficiencia or "sem motivo declarado"),
-                )
-            )
-            continue
-
-        violacoes_final = _validar(item.tipo, revisao.questao, resultado.trechos)
-        _persistir(
-            db,
             banco,
-            item,
-            resultado,
-            revisao,
-            violacoes_rascunho,
-            violacoes_final,
+            item.numero,
+            item.tipo,
+            item.faixa,
+            ancoras[item.numero - 1],
+            item.distribuicao,
         )
+        if isinstance(produzida, Improdutiva):
+            improdutivas.append(produzida)
+            continue
         geradas += 1
         geradas_por_tipo[item.tipo] += 1
-        if violacoes_final:
-            com_violacoes.append(ItemComViolacao(item.numero, violacoes_final))
+        if produzida.violacoes_final:
+            com_violacoes.append(
+                ItemComViolacao(item.numero, produzida.violacoes_final)
+            )
+
+    # A sessão nunca saía de MATERIAIS_CONFIRMADOS. As guardas de índice e
+    # material testam `!= RASCUNHO`, então a retomada e o RAG continuam
+    # funcionando depois disto.
+    if banco.n_atual > 0 and sessao.estado is EstadoSessao.MATERIAIS_CONFIRMADOS:
+        sessao.estado = EstadoSessao.BANCO_GERADO
+        db.commit()
 
     return ResumoBanco(
         banco_id=banco.id,
+        revisao=banco.revisao,
         geradas=geradas,
         ja_existentes=len(ja_existentes),
         improdutivas=improdutivas,

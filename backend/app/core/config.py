@@ -78,6 +78,13 @@ class Settings(BaseSettings):
     critico_temperatura: float = 0.2
     critico_max_tokens: int = 2048
 
+    # --- Auditoria ---
+    # Abaixo da temperatura do crítico (0,2): auditar pede o mínimo de invenção.
+    # Palpite, como o 0,4 do Gerador e o 0,2 do crítico.
+    auditoria_temperatura: float = 0.1
+    # A saída é uma lista curta de achados, não uma questão inteira.
+    auditoria_max_tokens: int = 1024
+
 
 settings = Settings()
 

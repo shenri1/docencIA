@@ -138,3 +138,12 @@ class RegraQualidade(str, Enum):
     GEMEO_NA_CORRETA = "gemeo_na_correta"
     COMANDO_AUSENTE = "comando_ausente"
     ASPECTOS_REPETIDOS = "aspectos_repetidos"
+
+
+class RiscoAuditoria(str, Enum):
+    """Os dois primeiros são juízo semântico e vêm do modelo; o
+    terceiro é medido por `validar_objetiva` e nunca vem dele."""
+
+    CORRETA_NAO_UNICA = "correta_nao_unica"
+    DISTRATOR_INDEFENSAVEL = "distrator_indefensavel"
+    ASSIMETRIA_FORMA = "assimetria_forma"

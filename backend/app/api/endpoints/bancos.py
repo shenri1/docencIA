@@ -19,6 +19,7 @@ from backend.app.schemas.banco import (
     QuestaoResposta,
     RejeicaoResposta,
     RelatorioImpactoResposta,
+    ResumoAuditoriaResposta,
 )
 from backend.app.services.controle_banco.estado import obter_banco
 from backend.app.services.controle_banco.exclusao_service import (
@@ -35,6 +36,11 @@ from backend.app.services.controle_banco.substituicao_service import (
     aceitar_substituicao,
     propor_substituicao,
     rejeitar_substituicao,
+)
+from backend.app.services.critico.auditor_service import (
+    ResumoAuditoria,
+    auditar_banco,
+    montar_resumo,
 )
 from backend.app.services.geracao.banco_service import Produzida
 from backend.app.services.provedor.provedor_service import ProvedorLLMService
@@ -159,3 +165,34 @@ def rejeitar(
     banco = obter_banco(db, docente, banco_id)
     rejeitar_substituicao(db, docente, banco, numero)
     return RejeicaoResposta(numero=numero)
+
+
+@router.post("/auditoria", response_model=ResumoAuditoriaResposta)
+def auditar(
+    banco_id: int,
+    db: Session = Depends(get_db),
+    docente: Docente = Depends(get_current_docente),
+    embeddings: Embeddings = Depends(get_embeddings),
+    reranker: Reranker = Depends(get_reranker),
+    provedor: ProvedorLLMService = Depends(get_provedor),
+) -> ResumoAuditoria:
+    # Chamada longa: ~19 s por questão mais o retrieval. O commit por questão do
+    # auditor_service é o que torna um timeout de proxy não destrutivo — a
+    # chamada seguinte retoma de onde parou.
+    #
+    # Sem `revisao_esperada`: auditar não muda o banco, então não há estado a
+    # proteger. Mesma razão pela qual `rejeitar_substituicao` não a exige.
+    banco = obter_banco(db, docente, banco_id)
+    return auditar_banco(db, embeddings, reranker, provedor, docente, banco)
+
+
+@router.get("/auditoria", response_model=ResumoAuditoriaResposta)
+def ler_auditoria(
+    banco_id: int,
+    db: Session = Depends(get_db),
+    docente: Docente = Depends(get_current_docente),
+) -> ResumoAuditoria:
+    """Achados da revisão atual. Banco nunca auditado devolve resumo vazio, não
+    404: ausência de auditoria não é ausência de banco."""
+    banco = obter_banco(db, docente, banco_id)
+    return montar_resumo(db, banco)

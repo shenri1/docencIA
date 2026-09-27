@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -11,6 +12,7 @@ from backend.app.domain import (
     FaixaDificuldade,
     NivelBloom,
     RegraQualidade,
+    RiscoAuditoria,
     TipoQuestao,
 )
 
@@ -211,3 +213,59 @@ class PropostaSubstituicaoResposta(BaseModel):
 class RejeicaoResposta(BaseModel):
     numero: int
     decisao: str = "rejeitada"
+
+
+# --- Auditoria sob comando ---
+
+
+class AchadoResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    risco: RiscoAuditoria
+    alvo: str = Field(..., description="Letra da alternativa apontada.")
+    localizacao: str | None = Field(
+        ..., description="Onde no material. Nulo nos achados de forma."
+    )
+    trecho_fonte: str | None = Field(
+        ...,
+        description="Trecho que sustenta a concorrência. Nulo nos "
+        "achados de forma: assimetria não é concorrência de fonte.",
+    )
+    proposta_ajuste: str = Field(
+        ..., description="Orientação ao docente. Nunca executada."
+    )
+
+
+class QuestaoAuditadaResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    numero: int
+    achados: list[AchadoResposta]
+
+
+class ResumoAuditoriaResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    banco_id: int
+    revisao_auditada: int = Field(
+        ..., description="Revisão do banco a que estes achados se referem."
+    )
+    auditadas: int = Field(
+        ..., description="Objetivas ativas com registro nesta revisão."
+    )
+    ja_auditadas: int = Field(
+        ..., description="Quantas dessas já tinham registro antes desta chamada."
+    )
+    discursivas_ignoradas: int = Field(
+        ...,
+        description="As três verificações são sobre alternativas, e "
+        "discursiva não tem nenhuma.",
+    )
+    questoes: list[QuestaoAuditadaResposta] = Field(
+        ..., description="Só as questões com achado."
+    )
+    proporcao_com_achado: Decimal = Field(
+        ...,
+        description="Percentual de questões auditadas com ao menos um achado. "
+        "É observação, nunca ação — o docente decide se para.",
+    )

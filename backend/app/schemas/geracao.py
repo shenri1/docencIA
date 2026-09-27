@@ -12,8 +12,8 @@ from pydantic import BaseModel, Field, create_model
 
 from backend.app.domain import NivelBloom, TipoQuestao
 
-_K_MINIMO = 2
-_K_MAXIMO = 11
+K_MINIMO = 2
+K_MAXIMO = 11
 
 # Letra é posição, atribuída pelo código. Com `letra` e `correta` na mão do
 # modelo, nada impedia letra duplicada (que quebra a unique constraint no meio
@@ -50,8 +50,8 @@ class InsuficienciaFonte(BaseModel):
 def montar_schema_objetiva(k: int) -> type[BaseModel]:
     """Devolve um modelo com um único campo `resultado`, união discriminada
     entre questão gerada e insuficiência de fonte."""
-    if not _K_MINIMO <= k <= _K_MAXIMO:
-        raise ValueError(f"k deve estar entre {_K_MINIMO} e {_K_MAXIMO}, recebido {k}")
+    if not K_MINIMO <= k <= K_MAXIMO:
+        raise ValueError(f"k deve estar entre {K_MINIMO} e {K_MAXIMO}, recebido {k}")
 
     justificativa = create_model(
         f"JustificativaGerada{k}",

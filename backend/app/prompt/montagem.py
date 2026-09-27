@@ -95,3 +95,22 @@ def montar_sistema_critico(tipo: TipoQuestao, params: ParametrosGeracao) -> str:
     revisao, qualidade = _CRITICO_POR_TIPO[tipo]
     nomes = ["critico/01_revisor.md", revisao, qualidade, "comum/02_politica_fontes.md"]
     return _injetar("\n\n".join(todos[nome] for nome in nomes), params)
+
+
+def montar_sistema_auditor(params: ParametrosGeracao) -> str:
+    """Auditor + regras de qualidade da objetiva + política de fontes.
+
+    A persona do gerador e os few-shot ficam de fora, mesmo critério do
+    crítico: o auditor recebe a questão pronta, que é o exemplo relevante, e o
+    orçamento de `llm_num_ctx` é apertado.
+
+    Só existe para objetiva: as três verificações são sobre
+    alternativas, e discursiva não tem nenhuma.
+    """
+    todos = dict(carregar_modulos_versionados())
+    nomes = [
+        "auditor/01_auditor.md",
+        "objetiva/02_qualidade_alternativas.md",
+        "comum/02_politica_fontes.md",
+    ]
+    return _injetar("\n\n".join(todos[nome] for nome in nomes), params)

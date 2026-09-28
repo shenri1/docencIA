@@ -12,6 +12,7 @@ from sqlalchemy import (
 from sqlalchemy import (
     Enum as SAEnum,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.domain import EstadoProva, TipoExportacao, TipoGabarito
@@ -26,17 +27,32 @@ class Prova(Base):
     __tablename__ = "provas"
     __table_args__ = (
         UniqueConstraint("sessao_id", "versao", name="prova_por_sessao_versao"),
+        CheckConstraint(
+            "n_questoes = n_objetivas + n_discursivas",
+            name="n_questoes_soma_tipos",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     sessao_id: Mapped[int] = mapped_column(ForeignKey("sessoes_geracao.id"), index=True)
     versao: Mapped[str] = mapped_column(String(50))
     n_questoes: Mapped[int] = mapped_column(Integer)
+    # De qual banco a prova foi montada, e em que revisão dele. 
+    # prometeu que "inconsistência de estado" viraria comparação de inteiros:
+    # é esta coluna contra BancoQuestoes.revisao. `sessao_id` continua sendo o
+    # que a UniqueConstraint usa, e é preenchido de banco.sessao_id.
+    banco_id: Mapped[int] = mapped_column(
+        ForeignKey("bancos_questoes.id"), index=True
+    )
+    revisao_banco: Mapped[int] = mapped_column(Integer)
+    n_objetivas: Mapped[int] = mapped_column(Integer)
+    n_discursivas: Mapped[int] = mapped_column(Integer)
     estado: Mapped[EstadoProva] = mapped_column(
         SAEnum(EstadoProva, name="estado_prova"), default=EstadoProva.RASCUNHO
     )
 
     sessao: Mapped[SessaoGeracao] = relationship(back_populates="provas")
+    banco: Mapped[BancoQuestoes] = relationship()
     itens: Mapped[list[ItemProva]] = relationship(
         back_populates="prova", cascade="all, delete-orphan"
     )
@@ -57,7 +73,12 @@ class ItemProva(Base):
     prova_id: Mapped[int] = mapped_column(ForeignKey("provas.id"), index=True)
     questao_id: Mapped[int] = mapped_column(ForeignKey("questoes.id"), index=True)
     posicao: Mapped[int] = mapped_column(Integer)
-    letra_atribuida: Mapped[str] = mapped_column(String(2))
+    # NULL na discursiva: é sobre alternativas.
+    letra_atribuida: Mapped[str | None] = mapped_column(String(2))
+    # Letras ORIGINAIS na ordem em que aparecem na prova. ["C","A","E","B","D"]
+    # significa que a alternativa C original é exibida como A. 
+    # renderiza lendo isto e não decide nada. NULL na discursiva.
+    ordem_alternativas: Mapped[list[str] | None] = mapped_column(JSONB)
 
     prova: Mapped[Prova] = relationship(back_populates="itens")
     questao: Mapped[Questao] = relationship(back_populates="itens_prova")

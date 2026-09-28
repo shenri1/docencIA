@@ -93,7 +93,14 @@ def montar_sistema_critico(tipo: TipoQuestao, params: ParametrosGeracao) -> str:
     rascunho, que é o exemplo relevante."""
     todos = dict(carregar_modulos_versionados())
     revisao, qualidade = _CRITICO_POR_TIPO[tipo]
-    nomes = ["critico/01_revisor.md", revisao, qualidade, "comum/02_politica_fontes.md"]
+    nomes = [
+        "critico/01_revisor.md",
+        revisao,
+        qualidade,
+        "comum/02_politica_fontes.md",
+        # O crítico reemite a questão inteira, logo reemite `subtema`.
+        "comum/03_classificacao.md",
+    ]
     return _injetar("\n\n".join(todos[nome] for nome in nomes), params)
 
 

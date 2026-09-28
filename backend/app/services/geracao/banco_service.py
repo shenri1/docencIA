@@ -203,6 +203,7 @@ def _persistir(
         nivel_bloom=NivelBloom(final.nivel_bloom),
         faixa_dificuldade=faixa,
         tema=final.tema,
+        subtema=final.subtema,
         estado=estado,
     )
     db.add(questao)

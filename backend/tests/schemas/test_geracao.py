@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from pydantic import ValidationError
 
 from backend.app.domain import NivelBloom, TipoQuestao
 from backend.app.schemas.geracao import (
@@ -22,6 +23,7 @@ def corpo_questao(
             "enunciado": "Qual estrutura a busca em largura utiliza?",
             "nivel_bloom": "aplicar",
             "tema": "Grafos",
+            "subtema": "Busca em largura",
             "alternativas": [
                 {"texto": f"opção {i}", "e_gemeo_malvado": i == 1} for i in range(k)
             ],
@@ -168,6 +170,7 @@ def corpo_discursiva(aspectos: int = 2, nivel_bloom: str = "criar") -> dict:
             "enunciado": "Proponha uma variação da busca em largura para grafos ponderados.",
             "nivel_bloom": nivel_bloom,
             "tema": "Grafos",
+            "subtema": "Busca em largura",
             "objetivo_cognitivo": "propor adaptação de algoritmo",
             "aspectos_esperados": [
                 {
@@ -238,3 +241,17 @@ def test_montar_schema_escolhe_pelo_tipo():
     assert "letra_correta" in json.dumps(esquema_obj)
     esquema = montar_schema(TipoQuestao.DISCURSIVA, 4).model_json_schema()
     assert "aspectos_esperados" in json.dumps(esquema)
+
+
+def test_schema_objetiva_exige_subtema():
+    corpo = corpo_questao(5)["resultado"]
+    del corpo["subtema"]
+    with pytest.raises(ValidationError):
+        montar_schema_objetiva(5).model_validate({"resultado": corpo})
+
+
+def test_schema_discursiva_exige_subtema():
+    corpo = corpo_discursiva()["resultado"]
+    del corpo["subtema"]
+    with pytest.raises(ValidationError):
+        montar_schema_discursiva().model_validate({"resultado": corpo})

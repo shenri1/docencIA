@@ -108,6 +108,7 @@ def criar_questao_objetiva(
     material: MaterialReferencia | None = None,
     k: int | None = None,
     violacoes_final: list[dict] | None = None,
+    subtema: str | None = "Busca em largura",
 ) -> Questao:
     """Questão coerente segundo `verificar_consistencia`. Os testes de
     inconsistência partem desta e estragam um campo por vez."""
@@ -121,6 +122,7 @@ def criar_questao_objetiva(
         nivel_bloom=NivelBloom.APLICAR,
         faixa_dificuldade=faixa,
         tema="Grafos",
+        subtema=subtema,
         estado=estado,
     )
     db.add(questao)
@@ -171,6 +173,7 @@ def criar_questao_discursiva(
     estado: EstadoQuestao = EstadoQuestao.ATIVA,
     material: MaterialReferencia | None = None,
     aspectos: int = 2,
+    subtema: str | None = "Busca em largura",
 ) -> Questao:
     material = material or criar_material_minimo(db, banco.sessao)
     questao = Questao(
@@ -181,6 +184,7 @@ def criar_questao_discursiva(
         nivel_bloom=NivelBloom.ENTENDER,
         faixa_dificuldade=faixa,
         tema="Grafos",
+        subtema=subtema,
         estado=estado,
     )
     db.add(questao)

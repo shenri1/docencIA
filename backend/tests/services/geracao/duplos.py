@@ -36,6 +36,7 @@ def corpo_questao(k: int, identificador: str = "P1", **sobrescritas) -> dict:
         "enunciado": "Qual estrutura a busca em largura utiliza?",
         "nivel_bloom": "aplicar",
         "tema": "Grafos",
+        "subtema": "Busca em largura",
         "alternativas": [
             {"texto": f"opção {i}", "e_gemeo_malvado": i == 1} for i in range(k)
         ],
@@ -72,6 +73,7 @@ def corpo_discursiva(identificador: str = "P1", **sobrescritas) -> dict:
         "enunciado": "Explique por que a busca em largura usa uma fila.",
         "nivel_bloom": "entender",
         "tema": "Grafos",
+        "subtema": "Busca em largura",
         "objetivo_cognitivo": "explicar a estrutura auxiliar da busca",
         "aspectos_esperados": [
             {"texto": "a fila preserva a ordem de descoberta", "fonte": fonte},

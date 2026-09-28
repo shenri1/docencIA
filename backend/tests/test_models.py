@@ -210,3 +210,59 @@ def test_indice_parcial_veta_duas_candidatas_no_mesmo_numero(
             db_session, banco, numero=2, estado=EstadoQuestao.CANDIDATA
         )
     db_session.rollback()
+
+
+def test_item_de_prova_discursiva_nao_tem_letra_nem_ordem(db_session, sessao_rascunho):
+    """ é sobre alternativas, e discursiva não tem nenhuma."""
+    from backend.app.domain import EstadoProva
+    from backend.app.models.provas import ItemProva, Prova
+    from backend.tests.fabrica_banco import criar_banco, criar_questao_discursiva
+
+    banco = criar_banco(db_session, sessao_rascunho, n_discursivas=1)
+    questao = criar_questao_discursiva(db_session, banco, numero=1)
+    prova = Prova(
+        sessao_id=sessao_rascunho.id,
+        banco_id=banco.id,
+        versao="A",
+        n_questoes=1,
+        n_objetivas=0,
+        n_discursivas=1,
+        revisao_banco=banco.revisao,
+        estado=EstadoProva.MONTADA,
+    )
+    db_session.add(prova)
+    db_session.flush()
+    db_session.add(
+        ItemProva(
+            prova_id=prova.id,
+            questao_id=questao.id,
+            posicao=1,
+            letra_atribuida=None,
+            ordem_alternativas=None,
+        )
+    )
+    db_session.commit()
+    assert db_session.query(ItemProva).one().letra_atribuida is None
+
+
+def test_prova_exige_soma_dos_tipos(db_session, sessao_rascunho):
+    from sqlalchemy.exc import IntegrityError
+
+    from backend.app.models.provas import Prova
+    from backend.tests.fabrica_banco import criar_banco
+
+    banco = criar_banco(db_session, sessao_rascunho, n_objetivas=2)
+    db_session.add(
+        Prova(
+            sessao_id=sessao_rascunho.id,
+            banco_id=banco.id,
+            versao="A",
+            n_questoes=5,  # não é 2 + 1
+            n_objetivas=2,
+            n_discursivas=1,
+            revisao_banco=banco.revisao,
+        )
+    )
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()

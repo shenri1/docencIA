@@ -185,3 +185,29 @@ def test_modulo_do_auditor_entra_no_hash_de_versao():
     hash sem ninguém listá-la."""
     nomes = [nome for nome, _ in carregar_modulos_versionados()]
     assert "auditor/01_auditor.md" in nomes
+
+
+def _classificacao() -> str:
+    return (montagem.DIRETORIO_MODULOS / "comum" / "03_classificacao.md").read_text(
+        encoding="utf-8"
+    ).strip()[:60]
+
+
+def test_classificacao_vai_para_o_gerador_dos_dois_tipos():
+    """`carregar_modulos("comum")` varre a pasta, então o módulo novo entra sem
+    ninguém listá-lo."""
+    marca = _classificacao()
+    assert marca in montar_sistema(OBJ, params())
+    assert marca in montar_sistema(DISC, params())
+
+
+def test_classificacao_vai_para_o_critico_dos_dois_tipos():
+    """O crítico reemite a questão inteira, logo reemite `subtema`."""
+    marca = _classificacao()
+    assert marca in montar_sistema_critico(OBJ, params())
+    assert marca in montar_sistema_critico(DISC, params())
+
+
+def test_classificacao_nao_vai_para_o_auditor():
+    """O auditor não emite questão: `subtema` não é assunto dele."""
+    assert _classificacao() not in montar_sistema_auditor(params())

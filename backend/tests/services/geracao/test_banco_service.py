@@ -713,3 +713,41 @@ def test_banco_nao_muda_de_estado_de_sessao_quando_nada_e_gerado(
         ProvedorLLMFake([corpo_insuficiencia()]), n_alvo=1,
     )
     assert sessao_rascunho.estado is EstadoSessao.MATERIAIS_CONFIRMADOS
+
+
+def test_persistir_grava_subtema(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    """`Questao.subtema` existia e nunca era escrito. A regra de
+    sobreposição depende dele."""
+    preparar(db_session, armazenamento, sessao_rascunho)
+    gerar_banco(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake(roteiro(1)),
+        sessao_rascunho,
+        n_objetivas=1,
+        n_discursivas=0,
+        versao="v1",
+    )
+    questao = db_session.query(Questao).one()
+    assert questao.subtema == "Busca em largura"
+
+
+def test_persistir_grava_subtema_na_discursiva(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    gerar_banco(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake([corpo_discursiva(), corpo_discursiva()]),
+        sessao_rascunho,
+        n_objetivas=0,
+        n_discursivas=1,
+        versao="v1",
+    )
+    questao = db_session.query(Questao).one()
+    assert questao.subtema == "Busca em largura"

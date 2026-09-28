@@ -596,3 +596,116 @@ class InconsistenciaDeEstadoException(DomainException):
             "não pode ser entregue.",
             problemas=problemas,
         )
+
+
+# --- Montagem de Provas A/B ---
+
+
+class ProvaNaoEncontradaException(DomainException):
+    """Prova de outro docente responde 404, não 403 — mesma regra de banco e
+    sessão: não revela existência."""
+
+    status_code = 404
+    codigo = "PROVA_NAO_ENCONTRADA"
+
+    def __init__(self, prova_id: int) -> None:
+        super().__init__(f"Prova {prova_id} não encontrada.", prova_id=prova_id)
+
+
+class BancoNaoCongeladoException(DomainException):
+    """Montar sobre banco aberto deixaria uma exclusão invalidar em silêncio uma
+    prova já impressa."""
+
+    status_code = 409
+    codigo = "BANCO_NAO_CONGELADO"
+
+    def __init__(self, versao: str) -> None:
+        super().__init__(
+            f"O banco {versao} não está congelado. Congele antes de montar as "
+            "provas: depois disso, exclusões ficam vetadas e a prova tem base fixa.",
+            versao=versao,
+        )
+
+
+class ProvasJaMontadasException(DomainException):
+    status_code = 409
+    codigo = "PROVAS_JA_MONTADAS"
+
+    def __init__(self, versoes: list[str]) -> None:
+        super().__init__(
+            f"A sessão já tem prova nas versões {', '.join(versoes)}. Remontar "
+            "não é suportado.",
+            versoes=versoes,
+        )
+
+
+class BancoInsuficienteParaProvaException(DomainException):
+    """Não é bug: é o banco não sustentando duas provas com a distribuição
+    pedida. O docente decide entre prova menor, outro pF/pM/pD, ou substituir
+    questões para reequilibrar."""
+
+    status_code = 409
+    codigo = "BANCO_INSUFICIENTE_PARA_PROVA"
+
+    def __init__(
+        self,
+        cotas: dict[str, int],
+        pedido_por_tipo: dict[str, int],
+        disponivel_por_celula: dict[str, int],
+    ) -> None:
+        super().__init__(
+            "O banco não sustenta duas provas com essa distribuição. Reduza N, "
+            "mude pF/pM/pD, ou substitua questões para reequilibrar as faixas.",
+            cotas_por_faixa=cotas,
+            pedido_por_tipo=pedido_por_tipo,
+            disponivel_por_celula=disponivel_por_celula,
+        )
+
+
+class SobreposicaoInevitavelException(DomainException):
+    """no máximo 2 questões com o mesmo subtema nas duas provas."""
+
+    status_code = 409
+    codigo = "SOBREPOSICAO_INEVITAVEL"
+
+    def __init__(self, subtema: str, quantas: int, limite: int) -> None:
+        super().__init__(
+            f"O subtema \"{subtema}\" ficaria com {quantas} questões nas duas "
+            f"provas, acima do limite de {limite}. Reduza N ou substitua questões "
+            "desse subtema.",
+            subtema=subtema,
+            quantas=quantas,
+            limite=limite,
+        )
+
+
+class PlanoDeLetrasImpossivelException(DomainException):
+    """Erro de programação, não do docente: medido, o pior caso precisa de 616
+    tentativas e o teto é 2000. Chegar aqui significa que um filtro mudou."""
+
+    status_code = 500
+    codigo = "PLANO_DE_LETRAS_IMPOSSIVEL"
+
+    def __init__(self, n_posicoes: int, k: int, tentativas: int) -> None:
+        super().__init__(
+            f"Não foi possível planejar as letras de {n_posicoes} posições com "
+            f"K={k} em {tentativas} tentativas.",
+            n_posicoes=n_posicoes,
+            k=k,
+            tentativas=tentativas,
+        )
+
+
+class MontagemInconsistenteException(DomainException):
+    """A verificação recusou o que a própria montagem acabou de gravar. Bug do
+    sistema, e devolver 4xx faria o docente procurar erro no que ele pediu."""
+
+    status_code = 500
+    codigo = "MONTAGEM_INCONSISTENTE"
+
+    def __init__(self, violacoes: list[str]) -> None:
+        super().__init__(
+            f"A montagem produziu estado que a verificação recusa "
+            f"({len(violacoes)} violação(ões)).",
+            violacoes=violacoes,
+        )

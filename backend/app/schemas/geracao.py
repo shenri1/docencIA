@@ -71,6 +71,10 @@ def montar_schema_objetiva(k: int) -> type[BaseModel]:
         enunciado=(str, ...),
         nivel_bloom=(Literal[BLOOM_OBJETIVA], ...),
         tema=(str, ...),
+        # a regra de sobreposição temática entre Provas A e B compara
+        # subtema. Obrigatório, não opcional: campo opcional em schema de saída
+        # restrita é campo que o modelo omite.
+        subtema=(str, ...),
         alternativas=(
             list[AlternativaGerada],
             Field(min_length=k, max_length=k),
@@ -104,6 +108,7 @@ class QuestaoDiscursivaGerada(BaseModel):
     enunciado: str
     nivel_bloom: NivelBloom
     tema: str
+    subtema: str
     objetivo_cognitivo: str
     aspectos_esperados: list[AspectoGerado] = Field(min_length=2, max_length=5)
 

@@ -21,6 +21,7 @@ from backend.app.schemas.banco import (
     RelatorioImpactoResposta,
     ResumoAuditoriaResposta,
 )
+from backend.app.schemas.prova import ProvasCriar, ProvasMontadasResposta
 from backend.app.services.controle_banco.estado import obter_banco
 from backend.app.services.controle_banco.exclusao_service import (
     congelar_banco,
@@ -43,6 +44,7 @@ from backend.app.services.critico.auditor_service import (
     montar_resumo,
 )
 from backend.app.services.geracao.banco_service import Produzida
+from backend.app.services.provas.montagem_service import ProvasMontadas, montar_provas
 from backend.app.services.provedor.provedor_service import ProvedorLLMService
 from backend.app.services.rag.embeddings import Embeddings, get_embeddings
 from backend.app.services.rag.rerank import Reranker, get_reranker
@@ -196,3 +198,27 @@ def ler_auditoria(
     404: ausência de auditoria não é ausência de banco."""
     banco = obter_banco(db, docente, banco_id)
     return montar_resumo(db, banco)
+
+
+@router.post(
+    "/provas",
+    response_model=ProvasMontadasResposta,
+    status_code=status.HTTP_201_CREATED,
+)
+def montar(
+    banco_id: int,
+    dados: ProvasCriar,
+    db: Session = Depends(get_db),
+    docente: Docente = Depends(get_current_docente),
+) -> ProvasMontadas:
+    # Uma chamada monta as DUAS provas: a regra de colisão de letras e a de
+    # sobreposição de subtema são relações entre elas.
+    banco = obter_banco(db, docente, banco_id)
+    return montar_provas(
+        db,
+        docente,
+        banco,
+        n_objetivas=dados.n_objetivas,
+        n_discursivas=dados.n_discursivas,
+        revisao_esperada=dados.revisao_esperada,
+    )

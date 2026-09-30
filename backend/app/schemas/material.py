@@ -28,6 +28,8 @@ class MaterialResposta(BaseModel):
 
 
 class IndiceResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     materiais: list[MaterialResposta] = Field(
         ..., description="Materiais da sessão, em ordem de envio."
     )

@@ -269,3 +269,16 @@ class ResumoAuditoriaResposta(BaseModel):
         description="Percentual de questões auditadas com ao menos um achado. "
         "É observação, nunca ação — o docente decide se para.",
     )
+
+
+class ItemCatalogoResposta(BaseModel):
+    """número do item, tema principal e grau de dificuldade."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    numero: int
+    tipo: TipoQuestao
+    tema: str | None = Field(
+        ..., description="Tema principal. None se o Gerador não classificou."
+    )
+    faixa: FaixaDificuldade

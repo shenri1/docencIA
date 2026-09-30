@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from backend.app.domain import EstadoProva, FaixaDificuldade, TipoQuestao
+from backend.app.domain import EstadoProva, FaixaDificuldade, TipoGabarito, TipoQuestao
 from backend.app.schemas.banco import N_MAXIMO_BANCO
 
 
@@ -93,3 +93,72 @@ class ProvaResposta(BaseModel):
         "exportação é; aqui é aviso.",
     )
     itens: list[ItemProvaResposta]
+
+
+# --- Gabarito ---
+
+
+class FonteGabaritoResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    identificador_material: str
+    localizacao: str
+    trecho_base: str | None = Field(..., description="Só no comentado.")
+
+
+class InvalidacaoGabaritoResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    letra: str | None = Field(
+        ...,
+        description="Letra DA PROVA da alternativa errada. Nula quando o banco é "
+        "anterior à ou o vínculo gravado é inválido.",
+    )
+    motivo: str
+
+
+class AspectoGabaritoResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    ordem: int
+    texto: str
+    fonte: FonteGabaritoResposta
+
+
+class ItemGabaritoResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    posicao: int
+    numero: int
+    tipo: TipoQuestao
+    letra: str | None = Field(..., description="Letra da correta NA PROVA.")
+    fontes: list[FonteGabaritoResposta]
+    aspectos: list[AspectoGabaritoResposta] = Field(
+        ..., description="Discursiva: o gabarito são os aspectos esperados."
+    )
+    justificativa_correta: str | None
+    invalidacoes: list[InvalidacaoGabaritoResposta]
+    objetivo_cognitivo: str | None
+    invalidacoes_sem_letra: bool = Field(
+        ..., description="Motivos das erradas mostrados sem dizer qual é de qual."
+    )
+    cita_letra: bool = Field(
+        ...,
+        description="O texto aprovado cita letra de alternativa, que muda na "
+        "prova. Mostrado como está.",
+    )
+
+
+class GabaritoResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    prova_id: int
+    versao: str
+    modalidade: TipoGabarito
+    revisao_banco: int = Field(..., description='O "Gabarito_vZ".')
+    desatualizada: bool
+    completo: bool = Field(
+        ..., description="Gabarito para 100% das questões da prova."
+    )
+    problemas: list[str]
+    itens: list[ItemGabaritoResposta]

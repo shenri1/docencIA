@@ -53,13 +53,22 @@ def montar_schema_objetiva(k: int) -> type[BaseModel]:
     if not K_MINIMO <= k <= K_MAXIMO:
         raise ValueError(f"k deve estar entre {K_MINIMO} e {K_MAXIMO}, recebido {k}")
 
+    # cada motivo diz a qual alternativa se refere. Fechada por enum
+    # como `letra_correta` — o que a decodificação restrita pode impor não deve
+    # ser esperado do modelo. Distintas e diferentes da correta não cabem em
+    # JSON Schema: são a regra `invalidacao_letra_invalida` do validador.
+    invalidacao = create_model(
+        f"InvalidacaoGerada{k}",
+        letra=(Literal[tuple(LETRAS[:k])], ...),
+        motivo=(str, ...),
+    )
     justificativa = create_model(
         f"JustificativaGerada{k}",
         objetivo_cognitivo=(str, ...),
         justificativa_correta=(str, ...),
         # Uma invalidação por distrator: k alternativas, uma correta.
         invalidacao_distratores=(
-            list[str],
+            list[invalidacao],
             Field(min_length=k - 1, max_length=k - 1),
         ),
         verificacao_unicidade=(bool, ...),

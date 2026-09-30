@@ -60,7 +60,7 @@ from backend.app.models.banco import (
 from backend.app.models.identidade import Docente, SessaoGeracao
 from backend.app.models.materiais import ChunkMaterial, MaterialReferencia
 from backend.app.models.prompt_provedor import PromptMestre
-from backend.app.models.provas import ItemProva, Prova
+from backend.app.models.provas import ExportacaoDocx, ItemProva, Prova
 from backend.app.schemas.identidade import DocenteCriar
 from backend.app.services.auth_service import registrar_docente
 from backend.app.services.rag.embeddings import EmbeddingsFake, get_embeddings
@@ -98,6 +98,8 @@ _MODELOS_PARA_LIMPAR = (
     FonteInterna,
     RegistroExclusao,
     RegistroSubstituicao,
+    # Filho de Prova e de BancoQuestoes
+    ExportacaoDocx,
     # Filhos de Questao e de BancoQuestoes
     ItemProva,
     Prova,

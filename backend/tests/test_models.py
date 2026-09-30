@@ -266,3 +266,59 @@ def test_prova_exige_soma_dos_tipos(db_session, sessao_rascunho):
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
+
+
+def _exportacao(db, sessao, **extras):
+    from backend.app.domain import TipoExportacao
+    from backend.app.models.provas import ExportacaoDocx
+    from backend.tests.fabrica_banco import criar_banco
+
+    banco = criar_banco(db, sessao, n_objetivas=1)
+    dados = {
+        "banco_id": banco.id,
+        "revisao_banco": 3,
+        "tipo": TipoExportacao.CONTEUDO_PURO,
+        "caminho_arquivo": "1/1/exportacoes/x.docx",
+        "hash_conteudo": "a" * 64,
+    }
+    dados.update(extras)
+    exportacao = ExportacaoDocx(**dados)
+    db.add(exportacao)
+    db.commit()
+    return exportacao
+
+
+def test_exportacao_grava_revisao_e_data(db_session, sessao_rascunho):
+    exportacao = _exportacao(db_session, sessao_rascunho)
+    db_session.refresh(exportacao)
+    assert exportacao.revisao_banco == 3
+    assert exportacao.criado_em is not None
+
+
+def test_exportacao_e_unica_por_banco_revisao_e_tipo(db_session, sessao_rascunho):
+    from sqlalchemy.exc import IntegrityError
+
+    from backend.app.models.provas import ExportacaoDocx
+
+    primeira = _exportacao(db_session, sessao_rascunho)
+    db_session.add(
+        ExportacaoDocx(
+            banco_id=primeira.banco_id,
+            revisao_banco=3,
+            tipo=primeira.tipo,
+            caminho_arquivo="outra",
+            hash_conteudo="b" * 64,
+        )
+    )
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+
+def test_exportacao_e_append_only(db_session, sessao_rascunho):
+    """O que saiu do sistema não é reescrito."""
+    exportacao = _exportacao(db_session, sessao_rascunho)
+    exportacao.hash_conteudo = "c" * 64
+    with pytest.raises(ValueError, match="append-only"):
+        db_session.flush()
+    db_session.rollback()

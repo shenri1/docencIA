@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from backend.app.api.endpoints import (
+    admin,
     auth,
     banco,
     bancos,
@@ -26,3 +27,4 @@ router.include_router(bancos.router)
 router.include_router(provas.router)
 router.include_router(exportacoes.router)
 router.include_router(orquestrador.router)
+router.include_router(admin.router)

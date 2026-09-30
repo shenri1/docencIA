@@ -94,7 +94,10 @@ class ResumoBancoResposta(BaseModel):
 
 class ExclusaoCriar(BaseModel):
     numeros: list[int] = Field(
-        ..., min_length=1, description="Números das questões a excluir."
+        ...,
+        min_length=1,
+        max_length=N_MAXIMO_BANCO,
+        description="Números das questões a excluir.",
     )
     revisao_esperada: int = Field(
         ...,

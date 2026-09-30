@@ -53,7 +53,7 @@ class ComandoExcluir(BaseModel):
     comando: Literal["excluir"]
     versao: str = Field(..., max_length=50)
     revisao_esperada: int = Field(..., ge=0)
-    numeros: list[int] = Field(..., min_length=1)
+    numeros: list[int] = Field(..., min_length=1, max_length=N_MAXIMO_BANCO)
 
 
 class ComandoAuditar(BaseModel):

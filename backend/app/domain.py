@@ -128,7 +128,7 @@ class TipoExportacao(str, Enum):
 
 
 class RegraQualidade(str, Enum):
-    """Regras de forma e, medidas sem LLM."""
+    """Regras de forma, e, medidas sem LLM."""
 
     TAMANHO_ALTERNATIVA = "tamanho_alternativa"
     CORRETA_LONGA = "correta_longa"
@@ -138,6 +138,8 @@ class RegraQualidade(str, Enum):
     GEMEO_NA_CORRETA = "gemeo_na_correta"
     COMANDO_AUSENTE = "comando_ausente"
     ASPECTOS_REPETIDOS = "aspectos_repetidos"
+    INVALIDACAO_LETRA_INVALIDA = "invalidacao_letra_invalida"
+    LETRA_CITADA_EM_TEXTO = "letra_citada_em_texto"
 
 
 class RiscoAuditoria(str, Enum):

@@ -9,8 +9,10 @@ from sqlalchemy.orm import Session
 
 from backend.app.api.deps import get_current_docente, get_provedor
 from backend.app.core.db import get_db
+from backend.app.core.storage import ArmazenamentoArquivos, get_armazenamento
 from backend.app.models.banco import RelatorioImpacto
 from backend.app.models.identidade import Docente
+from backend.app.models.provas import ExportacaoDocx
 from backend.app.schemas.banco import (
     BancoResposta,
     ComandoRevisao,
@@ -21,6 +23,7 @@ from backend.app.schemas.banco import (
     RelatorioImpactoResposta,
     ResumoAuditoriaResposta,
 )
+from backend.app.schemas.exportacao import ExportacaoResposta
 from backend.app.schemas.prova import ProvasCriar, ProvasMontadasResposta
 from backend.app.services.controle_banco.estado import obter_banco
 from backend.app.services.controle_banco.exclusao_service import (
@@ -42,6 +45,10 @@ from backend.app.services.critico.auditor_service import (
     ResumoAuditoria,
     auditar_banco,
     montar_resumo,
+)
+from backend.app.services.exportacao.exportacao_service import (
+    exportar,
+    listar_exportacoes,
 )
 from backend.app.services.geracao.banco_service import Produzida
 from backend.app.services.provas.montagem_service import ProvasMontadas, montar_provas
@@ -222,3 +229,29 @@ def montar(
         n_discursivas=dados.n_discursivas,
         revisao_esperada=dados.revisao_esperada,
     )
+
+
+@router.post(
+    "/exportacoes",
+    response_model=list[ExportacaoResposta],
+    status_code=status.HTTP_201_CREATED,
+)
+def exportar_docx(
+    banco_id: int,
+    db: Session = Depends(get_db),
+    docente: Docente = Depends(get_current_docente),
+    armazenamento: ArmazenamentoArquivos = Depends(get_armazenamento),
+) -> list[ExportacaoDocx]:
+    # Os DOIS arquivos por chamada. Estado incoerente responde 409
+    # INCONSISTENCIA_DE_ESTADO antes de qualquer escrita.
+    banco = obter_banco(db, docente, banco_id)
+    return exportar(db, docente, armazenamento, banco)
+
+
+@router.get("/exportacoes", response_model=list[ExportacaoResposta])
+def historico_exportacoes(
+    banco_id: int,
+    db: Session = Depends(get_db),
+    docente: Docente = Depends(get_current_docente),
+) -> list[ExportacaoDocx]:
+    return listar_exportacoes(db, docente, banco_id)

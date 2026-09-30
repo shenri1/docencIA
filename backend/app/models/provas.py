@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Integer,
     String,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy import (
     Enum as SAEnum,
@@ -16,7 +19,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.domain import EstadoProva, TipoExportacao, TipoGabarito
-from backend.app.models.base import Base
+from backend.app.models.base import Base, append_only
 
 if TYPE_CHECKING:
     from backend.app.models.banco import BancoQuestoes, Questao
@@ -98,11 +101,20 @@ class Gabarito(Base):
 
 
 class ExportacaoDocx(Base):
+    """O arquivo SAI do sistema: depois que a revisão do banco muda, o
+    estado antigo não pode mais ser re-renderizado, e só este registro prova o
+    que foi entregue e de qual revisão. Append-only."""
+
     __tablename__ = "exportacoes_docx"
     __table_args__ = (
         CheckConstraint(
             "(prova_id IS NULL) <> (banco_id IS NULL)",
             name="exportacao_referencia_unica",
+        ),
+        # Exportar de novo na mesma revisão devolve o registro existente: o
+        # arquivo é reproduzível, e uma segunda linha só duplicaria histórico.
+        UniqueConstraint(
+            "banco_id", "revisao_banco", "tipo", name="exportacao_por_banco_revisao_tipo"
         ),
     )
 
@@ -114,9 +126,18 @@ class ExportacaoDocx(Base):
     tipo: Mapped[TipoExportacao] = mapped_column(
         SAEnum(TipoExportacao, name="tipo_exportacao")
     )
+    # Chave LÓGICA do armazenamento, apesar do nome herdado
+    # da migração inicial. Nunca aparece em resposta HTTP.
     caminho_arquivo: Mapped[str] = mapped_column(String(500))
     # Hash do conteúdo renderizado: base da checagem de consistência.
     hash_conteudo: Mapped[str] = mapped_column(String(128))
+    revisao_banco: Mapped[int] = mapped_column(Integer)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     prova: Mapped[Prova | None] = relationship(back_populates="exportacoes")
     banco: Mapped[BancoQuestoes | None] = relationship(back_populates="exportacoes")
+
+
+append_only(ExportacaoDocx)

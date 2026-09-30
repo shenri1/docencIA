@@ -170,3 +170,22 @@ class ComandoOrquestrador(str, Enum):
     PROSSEGUIR = "prosseguir"
     EXCLUIR = "excluir"
     AUDITAR = "auditar"
+
+
+class TipoEventoAuditoria(str, Enum):
+    """`registros_auditoria.tipo_evento` é String(100): este enum é o
+    vocabulário, não um tipo do banco — acrescentar membro não pede migração."""
+
+    QUESTAO_GERADA = "questao_gerada"
+    EXCLUSAO = "exclusao"
+    CONGELAMENTO = "congelamento"
+    SUBSTITUICAO_ACEITA = "substituicao_aceita"
+    SUBSTITUICAO_REJEITADA = "substituicao_rejeitada"
+    PROVAS_MONTADAS = "provas_montadas"
+    EXPORTACAO_DOCX = "exportacao_docx"
+    FALLBACK_PROVEDOR = "fallback_provedor"
+    FALHA_PROVEDOR = "falha_provedor"
+    AUDITORIA_QUESTAO = "auditoria_questao"
+    LOGIN_FALHO = "login_falho"
+    TOKEN_SUSPEITO = "token_suspeito"
+    ACESSO_NEGADO = "acesso_negado"

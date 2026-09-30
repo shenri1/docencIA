@@ -109,6 +109,7 @@ def criar_questao_objetiva(
     k: int | None = None,
     violacoes_final: list[dict] | None = None,
     subtema: str | None = "Busca em largura",
+    invalidacoes_ligadas: bool = True,
 ) -> Questao:
     """Questão coerente segundo `verificar_consistencia`. Os testes de
     inconsistência partem desta e estragam um campo por vez."""
@@ -143,7 +144,16 @@ def criar_questao_objetiva(
             questao_id=questao.id,
             objetivo_cognitivo="identificar a estrutura",
             justificativa_correta="o trecho afirma o uso de fila",
-            invalidacao_distratores=[f"distrator {i}" for i in range(k - 1)],
+            # A correta é sempre a A (i == 0 acima). False reproduz banco
+            # anterior à, com a lista sem letra.
+            invalidacao_distratores=(
+                [
+                    {"letra": LETRAS[i], "motivo": f"distrator {LETRAS[i]}"}
+                    for i in range(1, k)
+                ]
+                if invalidacoes_ligadas
+                else [f"distrator {i}" for i in range(k - 1)]
+            ),
             verificacao_unicidade=True,
             texto_verificacao_unicidade="nenhuma errada é defensável",
         )

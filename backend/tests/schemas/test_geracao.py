@@ -39,8 +39,10 @@ def corpo_questao(
                 "objetivo_cognitivo": "identificar a estrutura correta",
                 "justificativa_correta": "o trecho afirma o uso de fila",
                 "invalidacao_distratores": [
-                    f"distrator {i}"
-                    for i in range(invalidacoes if invalidacoes is not None else k - 1)
+                    {"letra": "ABCDEFGHIJK"[i % k], "motivo": f"distrator {i}"}
+                    for i in range(
+                        1, (invalidacoes if invalidacoes is not None else k - 1) + 1
+                    )
                 ],
                 "verificacao_unicidade": True,
                 "texto_verificacao_unicidade": "nenhuma errada é defensável",
@@ -255,3 +257,26 @@ def test_schema_discursiva_exige_subtema():
     del corpo["subtema"]
     with pytest.raises(ValidationError):
         montar_schema_discursiva().model_validate({"resultado": corpo})
+
+
+def test_invalidacao_exige_letra():
+    corpo = corpo_questao(5)
+    corpo["resultado"]["justificativa"]["invalidacao_distratores"] = ["sem letra"] * 4
+    with pytest.raises(ValidationError):
+        montar_schema_objetiva(5).model_validate(corpo)
+
+
+def test_letra_da_invalidacao_e_fechada_em_k():
+    corpo = corpo_questao(3)
+    corpo["resultado"]["justificativa"]["invalidacao_distratores"] = [
+        {"letra": "B", "motivo": "x"},
+        {"letra": "E", "motivo": "y"},  # K=3: só A, B, C existem
+    ]
+    with pytest.raises(ValidationError):
+        montar_schema_objetiva(3).model_validate(corpo)
+
+
+def test_json_schema_fecha_a_letra_da_invalidacao_por_enum():
+    gerado = montar_schema_objetiva(4).model_json_schema()
+    invalidacao = gerado["$defs"]["InvalidacaoGerada4"]
+    assert invalidacao["properties"]["letra"]["enum"] == ["A", "B", "C", "D"]

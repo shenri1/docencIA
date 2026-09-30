@@ -129,3 +129,20 @@ def test_item_discursivo_de_leva_o_trecho_de_cada_aspecto():
         "A busca em largura usa uma fila."
     ] * 2
     assert item.identificadores_fonte == ["P1"]
+
+
+def test_item_objetivo_de_leva_justificativa_e_invalidacoes():
+    from backend.app.schemas.geracao import montar_schema_objetiva
+    from backend.app.services.critico.agente_critico_service import item_objetivo_de
+    from backend.tests.services.geracao.duplos import corpo_questao
+
+    questao = montar_schema_objetiva(5).model_validate(corpo_questao(5)).resultado
+    item = item_objetivo_de(questao, [])
+    assert item.justificativa_correta == "o trecho afirma o uso de fila"
+    assert item.texto_verificacao_unicidade == "nenhuma errada é defensável"
+    assert item.invalidacoes == [
+        ("B", "distrator 1"),
+        ("C", "distrator 2"),
+        ("D", "distrator 3"),
+        ("E", "distrator 4"),
+    ]

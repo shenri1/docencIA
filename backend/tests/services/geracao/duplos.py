@@ -51,7 +51,10 @@ def corpo_questao(k: int, identificador: str = "P1", **sobrescritas) -> dict:
         "justificativa": {
             "objetivo_cognitivo": "identificar a estrutura",
             "justificativa_correta": "o trecho afirma o uso de fila",
-            "invalidacao_distratores": [f"distrator {i}" for i in range(k - 1)],
+            "invalidacao_distratores": [
+                {"letra": "ABCDEFGHIJK"[i], "motivo": f"distrator {i}"}
+                for i in range(1, k)
+            ],
             "verificacao_unicidade": True,
             "texto_verificacao_unicidade": "nenhuma errada é defensável",
         },

@@ -751,3 +751,27 @@ def test_persistir_grava_subtema_na_discursiva(
     )
     questao = db_session.query(Questao).one()
     assert questao.subtema == "Busca em largura"
+
+
+def test_persistir_grava_invalidacoes_com_letra_original(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    """A letra gravada é a ORIGINAL; traduzir para a da prova é da leitura."""
+    preparar(db_session, armazenamento, sessao_rascunho)
+    gerar_banco(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake(roteiro(1)),
+        sessao_rascunho,
+        n_objetivas=1,
+        n_discursivas=0,
+        versao="v1",
+    )
+    justificativa = db_session.query(JustificativaEstruturada).one()
+    assert justificativa.invalidacao_distratores == [
+        {"letra": "B", "motivo": "distrator 1"},
+        {"letra": "C", "motivo": "distrator 2"},
+        {"letra": "D", "motivo": "distrator 3"},
+        {"letra": "E", "motivo": "distrator 4"},
+    ]

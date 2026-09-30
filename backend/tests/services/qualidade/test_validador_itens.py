@@ -1,5 +1,7 @@
 """Validador de forma — puro, sem banco e sem LLM."""
 
+from dataclasses import replace
+
 import pytest
 
 from backend.app.domain import RegraQualidade
@@ -9,6 +11,7 @@ from backend.app.services.qualidade.validador_itens import (
     ItemDiscursivo,
     ItemObjetivo,
     Violacao,
+    cita_letra,
     validar_discursiva,
     validar_objetiva,
 )
@@ -347,3 +350,63 @@ def test_ordem_da_discursiva_segue_a_tabela():
         RegraQualidade.COMANDO_AUSENTE,
         RegraQualidade.ASPECTOS_REPETIDOS,
     ]
+
+
+# --- invalidação ligada à letra e letra citada em texto ---
+
+
+def item_com(**extras) -> ItemObjetivo:
+    return replace(objetiva(LIMPO), **extras)
+
+
+def regras_de(item: ItemObjetivo) -> list[RegraQualidade]:
+    return regras(validar_objetiva(item))
+
+
+def test_sem_campos_novos_nenhuma_regra_nova_dispara():
+    assert regras_de(item_com()) == []
+
+
+def test_invalidacoes_com_as_erradas_nao_violam():
+    assert regras_de(item_com(invalidacoes=[("B", "x"), ("C", "y"), ("D", "z")])) == []
+
+
+def test_letra_repetida_viola():
+    extras = {"invalidacoes": [("B", "x"), ("B", "y"), ("D", "z")]}
+    assert RegraQualidade.INVALIDACAO_LETRA_INVALIDA in regras_de(item_com(**extras))
+
+
+def test_letra_da_correta_viola():
+    extras = {"invalidacoes": [("A", "x"), ("C", "y"), ("D", "z")]}
+    assert RegraQualidade.INVALIDACAO_LETRA_INVALIDA in regras_de(item_com(**extras))
+
+
+def test_justificativa_que_cita_letra_viola():
+    violacoes = validar_objetiva(
+        item_com(justificativa_correta="A alternativa B confunde fila com pilha.")
+    )
+    assert [(v.regra, v.alvo) for v in violacoes] == [
+        (RegraQualidade.LETRA_CITADA_EM_TEXTO, "justificativa")
+    ]
+
+
+def test_motivo_que_cita_letra_viola_com_o_alvo_da_invalidacao():
+    extras = {"invalidacoes": [("B", "x"), ("C", "diferente da opção D"), ("D", "z")]}
+    violacoes = validar_objetiva(item_com(**extras))
+    assert (RegraQualidade.LETRA_CITADA_EM_TEXTO, "invalidacao C") in [
+        (v.regra, v.alvo) for v in violacoes
+    ]
+
+
+def test_cita_letra_reconhece_as_tres_formas():
+    assert cita_letra("veja a alternativa B")
+    assert cita_letra("Letra (C) está errada")
+    assert cita_letra("a opção D não se sustenta")
+    assert cita_letra("ALTERNATIVA E")
+
+
+def test_cita_letra_nao_confunde_conteudo():
+    assert not cita_letra("a opção mais barata")
+    assert not cita_letra("uma letra de câmbio")
+    assert not cita_letra("a alternativa a ser marcada")
+    assert not cita_letra("B está errada")  # limitação declarada

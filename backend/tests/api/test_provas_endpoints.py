@@ -152,3 +152,54 @@ def test_schema_da_prova_nao_revela_a_correta():
     assert proibidos.isdisjoint(item)
     assert "correta" not in alternativa
     assert set(alternativa) == {"letra", "texto"}
+
+
+def test_gabarito_sem_token_responde_401(client, db_session):
+    headers, banco = preparar(client, db_session, "prof-gab-401")
+    prova_a_id = montar(client, headers, banco).json()["prova_a_id"]
+    resposta = client.get(f"/provas/{prova_a_id}/gabarito?modalidade=simples")
+    assert resposta.status_code == 401
+
+
+def test_gabarito_de_prova_alheia_responde_404(client, db_session):
+    headers, banco = preparar(client, db_session, "prof-gab-dono")
+    prova_a_id = montar(client, headers, banco).json()["prova_a_id"]
+    outro = _auth(client, "prof-gab-intruso")
+    resposta = client.get(
+        f"/provas/{prova_a_id}/gabarito?modalidade=simples", headers=outro
+    )
+    assert resposta.status_code == 404
+
+
+def test_gabarito_sem_modalidade_responde_422(client, db_session):
+    """Sem default de propósito: o comentado expõe a justificativa estruturada,
+    e isso não deve acontecer por omissão de parâmetro."""
+    headers, banco = preparar(client, db_session, "prof-gab-422")
+    prova_a_id = montar(client, headers, banco).json()["prova_a_id"]
+    resposta = client.get(f"/provas/{prova_a_id}/gabarito", headers=headers)
+    assert resposta.status_code == 422
+
+
+def test_gabarito_simples(client, db_session):
+    headers, banco = preparar(client, db_session, "prof-gab-simples")
+    prova_a_id = montar(client, headers, banco).json()["prova_a_id"]
+    corpo = client.get(
+        f"/provas/{prova_a_id}/gabarito?modalidade=simples", headers=headers
+    ).json()
+    assert corpo["modalidade"] == "simples"
+    assert corpo["completo"] is True
+    assert len(corpo["itens"]) == 10
+    assert corpo["itens"][0]["letra"] in "ABCDE"
+    assert corpo["itens"][0]["justificativa_correta"] is None
+
+
+def test_gabarito_comentado(client, db_session):
+    headers, banco = preparar(client, db_session, "prof-gab-comentado")
+    prova_a_id = montar(client, headers, banco).json()["prova_a_id"]
+    corpo = client.get(
+        f"/provas/{prova_a_id}/gabarito?modalidade=comentado", headers=headers
+    ).json()
+    item = corpo["itens"][0]
+    assert item["justificativa_correta"]
+    assert len(item["invalidacoes"]) == 4
+    assert item["fontes"][0]["trecho_base"]

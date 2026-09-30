@@ -211,3 +211,18 @@ def test_classificacao_vai_para_o_critico_dos_dois_tipos():
 def test_classificacao_nao_vai_para_o_auditor():
     """O auditor não emite questão: `subtema` não é assunto dele."""
     assert _classificacao() not in montar_sistema_auditor(params())
+
+
+INSTRUCAO_LETRA = "nunca cite letra de alternativa"
+
+
+def test_instrucao_de_letra_vai_para_gerador_e_critico_da_objetiva():
+    assert INSTRUCAO_LETRA in montar_sistema(TipoQuestao.OBJETIVA, params()).lower()
+    assert (
+        INSTRUCAO_LETRA in montar_sistema_critico(OBJ, params()).lower()
+    )
+
+
+def test_instrucao_de_letra_nao_vai_para_o_auditor():
+    """A proposta_ajuste do auditor cita letra DE PROPÓSITO."""
+    assert INSTRUCAO_LETRA not in montar_sistema_auditor(params()).lower()

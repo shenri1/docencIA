@@ -709,3 +709,35 @@ class MontagemInconsistenteException(DomainException):
             f"({len(violacoes)} violação(ões)).",
             violacoes=violacoes,
         )
+
+
+# --- Exportação DOCX ---
+
+
+class ExportacaoNaoEncontradaException(DomainException):
+    """Exportação de outro docente responde 404, não 403 — não revela
+    existência."""
+
+    status_code = 404
+    codigo = "EXPORTACAO_NAO_ENCONTRADA"
+
+    def __init__(self, exportacao_id: int) -> None:
+        super().__init__(
+            f"Exportação {exportacao_id} não encontrada.", exportacao_id=exportacao_id
+        )
+
+
+class ArquivoExportadoCorrompidoException(DomainException):
+    """O arquivo no armazenamento não é o que o registro diz ter saído. Problema
+    de infraestrutura, não do docente — e entregá-lo seria entregar algo que o
+    sistema não emitiu."""
+
+    status_code = 500
+    codigo = "ARQUIVO_EXPORTADO_CORROMPIDO"
+
+    def __init__(self, exportacao_id: int) -> None:
+        super().__init__(
+            f"O arquivo da exportação {exportacao_id} não confere com o hash "
+            "registrado e não será entregue.",
+            exportacao_id=exportacao_id,
+        )

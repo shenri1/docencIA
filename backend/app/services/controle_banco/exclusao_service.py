@@ -11,7 +11,13 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.app.domain import EstadoBanco, EstadoQuestao, EstadoSessao, EventoBanco
+from backend.app.domain import (
+    EstadoBanco,
+    EstadoQuestao,
+    EstadoSessao,
+    EventoBanco,
+    TipoEventoAuditoria,
+)
 from backend.app.exceptions import (
     BancoCongeladoException,
     BancoVazioException,
@@ -30,6 +36,7 @@ from backend.app.services.controle_banco.estado import (
     exigir_revisao,
     registrar_relatorio,
 )
+from backend.app.services.log_auditoria import registrar_evento
 
 
 def _questoes_para_excluir(
@@ -84,6 +91,13 @@ def excluir_questoes(
         db.add(RegistroExclusao(questao_id=questao.id, docente_id=docente.id))
     banco.n_atual -= len(questoes)
     relatorio = registrar_relatorio(db, banco, EventoBanco.EXCLUSAO)
+    registrar_evento(
+        db,
+        TipoEventoAuditoria.EXCLUSAO,
+        f"bancos_questoes:{banco.id}",
+        docente.id,
+        {"numeros": sorted(q.numero for q in questoes), "revisao": banco.revisao},
+    )
     # Um commit para a rodada inteira: exclusão pela metade não existe.
     db.commit()
     return relatorio
@@ -108,5 +122,12 @@ def congelar_banco(
     banco.estado = EstadoBanco.CONGELADO
     banco.sessao.estado = EstadoSessao.BANCO_CONGELADO
     relatorio = registrar_relatorio(db, banco, EventoBanco.CONGELAMENTO)
+    registrar_evento(
+        db,
+        TipoEventoAuditoria.CONGELAMENTO,
+        f"bancos_questoes:{banco.id}",
+        docente.id,
+        {"revisao": banco.revisao, "n_atual": banco.n_atual},
+    )
     db.commit()
     return relatorio

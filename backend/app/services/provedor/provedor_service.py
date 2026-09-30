@@ -13,12 +13,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import settings
+from backend.app.domain import TipoEventoAuditoria
 from backend.app.exceptions import (
     FalhaProvedorLLMException,
     FalhaTransporteLLMException,
     NenhumProvedorAtivoException,
 )
+from backend.app.models.identidade import SessaoGeracao
 from backend.app.models.prompt_provedor import ProvedorLLM
+from backend.app.services.log_auditoria import registrar_evento
 from backend.app.services.provedor.consumo import (
     RegistradorConsumo,
     RegistradorConsumoDb,
@@ -42,6 +45,13 @@ def criar_cliente_ollama(provedor: ProvedorLLM) -> ClienteLLM:
         base_url=provedor.endpoint or cfg.base_url,
         cfg=cfg,
     )
+
+
+def _falhas(motivos: list[tuple[str, str]]) -> list[dict[str, str]]:
+    """Provedor por nome, nunca por endpoint nem por referência de chave
+O motivo é o `mensagem` do transporte: nome da exceção ou
+    `HTTP <status>`."""
+    return [{"provedor": nome, "motivo": motivo} for nome, motivo in motivos]
 
 
 class ProvedorLLMService:
@@ -87,11 +97,32 @@ class ProvedorLLMService:
                 # RespostaLLMInvalidaException sobe daqui sem ser capturada:
                 # resposta que chega e viola o schema não é indisponibilidade,
                 # e escalar a cadeia mascararia defeito do prompt mestre.
+                if motivos:
+                    # Um provedor anterior se esgotou: é a "troca de provedor"
+                    # Entra no commit do registrador de consumo.
+                    self._registrar_evento(
+                        sessao_id,
+                        TipoEventoAuditoria.FALLBACK_PROVEDOR,
+                        {"provedor_usado": provedor.nome, "falhas": _falhas(motivos)},
+                    )
                 self._registrador.registrar(sessao_id, provedor, resposta.uso)
                 return resposta
             motivos.append((provedor.nome, ultimo))
 
+        self._registrar_evento(
+            sessao_id, TipoEventoAuditoria.FALHA_PROVEDOR, {"falhas": _falhas(motivos)}
+        )
+        # Commit antes do raise: o rollback do erro apagaria o registro da falha.
+        self._db.commit()
         raise FalhaProvedorLLMException(motivos)
+
+    def _registrar_evento(
+        self, sessao_id: int, tipo: TipoEventoAuditoria, payload: dict
+    ) -> None:
+        sessao = self._db.get(SessaoGeracao, sessao_id)
+        registrar_evento(
+            self._db, tipo, f"sessoes_geracao:{sessao_id}", sessao.docente_id, payload
+        )
 
 
 def criar_provedor_service(db: Session) -> ProvedorLLMService:

@@ -14,7 +14,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.app.core.storage import ArmazenamentoArquivos
-from backend.app.domain import EstadoSessao, TipoExportacao, TipoGabarito
+from backend.app.domain import (
+    EstadoSessao,
+    TipoEventoAuditoria,
+    TipoExportacao,
+    TipoGabarito,
+)
 from backend.app.exceptions import (
     ArquivoExportadoCorrompidoException,
     ExportacaoNaoEncontradaException,
@@ -30,6 +35,7 @@ from backend.app.services.exportacao.renderizacao import (
     renderizar_conteudo_puro,
     renderizar_metadados,
 )
+from backend.app.services.log_auditoria import registrar_evento
 from backend.app.services.provas.gabarito import gerar_gabarito
 from backend.app.services.provas.leitura import ler_prova
 from backend.app.services.provas.verificacao import verificar_provas
@@ -117,6 +123,20 @@ def exportar(
         db.add(registro)
         registros.append(registro)
     sessao.estado = EstadoSessao.EXPORTADO
+    db.flush()  # ids dos registros, para o evento
+    registrar_evento(
+        db,
+        TipoEventoAuditoria.EXPORTACAO_DOCX,
+        f"bancos_questoes:{banco.id}",
+        docente.id,
+        {
+            "revisao_banco": banco.revisao,
+            "exportacoes": [
+                {"id": r.id, "tipo": r.tipo.value, "hash_conteudo": r.hash_conteudo}
+                for r in registros
+            ],
+        },
+    )
     db.commit()
     return registros
 

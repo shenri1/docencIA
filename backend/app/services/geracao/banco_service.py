@@ -21,6 +21,7 @@ from backend.app.domain import (
     EstadoSessao,
     FaixaDificuldade,
     NivelBloom,
+    TipoEventoAuditoria,
     TipoQuestao,
 )
 from backend.app.exceptions import (
@@ -55,6 +56,7 @@ from backend.app.services.geracao.agente_gerador_service import (
 )
 from backend.app.services.geracao.ancoras import selecionar_ancoras
 from backend.app.services.geracao.contexto import resolver_fontes
+from backend.app.services.log_auditoria import registrar_evento
 from backend.app.services.prompt_mestre_service import verificar_integridade
 from backend.app.services.qualidade.validador_itens import (
     Violacao,
@@ -278,6 +280,21 @@ def _persistir(
     if estado is EstadoQuestao.ATIVA:
         # Candidata não está no banco: n_atual conta só as ATIVA.
         banco.n_atual += 1
+    registrar_evento(
+        db,
+        TipoEventoAuditoria.QUESTAO_GERADA,
+        f"questoes:{questao.id}",
+        banco.sessao.docente_id,
+        {
+            "banco_id": banco.id,
+            "numero": numero,
+            "tipo": tipo.value,
+            "estado": estado.value,
+            "modelo_geracao": resultado.modelo,
+            "modelo_revisao": revisao.modelo,
+            "n_violacoes_final": len(violacoes_final),
+        },
+    )
     db.commit()
     return questao
 

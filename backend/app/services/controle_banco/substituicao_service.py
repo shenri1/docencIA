@@ -16,6 +16,7 @@ from backend.app.domain import (
     DecisaoSubstituicao,
     EstadoQuestao,
     EventoBanco,
+    TipoEventoAuditoria,
     TipoQuestao,
 )
 from backend.app.exceptions import (
@@ -42,6 +43,7 @@ from backend.app.services.geracao.banco_service import (
     Produzida,
     produzir_questao,
 )
+from backend.app.services.log_auditoria import registrar_evento
 from backend.app.services.prompt_mestre_service import verificar_integridade
 
 # Estados que podem ser substituídos: a que está no banco e a que foi excluída.
@@ -157,6 +159,18 @@ def aceitar_substituicao(
         )
     )
     relatorio = registrar_relatorio(db, banco, EventoBanco.SUBSTITUICAO)
+    registrar_evento(
+        db,
+        TipoEventoAuditoria.SUBSTITUICAO_ACEITA,
+        f"bancos_questoes:{banco.id}",
+        docente.id,
+        {
+            "numero": numero,
+            "questao_original_id": original.id,
+            "candidata_id": candidata.id,
+            "revisao": banco.revisao,
+        },
+    )
     db.commit()
     return relatorio
 
@@ -182,6 +196,17 @@ def rejeitar_substituicao(
             docente_id=docente.id,
             decisao=DecisaoSubstituicao.REJEITADA,
         )
+    )
+    registrar_evento(
+        db,
+        TipoEventoAuditoria.SUBSTITUICAO_REJEITADA,
+        f"bancos_questoes:{banco.id}",
+        docente.id,
+        {
+            "numero": numero,
+            "questao_original_id": original.id,
+            "candidata_id": candidata.id,
+        },
     )
     db.commit()
     return candidata

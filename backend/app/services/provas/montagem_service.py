@@ -20,6 +20,7 @@ from backend.app.domain import (
     EstadoProva,
     EstadoQuestao,
     EstadoSessao,
+    TipoEventoAuditoria,
     TipoQuestao,
 )
 from backend.app.exceptions import (
@@ -32,6 +33,7 @@ from backend.app.models.identidade import Docente
 from backend.app.models.provas import ItemProva, Prova
 from backend.app.services.controle_banco.consistencia import verificar_consistencia
 from backend.app.services.controle_banco.estado import exigir_revisao
+from backend.app.services.log_auditoria import registrar_evento
 from backend.app.services.provas.letras import planejar_letras
 from backend.app.services.provas.selecao import Selecao, selecionar
 from backend.app.services.provas.verificacao import Verificacao, verificar_provas
@@ -183,6 +185,19 @@ def montar_provas(
         db.rollback()
         raise MontagemInconsistenteException(verificacao.violacoes)
 
+    registrar_evento(
+        db,
+        TipoEventoAuditoria.PROVAS_MONTADAS,
+        f"bancos_questoes:{banco.id}",
+        docente.id,
+        {
+            "prova_a_id": prova_a.id,
+            "prova_b_id": prova_b.id,
+            "revisao_banco": banco.revisao,
+            "n_objetivas": n_objetivas,
+            "n_discursivas": n_discursivas,
+        },
+    )
     db.commit()
     return ProvasMontadas(
         prova_a_id=prova_a.id,

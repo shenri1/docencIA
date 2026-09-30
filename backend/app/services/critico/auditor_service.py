@@ -22,6 +22,7 @@ from backend.app.domain import (
     EstadoQuestao,
     RegraQualidade,
     RiscoAuditoria,
+    TipoEventoAuditoria,
     TipoQuestao,
 )
 from backend.app.models.auditoria import RegistroAuditoria
@@ -35,6 +36,7 @@ from backend.app.services.calculo_distribuicao_service import (
 )
 from backend.app.services.controle_banco.consistencia import verificar_consistencia
 from backend.app.services.geracao.contexto import formatar_trechos, parametros_da_sessao
+from backend.app.services.log_auditoria import registrar_evento
 from backend.app.services.prompt_mestre_service import (
     obter_ativo,
     verificar_integridade,
@@ -219,7 +221,7 @@ def auditar_questao(
 # Discriminador do evento em `registros_auditoria`. vai usar a mesma
 # tabela para o log transversal de comandos, com outro tipo_evento — é o que
 # permite as duas coisas conviverem sem tabela nova.
-TIPO_EVENTO_AUDITORIA = "auditoria_questao"
+TIPO_EVENTO_AUDITORIA = TipoEventoAuditoria.AUDITORIA_QUESTAO.value
 
 _DUAS_CASAS = Decimal("0.01")
 
@@ -372,22 +374,21 @@ def auditar_banco(
         resultado = auditar_questao(
             db, embeddings, reranker, provedor, sessao, questao, distribuicao
         )
-        db.add(
-            RegistroAuditoria(
-                tipo_evento=TIPO_EVENTO_AUDITORIA,
-                entidade_afetada=f"questoes:{questao.id}",
-                ator=docente.credencial_institucional,
-                payload={
-                    "banco_id": banco.id,
-                    "numero": questao.numero,
-                    "revisao_auditada": banco.revisao,
-                    "modelo": resultado.modelo,
-                    "versao_prompt": prompt.versao,
-                    "hash_modulos": prompt.hash_modulos,
-                    "localizacoes_enviadas": resultado.localizacoes,
-                    "achados": [a.como_dict() for a in resultado.achados],
-                },
-            )
+        registrar_evento(
+            db,
+            TipoEventoAuditoria.AUDITORIA_QUESTAO,
+            f"questoes:{questao.id}",
+            docente.id,
+            {
+                "banco_id": banco.id,
+                "numero": questao.numero,
+                "revisao_auditada": banco.revisao,
+                "modelo": resultado.modelo,
+                "versao_prompt": prompt.versao,
+                "hash_modulos": prompt.hash_modulos,
+                "localizacoes_enviadas": resultado.localizacoes,
+                "achados": [a.como_dict() for a in resultado.achados],
+            },
         )
         # Commit por questão: ~19 s mais retrieval por item, e falha no item 20
         # preserva os 19 anteriores. Mesmo padrão.

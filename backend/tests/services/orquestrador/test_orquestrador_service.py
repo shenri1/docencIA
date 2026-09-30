@@ -5,6 +5,7 @@ import pytest
 from backend.app.domain import (
     ComandoOrquestrador,
     EstadoBanco,
+    EstadoSessao,
     EventoBanco,
     Marco,
     TipoGabarito,
@@ -51,6 +52,12 @@ def executar(db_session, docente, armazenamento, embeddings_fake, reranker_fake)
         )
 
     return _executar
+
+
+def sessao_com_banco(sessao):
+    """Banco montado pela fábrica não passa pela geração: sem isto a sessão
+    fica em RASCUNHO, estado que não coexiste com banco, e o alvo é o M1."""
+    sessao.estado = EstadoSessao.BANCO_GERADO
 
 
 def prosseguir(**campos) -> ComandoProsseguir:
@@ -130,6 +137,7 @@ def test_prosseguir_no_m3_congela_e_cataloga(
     banco = criar_banco(db_session, sessao_rascunho, n_objetivas=2)
     criar_questao_objetiva(db_session, banco, numero=1)
     criar_questao_objetiva(db_session, banco, numero=2)
+    sessao_com_banco(sessao_rascunho)
     db_session.commit()
 
     resultado = executar(
@@ -149,6 +157,7 @@ def test_prosseguir_com_campos_do_m6_no_m3_nao_congela(
     e congelar é irreversível."""
     banco = criar_banco(db_session, sessao_rascunho, n_objetivas=1)
     criar_questao_objetiva(db_session, banco, numero=1)
+    sessao_com_banco(sessao_rascunho)
     db_session.commit()
 
     with pytest.raises(CamposDoMarcoException) as erro:
@@ -218,6 +227,7 @@ def test_excluir_no_m3(executar, db_session, sessao_rascunho):
     banco = criar_banco(db_session, sessao_rascunho, n_objetivas=2)
     criar_questao_objetiva(db_session, banco, numero=1)
     criar_questao_objetiva(db_session, banco, numero=2)
+    sessao_com_banco(sessao_rascunho)
     db_session.commit()
     revisao = banco.revisao
 
@@ -237,6 +247,7 @@ def test_excluir_numero_inexistente_passa_a_excecao_da_etapa_11(
 ):
     banco = criar_banco(db_session, sessao_rascunho, n_objetivas=1)
     criar_questao_objetiva(db_session, banco, numero=1)
+    sessao_com_banco(sessao_rascunho)
     db_session.commit()
     with pytest.raises(NumerosInvalidosException):
         executar(

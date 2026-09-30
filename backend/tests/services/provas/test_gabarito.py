@@ -1,4 +1,4 @@
-from backend.app.domain import EstadoBanco, FaixaDificuldade, TipoGabarito
+from backend.app.domain import FaixaDificuldade, TipoGabarito
 from backend.app.models.banco import (
     Alternativa,
     FonteInterna,
@@ -6,6 +6,7 @@ from backend.app.models.banco import (
     Questao,
 )
 from backend.app.models.provas import ItemProva, Prova
+from backend.app.services.controle_banco.exclusao_service import congelar_banco
 from backend.app.services.provas.gabarito import gerar_gabarito
 from backend.app.services.provas.montagem_service import montar_provas
 from backend.tests.fabrica_banco import (
@@ -34,8 +35,10 @@ def provas_montadas(db, docente, sessao, discursivas=0, **fabrica):
         criar_questao_discursiva(
             db, banco, numero=numero, faixa=M, subtema=f"s{numero}"
         )
-    banco.estado = EstadoBanco.CONGELADO
     db.commit()
+    # Pelo serviço da congelar sem relatório de congelamento é estado
+    # incoerente, e montar_provas recusa.
+    congelar_banco(db, docente, banco, banco.revisao)
     montadas = montar_provas(
         db, docente, banco, 10 - min(discursivas, 3), min(discursivas, 3), banco.revisao
     )
@@ -177,6 +180,9 @@ def test_item_sem_fonte_torna_o_gabarito_incompleto(
     for fonte in list(item.questao.fontes_internas):
         db_session.delete(fonte)
     db_session.commit()
+    # expire_on_commit=False: sem isto, a coleção carregada guarda as fontes
+    # apagadas.
+    db_session.expire_all()
     gabarito = gerar_gabarito(db_session, docente, montadas.prova_a_id, SIMPLES)
     assert gabarito.completo is False
     assert any("posição 3" in p for p in gabarito.problemas)

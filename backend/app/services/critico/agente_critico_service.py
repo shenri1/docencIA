@@ -57,6 +57,11 @@ def item_objetivo_de(questao, trechos: list[TrechoRecuperado]) -> ItemObjetivo:
         ],
         trechos_base=[fonte.trecho_base for fonte in questao.fontes],
         identificadores_fonte=sorted({t.identificador_curto for t in trechos}),
+        justificativa_correta=questao.justificativa.justificativa_correta,
+        texto_verificacao_unicidade=questao.justificativa.texto_verificacao_unicidade,
+        invalidacoes=[
+            (i.letra, i.motivo) for i in questao.justificativa.invalidacao_distratores
+        ],
     )
 
 

@@ -63,19 +63,29 @@ def obter_prova(db: Session, docente: Docente, prova_id: int) -> Prova:
     return prova
 
 
-def _alternativas_lidas(item: ItemProva) -> list[AlternativaLida]:
+def letras_na_prova(item: ItemProva) -> dict[str, str]:
+    """Letra ORIGINAL → letra DA PROVA.
+
+    `ordem_alternativas[i]` é a original que aparece na posição i, e a posição i
+    recebe a i-ésima letra ordenada. Existe em um lugar só: a exibição da prova
+ e o gabarito usam esta função, e duas implementações
+    da mesma permutação divergiriam na primeira mudança.
+    """
     if item.questao.tipo is not TipoQuestao.OBJETIVA:
-        return []
+        return {}
+    destinos = sorted(a.letra for a in item.questao.alternativas)
+    return dict(zip(item.ordem_alternativas or [], destinos, strict=True))
+
+
+def _alternativas_lidas(item: ItemProva) -> list[AlternativaLida]:
     por_letra = {a.letra: a for a in item.questao.alternativas}
-    destinos = sorted(por_letra)
-    # ordem_alternativas[i] é a letra ORIGINAL que aparece na posição i, e
-    # destinos[i] é a letra que ela recebe na prova.
-    return [
-        AlternativaLida(letra=destino, texto=por_letra[original].texto)
-        for destino, original in zip(
-            destinos, item.ordem_alternativas or [], strict=True
-        )
-    ]
+    return sorted(
+        (
+            AlternativaLida(letra=destino, texto=por_letra[original].texto)
+            for original, destino in letras_na_prova(item).items()
+        ),
+        key=lambda alternativa: alternativa.letra,
+    )
 
 
 def ler_prova(db: Session, docente: Docente, prova_id: int) -> ProvaLida:

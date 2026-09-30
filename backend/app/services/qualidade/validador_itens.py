@@ -49,6 +49,15 @@ VERBOS_COMANDO = frozenset(
 
 _PALAVRA = re.compile(r"\w+")
 
+# "alternativa B", "Letra (C)", "opção D". O substantivo ignora caixa; a letra
+# NÃO — ela tem de ser maiúscula no texto original. Com tudo em minúscula, "a
+# alternativa a ser marcada" casaria, porque o artigo "a" viraria a letra A.
+# Lista fechada de propósito, como TERMOS_ABSOLUTOS: "B está errada", sem o
+# substantivo, não é pego, e ampliar pegaria "a opção mais barata".
+_CITACAO_LETRA = re.compile(
+    r"(?i:\balternativa|\bletra|\bop[çc][ãa]o)\s+\(?[A-K]\)?(?!\w)"
+)
+
 
 @dataclass(frozen=True)
 class AlternativaAvaliavel:
@@ -66,6 +75,12 @@ class ItemObjetivo:
     # Identificadores curtos dos materiais enviados ("P1", "S2"). Só esses
     # contam como menção de fonte: "cache L2" é conteúdo, não citação.
     identificadores_fonte: list[str]
+    # Default None desliga as duas regras novas para quem não os
+    # preenche — é o caso do auditor, que usa só as regras de assimetria.
+    justificativa_correta: str | None = None
+    texto_verificacao_unicidade: str | None = None
+    # (letra original, motivo).
+    invalidacoes: list[tuple[str, str]] | None = None
 
 
 @dataclass(frozen=True)
@@ -203,6 +218,52 @@ def _gemeo_na_correta(item: ItemObjetivo) -> list[Violacao]:
     ]
 
 
+def cita_letra(texto: str) -> bool:
+    """Pública: o gabarito marca o texto aprovado com ela, sem
+    reescrevê-lo."""
+    return _CITACAO_LETRA.search(texto) is not None
+
+
+def _invalidacao_letra_invalida(item: ItemObjetivo) -> list[Violacao]:
+    """O schema fecha cada letra por enum e fixa K-1 itens; não consegue impor
+    letras distintas nem proibir a da correta."""
+    if item.invalidacoes is None:
+        return []
+    letras = [letra for letra, _ in item.invalidacoes]
+    correta = next((a.letra for a in item.alternativas if a.correta), None)
+    erradas = sorted(a.letra for a in item.alternativas if not a.correta)
+    if len(set(letras)) == len(letras) and correta not in letras:
+        return []
+    return [
+        Violacao(
+            RegraQualidade.INVALIDACAO_LETRA_INVALIDA,
+            "questao",
+            f"invalidações com letras {', '.join(letras)}; esperado uma para cada "
+            f"errada ({', '.join(erradas)})",
+        )
+    ]
+
+
+def _letra_citada_em_texto(item: ItemObjetivo) -> list[Violacao]:
+    """A letra muda em cada versão da prova. Texto que a cita passa a
+    apontar para a alternativa errada, e proíbe reescrevê-lo depois."""
+    textos: list[tuple[str, str | None]] = [
+        ("enunciado", item.enunciado),
+        ("justificativa", item.justificativa_correta),
+        ("unicidade", item.texto_verificacao_unicidade),
+        *((f"invalidacao {letra}", motivo) for letra, motivo in item.invalidacoes or []),
+    ]
+    return [
+        Violacao(
+            RegraQualidade.LETRA_CITADA_EM_TEXTO,
+            alvo,
+            "cita letra de alternativa; a letra muda em cada versão da prova",
+        )
+        for alvo, texto in textos
+        if texto is not None and cita_letra(texto)
+    ]
+
+
 def validar_objetiva(item: ItemObjetivo) -> list[Violacao]:
     """Ordem determinística: a da tabela de regras, e dentro de cada
     regra, enunciado antes das alternativas, em ordem de letra."""
@@ -213,6 +274,8 @@ def validar_objetiva(item: ItemObjetivo) -> list[Violacao]:
         *_mencao_fonte(item),
         *_gemeos_insuficientes(item),
         *_gemeo_na_correta(item),
+        *_invalidacao_letra_invalida(item),
+        *_letra_citada_em_texto(item),
     ]
 
 

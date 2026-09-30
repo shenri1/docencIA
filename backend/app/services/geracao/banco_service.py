@@ -239,7 +239,9 @@ def _persistir(
                 questao_id=questao.id,
                 objetivo_cognitivo=justificativa.objetivo_cognitivo,
                 justificativa_correta=justificativa.justificativa_correta,
-                invalidacao_distratores=list(justificativa.invalidacao_distratores),
+                invalidacao_distratores=[
+                    i.model_dump() for i in justificativa.invalidacao_distratores
+                ],
                 verificacao_unicidade=justificativa.verificacao_unicidade,
                 texto_verificacao_unicidade=justificativa.texto_verificacao_unicidade,
             )

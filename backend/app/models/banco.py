@@ -197,7 +197,9 @@ class JustificativaEstruturada(Base):
     )
     objetivo_cognitivo: Mapped[str] = mapped_column(Text)
     justificativa_correta: Mapped[str | None] = mapped_column(Text)
-    invalidacao_distratores: Mapped[list[str] | None] = mapped_column(JSONB)
+    invalidacao_distratores: Mapped[list[dict[str, str]] | list[str] | None] = (
+        mapped_column(JSONB)
+    )
     verificacao_unicidade: Mapped[bool | None] = mapped_column(Boolean)
     texto_verificacao_unicidade: Mapped[str | None] = mapped_column(Text)
 

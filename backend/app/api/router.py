@@ -7,6 +7,7 @@ from backend.app.api.endpoints import (
     exportacoes,
     health,
     materiais,
+    orquestrador,
     prompts,
     provas,
     rag,
@@ -24,3 +25,4 @@ router.include_router(banco.router)
 router.include_router(bancos.router)
 router.include_router(provas.router)
 router.include_router(exportacoes.router)
+router.include_router(orquestrador.router)

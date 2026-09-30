@@ -741,3 +741,50 @@ class ArquivoExportadoCorrompidoException(DomainException):
             "registrado e não será entregue.",
             exportacao_id=exportacao_id,
         )
+
+
+# --- Agente Orquestrador ---
+
+
+class ComandoForaDoMarcoException(DomainException):
+    """Não é bug: o comando não vale no marco em que a sessão ou o banco está.
+    A resposta diz quais valem — e, em BLOQUEADO, por quê."""
+
+    status_code = 409
+    codigo = "COMANDO_FORA_DO_MARCO"
+
+    def __init__(
+        self, marco: str, aceitos: list[str], motivo: str | None = None
+    ) -> None:
+        mensagem = (
+            f"O comando não vale no marco {marco}. Aceitos agora: "
+            f"{', '.join(aceitos) or 'nenhum'}."
+        )
+        if motivo:
+            mensagem += f" {motivo}"
+        super().__init__(mensagem, marco=marco, comandos_aceitos=aceitos, motivo=motivo)
+
+
+class CamposDoMarcoException(DomainException):
+    """O `prosseguir` aceita exatamente os campos do marco atual. A sobra também
+    é recusada: um pedido de montagem reenviado com o banco aberto congelaria o
+    banco, e congelar é irreversível."""
+
+    status_code = 422
+    codigo = "CAMPOS_DO_MARCO"
+
+    def __init__(
+        self,
+        marco: str,
+        esperados: list[str],
+        faltando: list[str],
+        sobrando: list[str],
+    ) -> None:
+        super().__init__(
+            f"No marco {marco}, prosseguir leva exatamente: "
+            f"{', '.join(esperados) or 'nenhum campo'}.",
+            marco=marco,
+            campos_esperados=esperados,
+            faltando=faltando,
+            sobrando=sobrando,
+        )

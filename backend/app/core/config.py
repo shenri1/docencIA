@@ -1,5 +1,7 @@
 import warnings
+from typing import Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _SECRET_KEY_DEV_DEFAULT = "dev-secret-key-change-me-in-production-32b"
@@ -8,6 +10,10 @@ _PSEUDONIMO_KEY_DEV_DEFAULT = "dev-pseudonimo-key-change-me-in-production"
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # Fail-closed: só "desenvolvimento" explícito permite as chaves default
+    # (que estão no repositório). Sem AMBIENTE, vale o mais restritivo.
+    ambiente: Literal["desenvolvimento", "producao"] = "producao"
 
     database_url: str = "postgresql+psycopg://docencia:changeme@localhost:5432/docencia"
     embedding_dim: int = 1024
@@ -29,6 +35,12 @@ class Settings(BaseSettings):
     ocr_dpi: int = 300
     ocr_confianca_minima: float = 60.0
     ocr_max_paginas: int = 150
+    # Tetos de recurso do pipeline de upload: MAX_UPLOAD_MB só limita o arquivo
+    # comprimido/declarado, não o que o parser aloca ao abri-lo.
+    max_pdf_paginas: int = 1000
+    ocr_max_megapixels: float = 40.0
+    max_ooxml_descomprimido_mb: int = 200
+    max_ooxml_entradas: int = 10_000
     min_chars_pagina: int = 25
     limiar_paginas_legiveis: float = 0.8
     tesseract_cmd: str | None = None
@@ -69,6 +81,10 @@ class Settings(BaseSettings):
     llm_num_ctx: int = 8192
     llm_timeout_s: float = 180.0
     llm_tentativas_por_provedor: int = 2
+    # Rotas de LLM são síncronas e seguram uma thread do pool (40 por padrão no
+    # anyio) durante toda a geração. Este teto reserva o resto do pool para
+    # login, health e leituras. É por processo: N workers do uvicorn => N vezes.
+    llm_max_concorrentes: int = 4
     llm_temperatura_padrao: float = 0.3
     llm_max_tokens_padrao: int = 2048
 
@@ -90,6 +106,27 @@ class Settings(BaseSettings):
     auditoria_temperatura: float = 0.1
     # A saída é uma lista curta de achados, não uma questão inteira.
     auditoria_max_tokens: int = 1024
+
+    @model_validator(mode="after")
+    def _recusar_chaves_default_em_producao(self) -> "Settings":
+        if self.ambiente == "producao":
+            usando_default = [
+                nome
+                for nome, valor, default in (
+                    ("SECRET_KEY", self.secret_key, _SECRET_KEY_DEV_DEFAULT),
+                    ("PSEUDONIMO_KEY", self.pseudonimo_key, _PSEUDONIMO_KEY_DEV_DEFAULT),
+                )
+                if valor == default
+            ]
+            if usando_default:
+                raise ValueError(
+                    f"{', '.join(usando_default)} com o valor default de "
+                    "desenvolvimento (público no repositório) em AMBIENTE=producao. "
+                    "Defina valores próprios no .env "
+                    '(python -c "import secrets; print(secrets.token_hex(32))") '
+                    "ou, em máquina de desenvolvimento, AMBIENTE=desenvolvimento."
+                )
+        return self
 
 
 settings = Settings()

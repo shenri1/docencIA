@@ -143,6 +143,35 @@ class ArquivoMuitoGrandeException(DomainException):
         )
 
 
+class ArquivoDescompressaoExcessivaException(DomainException):
+    """O arquivo comprimido respeita MAX_UPLOAD_MB, mas o conteúdo declarado
+    descomprimido não: barra zip bomb antes de o parser abrir o pacote."""
+
+    status_code = 413
+    codigo = "ARQUIVO_DESCOMPRESSAO_EXCESSIVA"
+
+    def __init__(self, formato: str, motivo: str) -> None:
+        super().__init__(
+            f"Arquivo {formato.upper()} recusado: {motivo}.", motivo=motivo
+        )
+
+
+class PdfMuitoLongoException(DomainException):
+    """Diferente de PdfEscaneadoOcrInsuficiente ("precisa de texto
+    selecionável"): aqui o PDF é grande demais para ser processado."""
+
+    status_code = 413
+    codigo = "PDF_MUITO_LONGO"
+
+    def __init__(self, paginas: int, max_paginas: int) -> None:
+        super().__init__(
+            f"PDF com {paginas} páginas; o limite é {max_paginas} por material. "
+            "Divida o arquivo em partes menores.",
+            paginas=paginas,
+            max_paginas=max_paginas,
+        )
+
+
 class FormatoNaoSuportadoException(DomainException):
     status_code = 415
     codigo = "FORMATO_NAO_SUPORTADO"
@@ -435,6 +464,41 @@ class BancoCongeladoException(DomainException):
         )
 
 
+class ServidorOcupadoException(DomainException):
+    """Todas as vagas de chamada ao LLM estão em uso. Recusar na hora preserva
+    as threads da API para login, health e leituras."""
+
+    status_code = 503
+    codigo = "SERVIDOR_OCUPADO"
+
+    def __init__(self, retry_after_s: int) -> None:
+        super().__init__(
+            "O servidor está processando o máximo de gerações simultâneas. "
+            "Tente de novo em instantes.",
+            retry_after_s=retry_after_s,
+        )
+        self.headers = {"Retry-After": str(retry_after_s)}
+
+
+class GeracaoEmAndamentoException(DomainException):
+    """Outra requisição gravou a questão que esta acabou de gerar. Acontece no
+    retry de um cliente cujo timeout venceu antes de a primeira requisição
+    terminar. Nada se perde: o que a outra gravou fica, e chamar de novo
+    continua de onde parou."""
+
+    status_code = 409
+    codigo = "GERACAO_EM_ANDAMENTO"
+
+    def __init__(self, versao: str, numero: int) -> None:
+        super().__init__(
+            f"Outra requisição já gravou a questão {numero} do banco {versao}: "
+            "há uma geração em andamento para ele. Aguarde-a terminar e, se "
+            "faltar questão, chame de novo — a geração continua de onde parou.",
+            versao=versao,
+            numero=numero,
+        )
+
+
 class ParametrosBancoDivergentesException(DomainException):
     """As contagens por tipo ficam fixas na criação do banco.
     Mudá-las na retomada deslocaria quais números são objetivos e quais são
@@ -638,6 +702,24 @@ class ProvasJaMontadasException(DomainException):
         super().__init__(
             f"A sessão já tem prova nas versões {', '.join(versoes)}. Remontar "
             "não é suportado.",
+            versoes=versoes,
+        )
+
+
+class SubstituicaoAposMontagemException(DomainException):
+    """Aceitar a substituição moveria a revisão do banco depois de as provas
+    serem montadas: elas ficariam desatualizadas, a exportação bloquearia para
+    sempre (remontar está fora do escopo) e o DOCX já entregue deixaria de
+    corresponder ao banco. O fluxo que funciona é substituir antes de montar."""
+
+    status_code = 409
+    codigo = "SUBSTITUICAO_APOS_MONTAGEM"
+
+    def __init__(self, versoes: list[str]) -> None:
+        super().__init__(
+            f"As provas {', '.join(versoes)} já foram montadas sobre este banco; "
+            "aceitar a substituição as deixaria desatualizadas e remontar não é "
+            "suportado. Substitua antes de montar as provas.",
             versoes=versoes,
         )
 

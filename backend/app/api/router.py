@@ -4,6 +4,7 @@ from backend.app.api.endpoints import (
     auth,
     banco,
     bancos,
+    exportacoes,
     health,
     materiais,
     prompts,
@@ -22,3 +23,4 @@ router.include_router(prompts.router)
 router.include_router(banco.router)
 router.include_router(bancos.router)
 router.include_router(provas.router)
+router.include_router(exportacoes.router)

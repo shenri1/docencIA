@@ -24,6 +24,7 @@ from backend.app.exceptions import (
     EstadoQuestaoInvalidoException,
     QuestaoNaoEncontradaException,
     SemCandidataPendenteException,
+    SubstituicaoAposMontagemException,
 )
 from backend.app.models.banco import (
     BancoQuestoes,
@@ -32,10 +33,12 @@ from backend.app.models.banco import (
     RelatorioImpacto,
 )
 from backend.app.models.identidade import Docente
+from backend.app.models.provas import Prova
 from backend.app.services.calculo_distribuicao_service import calcular_distribuicao
 from backend.app.services.controle_banco.estado import (
     exigir_revisao,
     registrar_relatorio,
+    travar_banco,
 )
 from backend.app.services.geracao.ancoras import selecionar_ancoras
 from backend.app.services.geracao.banco_service import (
@@ -133,7 +136,16 @@ def aceitar_substituicao(
     numero: int,
     revisao_esperada: int,
 ) -> RelatorioImpacto:
+    travar_banco(db, banco)
     exigir_revisao(banco, revisao_esperada)
+    # Aceitar move a revisão do banco: com provas já montadas sobre ele, elas
+    # ficariam desatualizadas e a exportação bloquearia de vez. Proposta e
+    # rejeição não mexem no banco e seguem permitidas.
+    montadas = list(
+        db.scalars(select(Prova.versao).where(Prova.banco_id == banco.id))
+    )
+    if montadas:
+        raise SubstituicaoAposMontagemException(sorted(montadas))
     candidata = _questao_por_numero(db, banco, numero, (EstadoQuestao.CANDIDATA,))
     if candidata is None:
         raise SemCandidataPendenteException(numero)

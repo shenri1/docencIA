@@ -5,8 +5,10 @@ from docx import Document
 from docx.opc.exceptions import OpcError, PackageNotFoundError
 from pptx import Presentation
 
+from backend.app.core.config import settings
 from backend.app.domain import OrigemTexto
 from backend.app.exceptions import (
+    ArquivoDescompressaoExcessivaException,
     ArquivoCorrompidoException,
     ArquivoProtegidoException,
     MaterialSemTextoException,
@@ -17,10 +19,31 @@ from backend.app.services.extracao.tipos import BlocoTexto, ResultadoExtracao
 _ASSINATURA_OLE = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
 
+def _verificar_descompressao(dados: bytes, formato: str) -> None:
+    """MAX_UPLOAD_MB limita o arquivo comprimido; DEFLATE chega a 1000:1, então
+    um .docx de 30 MB pode pedir GBs ao abrir. O diretório central do zip
+    declara o tamanho de cada entrada sem descomprimir nada, e o zipfile do
+    Python não devolve mais bytes do que esse tamanho declarado — o filtro é
+    real para quem lê o pacote por ele (python-docx/python-pptx)."""
+    with zipfile.ZipFile(BytesIO(dados)) as pacote:
+        entradas = pacote.infolist()
+    if len(entradas) > settings.max_ooxml_entradas:
+        raise ArquivoDescompressaoExcessivaException(
+            formato, f"pacote com mais de {settings.max_ooxml_entradas} partes"
+        )
+    teto = settings.max_ooxml_descomprimido_mb * 1024 * 1024
+    if sum(e.file_size for e in entradas) > teto:
+        raise ArquivoDescompressaoExcessivaException(
+            formato,
+            f"conteúdo descomprimido acima de {settings.max_ooxml_descomprimido_mb} MB",
+        )
+
+
 def _abrir(dados: bytes, abridor, formato: str):
     if dados.startswith(_ASSINATURA_OLE):
         raise ArquivoProtegidoException(formato)
     try:
+        _verificar_descompressao(dados, formato)
         return abridor(BytesIO(dados))
     except (PackageNotFoundError, OpcError, zipfile.BadZipFile) as exc:
         raise ArquivoCorrompidoException(formato) from exc

@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.app.domain import (
@@ -26,6 +27,7 @@ from backend.app.domain import (
 )
 from backend.app.exceptions import (
     BancoCongeladoException,
+    GeracaoEmAndamentoException,
     ParametrosBancoDivergentesException,
 )
 from backend.app.models.banco import (
@@ -135,14 +137,14 @@ def _montar_plano(
 def _obter_ou_criar_banco(
     db: Session, sessao: SessaoGeracao, versao: str, n_objetivas: int, n_discursivas: int
 ) -> BancoQuestoes:
-    banco = db.scalar(
-        select(BancoQuestoes).where(
-            BancoQuestoes.sessao_id == sessao.id, BancoQuestoes.versao == versao
-        )
+    consulta = select(BancoQuestoes).where(
+        BancoQuestoes.sessao_id == sessao.id, BancoQuestoes.versao == versao
     )
+    banco = db.scalar(consulta)
     if banco is None:
+        sessao_id = sessao.id  # lido antes: o rollback abaixo expira `sessao`
         banco = BancoQuestoes(
-            sessao_id=sessao.id,
+            sessao_id=sessao_id,
             versao=versao,
             n_alvo=n_objetivas + n_discursivas,
             n_alvo_objetivas=n_objetivas,
@@ -150,9 +152,19 @@ def _obter_ou_criar_banco(
             n_atual=0,
         )
         db.add(banco)
-        db.commit()
-        db.refresh(banco)
-        return banco
+        try:
+            db.commit()
+        except IntegrityError:
+            # Outra requisição criou o mesmo banco entre a leitura e o INSERT
+            # (banco_por_sessao_versao). Segue com o dela: as checagens de
+            # estado e de parâmetros abaixo valem igual.
+            db.rollback()
+            banco = db.scalar(consulta)
+            if banco is None:
+                raise
+        else:
+            db.refresh(banco)
+            return banco
     if banco.estado is EstadoBanco.CONGELADO:
         # congelado não recebe questão nova.
         raise BancoCongeladoException(versao)
@@ -209,7 +221,14 @@ def _persistir(
         estado=estado,
     )
     db.add(questao)
-    db.flush()  # precisa do id para os filhos
+    versao = banco.versao  # lido antes: o rollback expira `banco`
+    try:
+        db.flush()  # precisa do id para os filhos
+    except IntegrityError as exc:
+        # Índice parcial questao_por_banco_numero_ocupado: outra requisição
+        # (retry do cliente após timeout) gravou este número primeiro.
+        db.rollback()
+        raise GeracaoEmAndamentoException(versao, numero) from exc
 
     fontes_por_chave: dict[tuple[int, str, str], FonteInterna] = {}
     for chave in unicas:

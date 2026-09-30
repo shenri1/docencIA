@@ -32,7 +32,7 @@ from backend.app.models.banco import BancoQuestoes, Questao
 from backend.app.models.identidade import Docente
 from backend.app.models.provas import ItemProva, Prova
 from backend.app.services.controle_banco.consistencia import verificar_consistencia
-from backend.app.services.controle_banco.estado import exigir_revisao
+from backend.app.services.controle_banco.estado import exigir_revisao, travar_banco
 from backend.app.services.log_auditoria import registrar_evento
 from backend.app.services.provas.letras import planejar_letras
 from backend.app.services.provas.selecao import Selecao, selecionar
@@ -126,6 +126,10 @@ def montar_provas(
     n_discursivas: int,
     revisao_esperada: int,
 ) -> ProvasMontadas:
+    # O lock serializa montagens concorrentes: a segunda espera a primeira
+    # commitar e então vê as provas dela (ProvasJaMontadas, 409) em vez de
+    # estourar a UniqueConstraint (500).
+    travar_banco(db, banco)
     exigir_revisao(banco, revisao_esperada)
     if banco.estado is not EstadoBanco.CONGELADO:
         raise BancoNaoCongeladoException(banco.versao)

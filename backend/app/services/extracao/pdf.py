@@ -2,6 +2,7 @@ import pymupdf as fitz
 
 from backend.app.domain import OrigemTexto
 from backend.app.exceptions import (
+    PdfMuitoLongoException,
     PdfEscaneadoOcrInsuficienteException,
     PdfProtegidoException,
 )
@@ -24,6 +25,15 @@ def _verificar_protecao(documento: fitz.Document) -> None:
         raise PdfProtegidoException("PDF sem permissão de cópia/extração de texto")
 
 
+def _dpi_dentro_do_teto(pagina: fitz.Page, cfg: ConfigExtracao) -> int:
+    """O MediaBox é declarado pelo arquivo: uma página de 14400 pt a 300 DPI
+    seriam ~3 Gpx. Reduz o DPI só o necessário para caber no teto de pixels."""
+    largura_pol, altura_pol = pagina.rect.width / 72, pagina.rect.height / 72
+    area_pol2 = max(largura_pol * altura_pol, 1e-9)
+    dpi_maximo = int((cfg.ocr_max_megapixels * 1_000_000 / area_pol2) ** 0.5)
+    return max(1, min(cfg.ocr_dpi, dpi_maximo))
+
+
 def extrair_pdf(
     dados: bytes, cfg: ConfigExtracao, ocr: Ocr | None
 ) -> ResultadoExtracao:
@@ -33,6 +43,8 @@ def extrair_pdf(
         # contagem física do arquivo digital, ignorando numeração
         # impressa e rótulos de página.
         paginas_logicas = documento.page_count
+        if paginas_logicas > cfg.max_paginas:
+            raise PdfMuitoLongoException(paginas_logicas, cfg.max_paginas)
 
         metricas: list[MetricaPagina] = []
         textos: dict[int, tuple[str, OrigemTexto]] = {}
@@ -58,7 +70,7 @@ def extrair_pdf(
             alvo = candidatas if len(candidatas) <= cfg.ocr_max_paginas else []
             for numero in alvo:
                 pagina = documento[numero - 1]
-                imagem = pagina.get_pixmap(dpi=cfg.ocr_dpi).tobytes("png")
+                imagem = pagina.get_pixmap(dpi=_dpi_dentro_do_teto(pagina, cfg)).tobytes("png")
                 texto_ocr, confianca = ocr.reconhecer(imagem, cfg.ocr_langs)
                 anterior = metricas[numero - 1]
                 metricas[numero - 1] = MetricaPagina(

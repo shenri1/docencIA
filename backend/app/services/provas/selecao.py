@@ -203,6 +203,8 @@ def selecionar(
                     1 for questao in selecionadas.values() if questao.subtema is None
                 ),
             )
+    if excesso is None:  # só com MAX_TENTATIVAS_SELECAO < 1: o laço nem rodou
+        raise RuntimeError("MAX_TENTATIVAS_SELECAO deve ser >= 1")
     subtema, quantas = excesso
     raise SobreposicaoInevitavelException(
         subtema, quantas, LIMITE_SUBTEMA_COMPARTILHADO

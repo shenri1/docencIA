@@ -119,9 +119,12 @@ class ProvedorLLMService:
     def _registrar_evento(
         self, sessao_id: int, tipo: TipoEventoAuditoria, payload: dict
     ) -> None:
+        # Estamos, tipicamente, no caminho de erro: a falha real do provedor
+        # não pode ser trocada por AttributeError se a sessão sumiu.
         sessao = self._db.get(SessaoGeracao, sessao_id)
+        docente_id = sessao.docente_id if sessao is not None else None
         registrar_evento(
-            self._db, tipo, f"sessoes_geracao:{sessao_id}", sessao.docente_id, payload
+            self._db, tipo, f"sessoes_geracao:{sessao_id}", docente_id, payload
         )
 
 

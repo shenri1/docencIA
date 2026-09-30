@@ -35,6 +35,7 @@ from backend.app.services.controle_banco.consistencia import verificar_consisten
 from backend.app.services.controle_banco.estado import (
     exigir_revisao,
     registrar_relatorio,
+    travar_banco,
 )
 from backend.app.services.log_auditoria import registrar_evento
 
@@ -80,6 +81,7 @@ def excluir_questoes(
     numeros: list[int],
     revisao_esperada: int,
 ) -> RelatorioImpacto:
+    travar_banco(db, banco)
     exigir_revisao(banco, revisao_esperada)
     if banco.estado is EstadoBanco.CONGELADO:
         raise JanelaExclusoesFechadaException(banco.versao)
@@ -111,6 +113,7 @@ def congelar_banco(
     `docente` entra na assinatura por simetria com `excluir_questoes` e porque o
     log de auditoria vai precisar de quem deu o comando.
     """
+    travar_banco(db, banco)
     exigir_revisao(banco, revisao_esperada)
     if banco.estado is EstadoBanco.CONGELADO:
         raise BancoCongeladoException(banco.versao)

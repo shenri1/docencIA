@@ -32,6 +32,24 @@ def obter_banco(db: Session, docente: Docente, banco_id: int) -> BancoQuestoes:
     return banco
 
 
+def travar_banco(db: Session, banco: BancoQuestoes) -> None:
+    """Trava a linha do banco (FOR UPDATE) e relê seus campos sob o lock.
+
+    Todo comando que confere `revisao_esperada` e depois move a revisão precisa
+    chamar isto ANTES de `exigir_revisao`: sem o lock, dois comandos com a mesma
+    revisão passam juntos pela conferência e ambos gravam `revisao + 1`, e o
+    banco fica na mesma revisão tendo sofrido duas mudanças — o que 
+    existe para impedir e que `verificar_consistencia` não detecta. O lock vale
+    até o commit ou rollback do comando.
+
+    O flush vem antes porque `populate_existing` descarta alterações pendentes
+    (a sessão roda com autoflush desligado); o objeto pode estar no identity map
+    com `revisao` obsoleta, e é isso que o refresh corrige.
+    """
+    db.flush()
+    db.get(BancoQuestoes, banco.id, with_for_update=True, populate_existing=True)
+
+
 def exigir_revisao(banco: BancoQuestoes, revisao_esperada: int) -> None:
     """Human-in-the-loop: o comando vale sobre o banco que o docente viu."""
     if revisao_esperada != banco.revisao:

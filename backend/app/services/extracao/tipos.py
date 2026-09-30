@@ -55,6 +55,8 @@ class ConfigExtracao:
     ocr_langs: str
     ocr_max_paginas: int
     ocr_habilitado: bool
+    max_paginas: int
+    ocr_max_megapixels: float
 
     @classmethod
     def das_settings(cls) -> ConfigExtracao:
@@ -66,6 +68,8 @@ class ConfigExtracao:
             ocr_langs=settings.ocr_langs,
             ocr_max_paginas=settings.ocr_max_paginas,
             ocr_habilitado=settings.ocr_enabled,
+            max_paginas=settings.max_pdf_paginas,
+            ocr_max_megapixels=settings.ocr_max_megapixels,
         )
 
 

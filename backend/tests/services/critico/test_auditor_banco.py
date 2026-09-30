@@ -15,6 +15,7 @@ from backend.app.services.critico.auditor_service import (
     auditar_banco,
     montar_resumo,
 )
+from backend.app.services.log_auditoria import pseudonimo
 from backend.tests.fabrica_banco import (
     criar_banco,
     criar_questao_discursiva,
@@ -24,6 +25,22 @@ from backend.tests.services.geracao.duplos import ProvedorLLMFake
 from backend.tests.services.geracao.test_banco_service import preparar
 
 FIX = "db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho"
+
+
+def auditar_um(db, docente, armazenamento, embeddings, reranker, sessao):
+    """Banco aberto de uma objetiva, auditado com um achado vazio."""
+    from backend.app.services.critico.auditor_service import auditar_banco
+    from backend.tests.fabrica_banco import criar_banco, criar_questao_objetiva
+    from backend.tests.services.geracao.duplos import ProvedorLLMFake
+    from backend.tests.services.geracao.test_banco_service import preparar
+
+    preparar(db, armazenamento, sessao)
+    banco = criar_banco(db, sessao, n_objetivas=1)
+    criar_questao_objetiva(db, banco, numero=1)
+    db.commit()
+    return auditar_banco(
+        db, embeddings, reranker, ProvedorLLMFake([{"achados": []}]), docente, banco
+    )
 
 
 def sem_achado() -> dict:
@@ -64,7 +81,7 @@ def test_uma_chamada_por_objetiva_ativa_e_um_registro_cada(
     registros = db_session.query(RegistroAuditoria).all()
     assert len(registros) == 3
     assert {r.tipo_evento for r in registros} == {TIPO_EVENTO_AUDITORIA}
-    assert all(r.ator == docente.credencial_institucional for r in registros)
+    assert all(r.ator == pseudonimo(docente.id) for r in registros)
 
 
 def test_payload_grava_revisao_modelo_e_versao_de_prompt(

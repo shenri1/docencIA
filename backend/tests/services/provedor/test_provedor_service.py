@@ -1,4 +1,5 @@
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from pydantic import BaseModel
@@ -38,10 +39,13 @@ def provedor(id_: int, nome: str, prioridade: int) -> ProvedorLLM:
 
 
 class DbFalso:
-    """Substitui a Session só no que o service usa: `scalars(...)`."""
+    """Substitui a Session só no que o service usa: `scalars(...)` para a
+    cadeia, e `get`/`add`/`commit` para os eventos do log."""
 
     def __init__(self, provedores: list[ProvedorLLM]) -> None:
         self._provedores = provedores
+        self.adicionados: list = []
+        self.commits = 0
 
     def scalars(self, _consulta):
         return iter(
@@ -50,6 +54,15 @@ class DbFalso:
                 key=lambda p: (p.prioridade, p.id),
             )
         )
+
+    def get(self, _modelo, _id):
+        return SimpleNamespace(docente_id=7)
+
+    def add(self, objeto) -> None:
+        self.adicionados.append(objeto)
+
+    def commit(self) -> None:
+        self.commits += 1
 
 
 class ClienteRoteirizado:
@@ -78,14 +91,14 @@ def resposta_de(p: ProvedorLLM) -> RespostaLLM:
     )
 
 
-def montar(provedores, roteiros, registrador=None, tentativas=2):
+def montar(provedores, roteiros, registrador=None, tentativas=2, db=None):
     clientes = {
         p.id: ClienteRoteirizado(p, roteiros[p.id])
         for p in provedores
         if p.id in roteiros
     }
     servico = ProvedorLLMService(
-        db=DbFalso(provedores),
+        db=db or DbFalso(provedores),
         registrador=registrador or RegistradorConsumoFake(),
         fabrica=lambda p: clientes[p.id],
         tentativas=tentativas,
@@ -211,3 +224,75 @@ def test_cadeia_vazia_e_erro_de_configuracao():
     )
     with pytest.raises(NenhumProvedorAtivoException):
         servico.gerar(sessao_id=9, requisicao=requisicao())
+
+
+from backend.app.services.log_auditoria import pseudonimo
+
+
+def test_fallback_grava_evento_com_as_falhas():
+    p1, p2 = provedor(1, "primario", 1), provedor(2, "fallback", 2)
+    db = DbFalso([p1, p2])
+    servico, _ = montar(
+        [p1, p2],
+        {1: [FalhaTransporteLLMException("HTTP 500")] * 2, 2: [resposta_de(p2)]},
+        db=db,
+    )
+    servico.gerar(sessao_id=9, requisicao=requisicao())
+
+    [evento] = db.adicionados
+    assert evento.tipo_evento == "fallback_provedor"
+    assert evento.entidade_afetada == "sessoes_geracao:9"
+    assert evento.ator == pseudonimo(7)
+    assert evento.payload == {
+        "provedor_usado": "fallback",
+        "falhas": [
+            {
+                "provedor": "primario",
+                "motivo": "Falha ao falar com o provedor: HTTP 500.",
+            }
+        ],
+    }
+
+
+def test_primario_saudavel_nao_grava_evento():
+    p1 = provedor(1, "primario", 1)
+    db = DbFalso([p1])
+    servico, _ = montar([p1], {1: [resposta_de(p1)]}, db=db)
+    servico.gerar(sessao_id=9, requisicao=requisicao())
+    assert db.adicionados == []
+
+
+def test_retentativa_no_mesmo_provedor_nao_e_fallback():
+    p1, p2 = provedor(1, "primario", 1), provedor(2, "fallback", 2)
+    db = DbFalso([p1, p2])
+    servico, _ = montar(
+        [p1, p2],
+        {1: [FalhaTransporteLLMException("timeout"), resposta_de(p1)], 2: []},
+        db=db,
+    )
+    servico.gerar(sessao_id=9, requisicao=requisicao())
+    assert db.adicionados == []
+
+
+def test_falha_da_cadeia_grava_e_confirma_antes_de_levantar():
+    p1, p2 = provedor(1, "primario", 1), provedor(2, "fallback", 2)
+    p2.endpoint = "http://segredo.interno:11434"
+    p2.referencia_chave_secrets = "cofre/llm/fallback"
+    db = DbFalso([p1, p2])
+    servico, _ = montar(
+        [p1, p2],
+        {
+            1: [FalhaTransporteLLMException("HTTP 500")] * 2,
+            2: [FalhaTransporteLLMException("ConnectError")] * 2,
+        },
+        db=db,
+    )
+    with pytest.raises(FalhaProvedorLLMException):
+        servico.gerar(sessao_id=9, requisicao=requisicao())
+
+    [evento] = db.adicionados
+    assert evento.tipo_evento == "falha_provedor"
+    assert db.commits == 1
+    texto = repr(evento.payload)
+    assert "segredo.interno" not in texto
+    assert "cofre/llm" not in texto

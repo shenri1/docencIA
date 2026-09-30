@@ -214,3 +214,69 @@ def test_migracao_11_preserva_bancos_e_questoes_existentes():
             )
     finally:
         eng.dispose()
+
+
+BANCO_MIGRACAO_16 = "docencia_migracao_16_test"
+
+
+def test_migracao_pseudonimiza_o_ator_legado():
+    """ parte B gravava a credencial em claro. A migração troca pelo
+    pseudônimo, anula credencial sem docente e não toca pseudônimo existente —
+    inclusive ao rodar de novo."""
+    from backend.app.services.log_auditoria import pseudonimo
+
+    base_url = settings.database_url.rsplit("/", 1)[0]
+    admin = create_engine(f"{base_url}/postgres", isolation_level="AUTOCOMMIT")
+    with admin.connect() as conn:
+        conn.execute(text(f'DROP DATABASE IF EXISTS "{BANCO_MIGRACAO_16}"'))
+        conn.execute(text(f'CREATE DATABASE "{BANCO_MIGRACAO_16}"'))
+    admin.dispose()
+
+    url = f"{base_url}/{BANCO_MIGRACAO_16}"
+    cfg = Config(str(RAIZ / "alembic.ini"))
+    cfg.set_main_option("script_location", str(RAIZ / "backend" / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "c4a7e19d3f58")
+
+    eng = create_engine(url)
+    try:
+        with eng.begin() as conn:
+            docente_id = conn.execute(
+                text(
+                    "INSERT INTO docentes (nome, credencial_institucional, "
+                    "senha_hash, perfil) VALUES ('Ana', 'ana16', 'x', 'DOCENTE') "
+                    "RETURNING id"
+                )
+            ).scalar_one()
+            ja_pseudonimo = "a" * 64
+            for ator, tipo in (
+                ("ana16", "auditoria_questao"),
+                ("sumiu16", "auditoria_questao"),
+                (ja_pseudonimo, "auditoria_questao"),
+                ("ana16", "outro_evento"),
+            ):
+                conn.execute(
+                    text(
+                        "INSERT INTO registros_auditoria (tipo_evento, "
+                        "entidade_afetada, payload, ator) VALUES "
+                        "(:t, 'questoes:1', '{}'::jsonb, :a)"
+                    ),
+                    {"t": tipo, "a": ator},
+                )
+
+        def atores():
+            with eng.connect() as conn:
+                return conn.execute(
+                    text("SELECT ator FROM registros_auditoria ORDER BY id")
+                ).scalars().all()
+
+        esperado = [pseudonimo(docente_id), None, ja_pseudonimo, "ana16"]
+        command.upgrade(cfg, "head")
+        assert atores() == esperado
+
+        # Rodar de novo (downgrade é no-op) não transforma pseudônimo em NULL.
+        command.downgrade(cfg, "c4a7e19d3f58")
+        command.upgrade(cfg, "head")
+        assert atores() == esperado
+    finally:
+        eng.dispose()

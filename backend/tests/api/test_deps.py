@@ -1,11 +1,11 @@
 import pytest
 
-from backend.app.api.deps import _ORDEM_PERFIL, get_current_docente, require_perfil
+from backend.app.api.deps import get_current_docente, require_perfil
 from backend.app.core.security import criar_access_token
 from backend.app.domain import PerfilDocente
 from backend.app.exceptions import PerfilInsuficienteException, TokenInvalidoException
 from backend.app.schemas.identidade import DocenteCriar
-from backend.app.services.auth_service import registrar_docente
+from backend.app.services.auth_service import ORDEM_PERFIL, registrar_docente
 
 
 def test_get_current_docente_com_token_valido_retorna_docente(db_session):
@@ -39,7 +39,7 @@ def test_require_perfil_permite_perfil_igual_ao_minimo(db_session):
         ),
     )
     checar = require_perfil(PerfilDocente.DOCENTE)
-    assert checar(docente=docente) is docente
+    assert checar(docente=docente, db=db_session) is docente
 
 
 def test_require_perfil_nega_perfil_abaixo_do_minimo(db_session):
@@ -51,8 +51,8 @@ def test_require_perfil_nega_perfil_abaixo_do_minimo(db_session):
     )
     checar = require_perfil(PerfilDocente.ADMINISTRADOR)
     with pytest.raises(PerfilInsuficienteException):
-        checar(docente=docente)
+        checar(docente=docente, db=db_session)
 
 
 def test_ordem_perfil_cobre_todos_os_perfis_do_enum():
-    assert set(_ORDEM_PERFIL) == set(PerfilDocente)
+    assert set(ORDEM_PERFIL) == set(PerfilDocente)

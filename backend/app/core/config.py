@@ -3,6 +3,7 @@ import warnings
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _SECRET_KEY_DEV_DEFAULT = "dev-secret-key-change-me-in-production-32b"
+_PSEUDONIMO_KEY_DEV_DEFAULT = "dev-pseudonimo-key-change-me-in-production"
 
 
 class Settings(BaseSettings):
@@ -14,6 +15,11 @@ class Settings(BaseSettings):
     secret_key: str = _SECRET_KEY_DEV_DEFAULT
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 480
+
+    # --- LGPD ---
+    # Separada de secret_key: trocar a chave do JWT não pode mudar todos os
+    # pseudônimos do log.
+    pseudonimo_key: str = _PSEUDONIMO_KEY_DEV_DEFAULT
 
     # --- Materiais ---
     storage_dir: str = "./storage"
@@ -93,5 +99,13 @@ if settings.secret_key == _SECRET_KEY_DEV_DEFAULT:
         "SECRET_KEY não configurado — usando default de desenvolvimento. "
         "Isso nunca é aceitável em produção: defina SECRET_KEY no .env "
         '(ex.: python -c "import secrets; print(secrets.token_hex(32))").',
+        stacklevel=2,
+    )
+
+if settings.pseudonimo_key == _PSEUDONIMO_KEY_DEV_DEFAULT:
+    warnings.warn(
+        "PSEUDONIMO_KEY não configurado — usando default de desenvolvimento. "
+        "Em produção, defina PSEUDONIMO_KEY no .env; trocá-la depois torna os "
+        "pseudônimos antigos incomparáveis com os novos.",
         stacklevel=2,
     )

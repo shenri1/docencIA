@@ -36,5 +36,9 @@ def criar_access_token(subject: str) -> str:
 def decodificar_token(token: str) -> dict:
     try:
         return jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+    except jwt.ExpiredSignatureError as exc:
+        # O PyJWT confere a assinatura antes da expiração: expirado é token
+        # legítimo que acabou, não suspeito.
+        raise TokenInvalidoException(motivo="expirado") from exc
     except jwt.PyJWTError as exc:
-        raise TokenInvalidoException() from exc
+        raise TokenInvalidoException(motivo="assinatura_invalida") from exc

@@ -19,6 +19,7 @@ from backend.app.domain import EstadoSessao, OrigemTexto
 from backend.app.exceptions import (
     ArtefatoDeTextoInvalidoException,
     MaterialSemTextoException,
+    SessaoEstadoInvalidaException,
 )
 from backend.app.models.identidade import SessaoGeracao
 from backend.app.models.materiais import ChunkMaterial, MaterialReferencia
@@ -108,6 +109,11 @@ def indexar_sessao(
     return ResumoIndexacao(materiais_indexados, chunks_criados)
 
 
+# Cada rodada indexa embeddings de verdade (caro); duas já cobrem um upload que
+# escorrega no meio. Passar disto é upload concorrente sem parar, não progresso.
+MAX_RODADAS_CONFIRMACAO = 10
+
+
 def indexar_e_confirmar(
     db: Session,
     armazenamento: ArmazenamentoArquivos,
@@ -123,7 +129,7 @@ def indexar_e_confirmar(
     entre materiais, então o laço re-trava e re-verifica até nenhum pendente
     sobrar; um upload que escorregar no meio é indexado na iteração seguinte.
     """
-    while True:
+    for _ in range(MAX_RODADAS_CONFIRMACAO):
         sessao = _travar_sessao(db, sessao.id)
         if sessao.estado != EstadoSessao.RASCUNHO:
             return sessao
@@ -139,3 +145,7 @@ def indexar_e_confirmar(
         )
         if pendente is None:
             return confirmar_indice(db, sessao)
+    raise SessaoEstadoInvalidaException(
+        "uploads concorrentes continuam chegando e impediram a confirmação do "
+        "índice; aguarde-os terminarem e confirme de novo"
+    )

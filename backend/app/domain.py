@@ -149,3 +149,24 @@ class RiscoAuditoria(str, Enum):
     CORRETA_NAO_UNICA = "correta_nao_unica"
     DISTRATOR_INDEFENSAVEL = "distrator_indefensavel"
     ASSIMETRIA_FORMA = "assimetria_forma"
+
+
+class Marco(str, Enum):
+    """Derivado do estado gravado a cada pedido, nunca persistido.
+    Numeração (F5–F12 ↔ M2–M10); M4, M5, M7, M8 e
+    M9 não são paradas: auditar é comando próprio, e os demais saem embutidos
+    na resposta do passo anterior."""
+
+    M1_MATERIAIS = "m1_materiais"
+    M2_BANCO = "m2_banco"
+    M3_EXCLUSOES = "m3_exclusoes"
+    M6_PROVAS = "m6_provas"
+    M10_DOCX = "m10_docx"
+    CONCLUIDO = "concluido"
+    BLOQUEADO = "bloqueado"
+
+
+class ComandoOrquestrador(str, Enum):
+    PROSSEGUIR = "prosseguir"
+    EXCLUIR = "excluir"
+    AUDITAR = "auditar"

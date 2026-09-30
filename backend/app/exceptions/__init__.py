@@ -42,9 +42,12 @@ class TokenInvalidoException(DomainException):
     status_code = 401
     codigo = "TOKEN_INVALIDO"
 
-    def __init__(self) -> None:
+    def __init__(self, motivo: str = "assinatura_invalida") -> None:
         super().__init__("Token inválido ou expirado.")
         self.headers = {"WWW-Authenticate": "Bearer"}
+        # Fora de `extras` de propósito: vai para o log, nunca para
+        # o corpo da resposta. O cliente não aprende por que foi recusado.
+        self.motivo = motivo
 
 
 class PerfilInsuficienteException(DomainException):

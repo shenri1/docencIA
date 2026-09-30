@@ -17,7 +17,10 @@ from backend.app.exceptions import (
 )
 from backend.app.models.banco import BancoQuestoes, Questao, RelatorioImpacto
 from backend.app.models.identidade import Docente
-from backend.app.services.controle_banco.relatorio_impacto import calcular_impacto
+from backend.app.services.controle_banco.relatorio_impacto import (
+    Impacto,
+    calcular_impacto,
+)
 
 
 def obter_banco(db: Session, docente: Docente, banco_id: int) -> BancoQuestoes:
@@ -53,6 +56,27 @@ def _contagens_ativas(
     return contagens
 
 
+def impacto_atual(db: Session, banco: BancoQuestoes) -> Impacto:
+    """Impacto das questões ativas agora, sem gravar relatório nem mover a
+    revisão. Não faz flush: quem acabou de mudar estado faz antes de chamar."""
+    tipos_pedidos = {
+        tipo
+        for tipo, n_alvo in (
+            (TipoQuestao.OBJETIVA, banco.n_alvo_objetivas),
+            (TipoQuestao.DISCURSIVA, banco.n_alvo_discursivas),
+        )
+        if n_alvo > 0
+    }
+    sessao = banco.sessao
+    return calcular_impacto(
+        _contagens_ativas(db, banco),
+        tipos_pedidos,
+        sessao.p_f,
+        sessao.p_m,
+        sessao.p_d,
+    )
+
+
 def registrar_relatorio(
     db: Session, banco: BancoQuestoes, evento: EventoBanco
 ) -> RelatorioImpacto:
@@ -64,22 +88,7 @@ def registrar_relatorio(
     # A sessão roda com autoflush desligado (core/db.py): sem este flush, a
     # contagem não veria as mudanças de estado que o chamador acabou de fazer.
     db.flush()
-    tipos_pedidos = {
-        tipo
-        for tipo, n_alvo in (
-            (TipoQuestao.OBJETIVA, banco.n_alvo_objetivas),
-            (TipoQuestao.DISCURSIVA, banco.n_alvo_discursivas),
-        )
-        if n_alvo > 0
-    }
-    sessao = banco.sessao
-    impacto = calcular_impacto(
-        _contagens_ativas(db, banco),
-        tipos_pedidos,
-        sessao.p_f,
-        sessao.p_m,
-        sessao.p_d,
-    )
+    impacto = impacto_atual(db, banco)
     banco.revisao += 1
     relatorio = RelatorioImpacto(
         banco_id=banco.id,

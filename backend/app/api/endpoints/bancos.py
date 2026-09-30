@@ -88,6 +88,8 @@ def relatorios(
     return listar_relatorios(db, docente, banco_id)
 
 
+
+
 @router.post("/exclusoes", response_model=RelatorioImpactoResposta)
 def excluir(
     banco_id: int,

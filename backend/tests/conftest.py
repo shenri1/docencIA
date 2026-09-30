@@ -31,6 +31,8 @@ def _env_local_database_url() -> str:
 
 
 os.environ.setdefault("DATABASE_URL", _env_local_database_url())
+# Os testes usam as chaves default; sem isto o config recusa subir (fail-closed).
+os.environ.setdefault("AMBIENTE", "desenvolvimento")
 
 import pytest
 from fastapi.testclient import TestClient

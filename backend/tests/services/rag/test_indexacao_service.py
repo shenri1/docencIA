@@ -240,3 +240,31 @@ def test_indexar_e_confirmar_pega_material_que_escorregou_no_meio(
     )
     assert [m.identificador_curto for m in materiais] == ["P1", "P2"]
     assert all(m.indexado_em is not None for m in materiais)
+
+
+# --- Achado 13: o laço de confirmação tem cota de rodadas ---
+
+
+def test_confirmar_com_uploads_sem_fim_levanta_em_vez_de_girar_para_sempre(monkeypatch):
+    """Dublês no lugar da sessão e do banco: o que se testa é só o controle do
+    laço. Um pendente que reaparece a cada rodada não pode prendê-lo."""
+    from types import SimpleNamespace
+
+    from backend.app.exceptions import SessaoEstadoInvalidaException
+    from backend.app.services.rag import indexacao_service as modulo
+
+    sessao = SimpleNamespace(id=1, estado=EstadoSessao.RASCUNHO)
+    rodadas = []
+    monkeypatch.setattr(modulo, "_travar_sessao", lambda db, sessao_id: sessao)
+    monkeypatch.setattr(
+        modulo, "indexar_sessao", lambda *args, **kwargs: rodadas.append(1)
+    )
+
+    class DbSempreComPendente:
+        def scalar(self, _consulta):
+            return 99  # sempre há um material pendente
+
+    with pytest.raises(SessaoEstadoInvalidaException):
+        modulo.indexar_e_confirmar(DbSempreComPendente(), None, None, sessao, CFG)
+
+    assert len(rodadas) == modulo.MAX_RODADAS_CONFIRMACAO

@@ -1,7 +1,10 @@
 import pytest
+from sqlalchemy import select
+from sqlalchemy.orm import sessionmaker
 
 from backend.app.domain import (
     EstadoBanco,
+    EstadoQuestao,
     EstadoSessao,
     FaixaDificuldade,
     NivelBloom,
@@ -10,6 +13,7 @@ from backend.app.domain import (
 from backend.app.exceptions import (
     BancoCongeladoException,
     FonteInvalidaException,
+    GeracaoEmAndamentoException,
     MaterialInsuficienteParaBancoException,
     ParametrosBancoDivergentesException,
     PromptDivergenteException,
@@ -25,7 +29,10 @@ from backend.app.models.banco import (
 )
 from backend.app.models.materiais import ChunkMaterial
 from backend.app.prompt.parametros import ParametrosGeracao
-from backend.app.services.geracao.banco_service import gerar_banco
+from backend.app.services.geracao.banco_service import (
+    _obter_ou_criar_banco,
+    gerar_banco,
+)
 from backend.app.services.prompt_mestre_service import ativar, registrar_versao
 from backend.tests.services.geracao.duplos import (
     ProvedorLLMFake,
@@ -775,3 +782,85 @@ def test_persistir_grava_invalidacoes_com_letra_original(
         {"letra": "D", "motivo": "distrator 3"},
         {"letra": "E", "motivo": "distrator 4"},
     ]
+
+
+# --- Achado 9: geração concorrente sobre o mesmo banco ---
+
+
+def _outra_sessao(engine):
+    return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)()
+
+
+def test_colisao_de_numero_com_outra_requisicao_responde_409_e_deixa_a_sessao_usavel(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho, engine
+):
+    """Retry do cliente após timeout: a 1ª requisição segue viva e grava a
+    questão 1 enquanto esta ainda gera a sua. O índice parcial segura a
+    corrupção; o que faltava era a colisão virar 409 em vez de 500."""
+    preparar(db_session, armazenamento, sessao_rascunho)
+
+    class ProvedorQueColide(ProvedorLLMFake):
+        def gerar(self, sessao_id, requisicao):
+            if self.chamadas == 0:
+                with _outra_sessao(engine) as outra:
+                    banco_da_outra = outra.scalar(select(BancoQuestoes))
+                    outra.add(
+                        Questao(
+                            banco_id=banco_da_outra.id,
+                            numero=1,
+                            tipo=TipoQuestao.OBJETIVA,
+                            enunciado="gravada pela outra requisição",
+                            nivel_bloom=NivelBloom.APLICAR,
+                            faixa_dificuldade=FaixaDificuldade.MEDIA,
+                            tema="t",
+                            subtema="s",
+                            estado=EstadoQuestao.ATIVA,
+                        )
+                    )
+                    outra.commit()
+            return super().gerar(sessao_id, requisicao)
+
+    with pytest.raises(GeracaoEmAndamentoException) as erro:
+        gerar_banco(
+            db_session, embeddings_fake, reranker_fake,
+            ProvedorQueColide(roteiro(1)),
+            sessao_rascunho, n_objetivas=1, n_discursivas=0, versao="v1",
+        )
+
+    assert erro.value.status_code == 409
+    assert erro.value.extras["numero"] == 1
+    # Rollback feito: a sessão continua utilizável e só a questão da outra existe.
+    assert db_session.query(Questao).count() == 1
+
+
+def test_criacao_concorrente_do_banco_reaproveita_o_que_a_outra_criou(
+    db_session, sessao_rascunho, engine, monkeypatch
+):
+    """Duas requisições frias com a mesma `versao`: ambas leem "não existe" e a
+    segunda esbarra em banco_por_sessao_versao no INSERT."""
+    with _outra_sessao(engine) as outra:
+        outra.add(
+            BancoQuestoes(
+                sessao_id=sessao_rascunho.id,
+                versao="v1",
+                n_alvo=1,
+                n_alvo_objetivas=1,
+                n_alvo_discursivas=0,
+                n_atual=0,
+            )
+        )
+        outra.commit()
+
+    original = db_session.scalar
+    leituras = []
+
+    def primeira_leitura_nao_ve_o_banco(*args, **kwargs):
+        leituras.append(1)
+        return None if len(leituras) == 1 else original(*args, **kwargs)
+
+    monkeypatch.setattr(db_session, "scalar", primeira_leitura_nao_ve_o_banco)
+
+    banco = _obter_ou_criar_banco(db_session, sessao_rascunho, "v1", 1, 0)
+
+    assert banco.versao == "v1"
+    assert db_session.query(BancoQuestoes).count() == 1

@@ -1,3 +1,6 @@
+import pytest
+from pydantic import ValidationError
+
 from backend.app.core.config import Settings, settings
 
 
@@ -61,3 +64,49 @@ def test_defaults_do_critico():
     assert settings.critico_temperatura == 0.2
     # A saída tem o mesmo schema da geração: mesmo teto.
     assert settings.critico_max_tokens == 2048
+
+
+# --- Achado 4: chaves de desenvolvimento não podem subir em produção ---
+
+_CHAVE_FORTE = "a" * 64
+_OUTRA_CHAVE_FORTE = "b" * 64
+
+
+@pytest.fixture
+def sem_chaves_no_ambiente(monkeypatch):
+    for nome in ("SECRET_KEY", "PSEUDONIMO_KEY", "AMBIENTE"):
+        monkeypatch.delenv(nome, raising=False)
+
+
+def test_producao_e_o_ambiente_padrao(sem_chaves_no_ambiente):
+    cfg = Settings(
+        _env_file=None, secret_key=_CHAVE_FORTE, pseudonimo_key=_OUTRA_CHAVE_FORTE
+    )
+    assert cfg.ambiente == "producao"
+
+
+def test_producao_recusa_secret_key_de_desenvolvimento(sem_chaves_no_ambiente):
+    with pytest.raises(ValidationError, match="SECRET_KEY"):
+        Settings(_env_file=None, pseudonimo_key=_OUTRA_CHAVE_FORTE)
+
+
+def test_producao_recusa_pseudonimo_key_de_desenvolvimento(sem_chaves_no_ambiente):
+    with pytest.raises(ValidationError, match="PSEUDONIMO_KEY"):
+        Settings(_env_file=None, secret_key=_CHAVE_FORTE)
+
+
+def test_producao_aceita_chaves_proprias(sem_chaves_no_ambiente):
+    cfg = Settings(
+        _env_file=None, secret_key=_CHAVE_FORTE, pseudonimo_key=_OUTRA_CHAVE_FORTE
+    )
+    assert cfg.secret_key == _CHAVE_FORTE
+
+
+def test_desenvolvimento_aceita_chaves_default(sem_chaves_no_ambiente):
+    cfg = Settings(_env_file=None, ambiente="desenvolvimento")
+    assert cfg.secret_key and cfg.pseudonimo_key
+
+
+def test_ambiente_desconhecido_e_recusado(sem_chaves_no_ambiente):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, ambiente="staging")

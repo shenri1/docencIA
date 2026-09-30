@@ -28,6 +28,8 @@ CFG = ConfigExtracao(
     ocr_dpi=200,
     ocr_langs="por+eng",
     ocr_max_paginas=150,
+    max_paginas=1000,
+    ocr_max_megapixels=40.0,
     ocr_habilitado=False,
 )
 PDF = pdf_com_texto(["Conteúdo suficiente da primeira página para o limiar."])

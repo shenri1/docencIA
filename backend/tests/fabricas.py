@@ -1,5 +1,6 @@
 """Arquivos de teste gerados em código — nada de binários versionados."""
 
+import zipfile
 from io import BytesIO
 
 import pymupdf as fitz
@@ -110,3 +111,24 @@ def zip_corrompido() -> bytes:
 
 def txt_bytes(texto: str, encoding: str = "utf-8") -> bytes:
     return texto.encode(encoding)
+
+
+def zip_ooxml_com_entradas(entradas: dict[str, bytes]) -> bytes:
+    """Zip DEFLATE com o conteúdo dado. Bytes repetidos comprimem ~1000:1, então
+    dá para declarar megabytes descomprimidos em poucos KB no arquivo."""
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as pacote:
+        for nome, conteudo in entradas.items():
+            pacote.writestr(nome, conteudo)
+    return buffer.getvalue()
+
+
+def pdf_escaneado_pagina_gigante(lado_pt: float) -> bytes:
+    """Uma página só, sem texto, com imagem, de lado_pt x lado_pt pontos — o
+    MediaBox é declarado pelo arquivo, não limitado pelo tamanho em bytes."""
+    origem = fitz.open("pdf", pdf_com_texto(["x"]))
+    pixmap = origem[0].get_pixmap(dpi=50)
+    documento = fitz.open()
+    pagina = documento.new_page(width=lado_pt, height=lado_pt)
+    pagina.insert_image(pagina.rect, pixmap=pixmap)
+    return documento.tobytes()

@@ -296,3 +296,24 @@ def test_falha_da_cadeia_grava_e_confirma_antes_de_levantar():
     texto = repr(evento.payload)
     assert "segredo.interno" not in texto
     assert "cofre/llm" not in texto
+
+
+class DbSemSessao(DbFalso):
+    def get(self, _modelo, _id):
+        return None
+
+
+def test_falha_da_cadeia_sem_sessao_ainda_levanta_falha_do_provedor_e_registra():
+    """Achado 10: `db.get` devolve None para sessão inexistente; o evento de
+    falha não pode virar AttributeError e esconder a FalhaProvedorLLMException."""
+    p1 = provedor(1, "primario", 1)
+    db = DbSemSessao([p1])
+    servico, _ = montar(
+        [p1], {1: [FalhaTransporteLLMException("HTTP 500")] * 2}, db=db
+    )
+
+    with pytest.raises(FalhaProvedorLLMException):
+        servico.gerar(sessao_id=9, requisicao=requisicao())
+
+    assert len(db.adicionados) == 1
+    assert db.adicionados[0].ator is None

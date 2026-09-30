@@ -1,13 +1,20 @@
 import pytest
 
+from backend.app.core.config import settings
+
 from backend.app.domain import OrigemTexto
-from backend.app.exceptions import ArquivoCorrompidoException, MaterialSemTextoException
+from backend.app.exceptions import (
+    ArquivoCorrompidoException,
+    ArquivoDescompressaoExcessivaException,
+    MaterialSemTextoException,
+)
 from backend.app.services.extracao.ooxml import extrair_docx, extrair_pptx
 from backend.tests.fabricas import (
     docx_com_secoes,
     docx_com_tabela,
     pptx_com_slides,
     zip_corrompido,
+    zip_ooxml_com_entradas,
 )
 
 
@@ -68,3 +75,30 @@ def test_pptx_sem_texto_levanta():
 def test_pptx_corrompido_levanta():
     with pytest.raises(ArquivoCorrompidoException):
         extrair_pptx(zip_corrompido())
+
+
+# --- Achado 2: MAX_UPLOAD_MB limita o comprimido; o descomprimido tem teto próprio ---
+
+
+@pytest.mark.parametrize("extrair", [extrair_docx, extrair_pptx])
+def test_ooxml_com_descompressao_acima_do_teto_e_recusado(monkeypatch, extrair):
+    monkeypatch.setattr(settings, "max_ooxml_descomprimido_mb", 1)
+    bomba = zip_ooxml_com_entradas({"word/document.xml": b"0" * (3 * 1024 * 1024)})
+    assert len(bomba) < 100 * 1024  # cabe folgado em MAX_UPLOAD_MB
+    with pytest.raises(ArquivoDescompressaoExcessivaException) as erro:
+        extrair(bomba)
+    assert erro.value.status_code == 413
+
+
+@pytest.mark.parametrize("extrair", [extrair_docx, extrair_pptx])
+def test_ooxml_com_entradas_demais_e_recusado(monkeypatch, extrair):
+    monkeypatch.setattr(settings, "max_ooxml_entradas", 5)
+    muitas = zip_ooxml_com_entradas({f"parte{i}.xml": b"<a/>" for i in range(10)})
+    with pytest.raises(ArquivoDescompressaoExcessivaException):
+        extrair(muitas)
+
+
+def test_docx_dentro_do_teto_continua_sendo_extraido(monkeypatch):
+    monkeypatch.setattr(settings, "max_ooxml_descomprimido_mb", 50)
+    dados = docx_com_secoes([("Intro", ["texto do parágrafo"])])
+    assert extrair_docx(dados).blocos

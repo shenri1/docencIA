@@ -24,6 +24,8 @@ CFG = ConfigExtracao(
     ocr_dpi=300,
     ocr_langs="por+eng",
     ocr_max_paginas=150,
+    max_paginas=1000,
+    ocr_max_megapixels=40.0,
     ocr_habilitado=True,
 )
 

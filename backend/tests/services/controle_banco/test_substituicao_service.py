@@ -4,6 +4,7 @@ from sqlalchemy import select
 from backend.app.domain import (
     DecisaoSubstituicao,
     EstadoBanco,
+    EstadoProva,
     EstadoQuestao,
     EventoBanco,
     FaixaDificuldade,
@@ -15,8 +16,11 @@ from backend.app.exceptions import (
     QuestaoNaoEncontradaException,
     RevisaoDesatualizadaException,
     SemCandidataPendenteException,
+    SubstituicaoAposMontagemException,
 )
 from backend.app.models.banco import BancoQuestoes, Questao, RegistroSubstituicao
+from backend.app.models.provas import Prova
+from backend.app.services.controle_banco import substituicao_service
 from backend.app.services.controle_banco.exclusao_service import (
     congelar_banco,
     excluir_questoes,
@@ -27,6 +31,7 @@ from backend.app.services.controle_banco.substituicao_service import (
     rejeitar_substituicao,
 )
 from backend.app.services.geracao.banco_service import Improdutiva, gerar_banco
+from backend.tests.travamento import espiar_lock
 from backend.tests.services.geracao.duplos import (
     ProvedorLLMFake,
     corpo_insuficiencia,
@@ -308,3 +313,59 @@ def test_duas_substituicoes_do_mesmo_numero(
     estados = sorted(q.estado.value for q in do_numero_1)
     assert estados == ["ativa", "substituida", "substituida"]
     assert banco.n_atual == 3
+
+
+def test_aceitar_com_provas_montadas_responde_409_e_nao_muda_nada(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    """Achado 5: aceitar move a revisão do banco; as provas já montadas ficam
+    na revisão antiga, a exportação bloqueia para sempre e remontar não existe."""
+    banco = banco_gerado(
+        db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+    )
+    produzida = _propor(db_session, embeddings_fake, reranker_fake, docente, banco, 1)
+    congelar_banco(db_session, docente, banco, banco.revisao)
+    db_session.add(
+        Prova(
+            sessao_id=banco.sessao_id,
+            banco_id=banco.id,
+            versao="A",
+            n_questoes=3,
+            n_objetivas=3,
+            n_discursivas=0,
+            revisao_banco=banco.revisao,
+            estado=EstadoProva.MONTADA,
+        )
+    )
+    db_session.commit()
+    revisao_antes = banco.revisao
+
+    with pytest.raises(SubstituicaoAposMontagemException) as erro:
+        aceitar_substituicao(db_session, docente, banco, 1, banco.revisao)
+
+    assert erro.value.status_code == 409
+    assert banco.revisao == revisao_antes
+    assert produzida.questao.estado is EstadoQuestao.CANDIDATA
+
+
+def test_aceitar_segura_o_lock_da_linha_do_banco(
+    db_session,
+    docente,
+    armazenamento,
+    embeddings_fake,
+    reranker_fake,
+    sessao_rascunho,
+    engine,
+    monkeypatch,
+):
+    banco = banco_gerado(
+        db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+    )
+    _propor(db_session, embeddings_fake, reranker_fake, docente, banco, 1)
+    achados = espiar_lock(
+        monkeypatch, substituicao_service, "registrar_relatorio", engine, banco.id
+    )
+
+    aceitar_substituicao(db_session, docente, banco, 1, banco.revisao)
+
+    assert achados == [False]

@@ -1,5 +1,6 @@
 import pytest
 from fastapi import FastAPI
+from pydantic import Field, create_model
 from fastapi.testclient import TestClient
 
 from backend.app.exceptions import (
@@ -245,3 +246,21 @@ def test_parametros_banco_divergentes_e_409_e_traz_os_dois_pares():
     corpo = exc.corpo()
     assert corpo["gravado"] == {"objetivas": 10, "discursivas": 5}
     assert corpo["pedido"] == {"objetivas": 12, "discursivas": 3}
+
+
+@pytest.mark.parametrize("campo", ["password", "senha", "token", "secret"])
+def test_422_nao_ecoa_campo_de_credencial_qualquer_que_seja_o_nome(campo):
+    """Achado 12: a redação era por nome de campo ("senha") e o formulário de
+    login usa "password". Redige por nome sensível, em qualquer idioma."""
+    corpo = create_model("Corpo", **{campo: (str, Field(max_length=3))})
+    app = FastAPI()
+    registrar_exception_handlers(app)
+
+    @app.post("/x")
+    def _rota(dados: corpo):  # noqa: ARG001
+        return {}
+
+    resp = TestClient(app).post("/x", json={campo: "valor-secreto-longo"})
+
+    assert resp.status_code == 422
+    assert "valor-secreto-longo" not in resp.text

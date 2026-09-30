@@ -1,10 +1,12 @@
 import pytest
 
-from backend.app.domain import FaixaDificuldade
+from backend.app.domain import FaixaDificuldade, TipoQuestao
 from backend.app.exceptions import (
     BancoInsuficienteParaProvaException,
     SobreposicaoInevitavelException,
 )
+from backend.app.models.banco import Questao
+from backend.app.services.provas import selecao as modulo_selecao
 from backend.app.services.provas.selecao import selecionar
 from backend.tests.fabrica_banco import (
     criar_banco,
@@ -171,3 +173,19 @@ def test_mesma_semente_mesma_selecao(db_session, sessao_rascunho):
     dois = selecionar(banco.questoes, 10, 0, 30, 40, 30, semente="igual")
     assert [q.id for q in um.a] == [q.id for q in dois.a]
     assert [q.id for q in um.b] == [q.id for q in dois.b]
+
+
+def test_zero_tentativas_falha_com_erro_claro_e_nao_com_typeerror(monkeypatch):
+    """Achado 14: sem tentativa nenhuma não há `excesso` a desempacotar."""
+    monkeypatch.setattr(modulo_selecao, "MAX_TENTATIVAS_SELECAO", 0)
+    questoes = [
+        Questao(
+            numero=i,
+            tipo=TipoQuestao.OBJETIVA,
+            faixa_dificuldade=F,
+            subtema="s",
+        )
+        for i in (1, 2)
+    ]
+    with pytest.raises(RuntimeError, match="MAX_TENTATIVAS_SELECAO"):
+        selecionar(questoes, 1, 0, 100, 0, 0, semente="x")

@@ -13,6 +13,7 @@ from backend.app.services.controle_banco.exclusao_service import congelar_banco
 from backend.app.services.provas import montagem_service
 from backend.app.services.provas.montagem_service import montar_provas
 from backend.app.services.provas.verificacao import Verificacao
+from backend.tests.travamento import espiar_lock
 from backend.tests.fabrica_banco import (
     criar_banco,
     criar_questao_discursiva,
@@ -163,3 +164,18 @@ def test_falha_na_verificacao_nao_deixa_prova_nenhuma(
     assert db_session.query(Prova).count() == 0
     assert db_session.query(ItemProva).count() == 0
     assert sessao_rascunho.estado is not EstadoSessao.PROVAS_MONTADAS
+
+
+def test_montar_segura_o_lock_da_linha_do_banco(
+    db_session, docente, sessao_rascunho, engine, monkeypatch
+):
+    """Achado 8: sem o lock, duas montagens concorrentes passam juntas pela
+    checagem "já existem provas" e a segunda estoura em IntegrityError (500)."""
+    banco = banco_congelado(db_session, docente, sessao_rascunho)
+    achados = espiar_lock(
+        monkeypatch, montagem_service, "verificar_consistencia", engine, banco.id
+    )
+
+    montar_provas(db_session, docente, banco, 10, 0, banco.revisao)
+
+    assert achados == [False]

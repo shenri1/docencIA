@@ -1,7 +1,9 @@
+import pymupdf as fitz
 import pytest
 
 from backend.app.domain import FormatoArquivo, OrigemTexto
 from backend.app.exceptions import (
+    PdfMuitoLongoException,
     PdfEscaneadoOcrInsuficienteException,
     PdfProtegidoException,
 )
@@ -13,6 +15,7 @@ from backend.tests.fabricas import (
     pdf_com_numeracao_impressa,
     pdf_com_texto,
     pdf_escaneado,
+    pdf_escaneado_pagina_gigante,
     pdf_misto,
     pdf_protegido,
     pdf_vazio,
@@ -27,6 +30,8 @@ CFG = ConfigExtracao(
     ocr_langs="por+eng",
     ocr_max_paginas=150,
     ocr_habilitado=True,
+    max_paginas=1000,
+    ocr_max_megapixels=40.0,
 )
 
 
@@ -141,3 +146,42 @@ def test_ocr_real_reconhece_texto_rasterizado():
     dados = pdf_escaneado(["RECONHECIMENTO OPTICO DE CARACTERES"], dpi=300)
     resultado = extrair_pdf(dados, CFG, ocr=OcrTesseract())
     assert "RECONHE" in resultado.blocos[0].texto.upper()
+
+
+# --- Achado 3: teto de páginas e de pixels por página ---
+
+
+def test_pdf_com_paginas_acima_do_teto_e_recusado_antes_de_ler():
+    cfg = ConfigExtracao(**{**CFG.__dict__, "max_paginas": 3})
+    with pytest.raises(PdfMuitoLongoException) as erro:
+        extrair_pdf(pdf_vazio(5), cfg, ocr=None)
+    assert erro.value.status_code == 413
+    assert erro.value.corpo()["max_paginas"] == 3
+
+
+def test_pdf_no_teto_de_paginas_e_aceito():
+    cfg = ConfigExtracao(**{**CFG.__dict__, "max_paginas": 2})
+    dados = pdf_com_texto(
+        ["Primeira página com texto suficiente para o limiar de caracteres."] * 2
+    )
+    assert len(extrair_pdf(dados, cfg, ocr=None).blocos) == 2
+
+
+def test_ocr_nao_renderiza_pagina_acima_do_teto_de_megapixels():
+    """Pagina de 2000 pt a 300 DPI seria ~69 MP (~200 MB em RGB); o DPI é
+    reduzido para a página caber no teto em vez de alocar tudo."""
+
+    class OcrMedidor:
+        pixels = 0
+
+        def reconhecer(self, imagem_png: bytes, langs: str) -> tuple[str, float]:
+            pixmap = fitz.Pixmap(imagem_png)
+            OcrMedidor.pixels = pixmap.width * pixmap.height
+            return "", 0.0
+
+    cfg = ConfigExtracao(
+        **{**CFG.__dict__, "ocr_dpi": 300, "ocr_max_megapixels": 10.0}
+    )
+    with pytest.raises(PdfEscaneadoOcrInsuficienteException):
+        extrair_pdf(pdf_escaneado_pagina_gigante(2000), cfg, ocr=OcrMedidor())
+    assert 0 < OcrMedidor.pixels <= 10.0 * 1_000_000

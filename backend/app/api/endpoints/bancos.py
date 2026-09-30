@@ -17,6 +17,7 @@ from backend.app.schemas.banco import (
     BancoResposta,
     ComandoRevisao,
     ExclusaoCriar,
+    ItemCatalogoResposta,
     PropostaSubstituicaoResposta,
     QuestaoResposta,
     RejeicaoResposta,
@@ -25,6 +26,7 @@ from backend.app.schemas.banco import (
 )
 from backend.app.schemas.exportacao import ExportacaoResposta
 from backend.app.schemas.prova import ProvasCriar, ProvasMontadasResposta
+from backend.app.services.controle_banco.catalogo import ItemCatalogo, catalogar
 from backend.app.services.controle_banco.estado import obter_banco
 from backend.app.services.controle_banco.exclusao_service import (
     congelar_banco,
@@ -88,6 +90,13 @@ def relatorios(
     return listar_relatorios(db, docente, banco_id)
 
 
+@router.get("/catalogo", response_model=list[ItemCatalogoResposta])
+def catalogo(
+    banco_id: int,
+    db: Session = Depends(get_db),
+    docente: Docente = Depends(get_current_docente),
+) -> list[ItemCatalogo]:
+    return catalogar(db, obter_banco(db, docente, banco_id))
 
 
 @router.post("/exclusoes", response_model=RelatorioImpactoResposta)

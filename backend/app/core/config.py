@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     # pseudônimos do log.
     pseudonimo_key: str = _PSEUDONIMO_KEY_DEV_DEFAULT
 
+    # --- Primeiro administrador ---
+    # Lidos só pela migração e1a4c8f02b77, que semeia a conta. Sem os três, ela
+    # não cria ninguém: a senha nunca mora no repositório.
+    admin_credencial: str | None = None
+    admin_nome: str | None = None
+    admin_senha: str | None = None
+
     # --- Materiais ---
     storage_dir: str = "./storage"
     max_upload_mb: int = 30

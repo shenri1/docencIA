@@ -280,3 +280,100 @@ def test_migracao_pseudonimiza_o_ator_legado():
         assert atores() == esperado
     finally:
         eng.dispose()
+
+
+BANCO_SEMENTE = "docencia_migracao_semente_test"
+
+
+def _banco_ate(revisao: str):
+    """Banco novo migrado até `revisao`; devolve (cfg, engine)."""
+    base_url = settings.database_url.rsplit("/", 1)[0]
+    admin = create_engine(f"{base_url}/postgres", isolation_level="AUTOCOMMIT")
+    with admin.connect() as conn:
+        conn.execute(text(f'DROP DATABASE IF EXISTS "{BANCO_SEMENTE}"'))
+        conn.execute(text(f'CREATE DATABASE "{BANCO_SEMENTE}"'))
+    admin.dispose()
+
+    url = f"{base_url}/{BANCO_SEMENTE}"
+    cfg = Config(str(RAIZ / "alembic.ini"))
+    cfg.set_main_option("script_location", str(RAIZ / "backend" / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, revisao)
+    return cfg, create_engine(url)
+
+
+def _admin_do_env(monkeypatch, credencial="admin", nome="Admin", senha="senhaforte123"):
+    monkeypatch.setattr(settings, "admin_credencial", credencial)
+    monkeypatch.setattr(settings, "admin_nome", nome)
+    monkeypatch.setattr(settings, "admin_senha", senha)
+
+
+def test_semente_cria_admin_do_env_e_ativa_prompt(monkeypatch):
+    from backend.app.core.security import verificar_senha
+
+    _admin_do_env(monkeypatch)
+    cfg, eng = _banco_ate("d8b3f6a2c914")
+    try:
+        command.upgrade(cfg, "head")
+        # Rodar de novo (downgrade é no-op) não duplica nada.
+        command.downgrade(cfg, "d8b3f6a2c914")
+        command.upgrade(cfg, "head")
+
+        with eng.connect() as conn:
+            [(nome, perfil, senha_hash)] = conn.execute(
+                text("SELECT nome, perfil, senha_hash FROM docentes")
+            ).all()
+            prompts = conn.execute(
+                text("SELECT versao, ativo FROM prompts_mestres")
+            ).all()
+        assert (nome, perfil) == ("Admin", "ADMINISTRADOR")
+        assert verificar_senha("senhaforte123", senha_hash)
+        assert [tuple(p) for p in prompts] == [("1.0.0", True)]
+    finally:
+        eng.dispose()
+
+
+def test_semente_promove_conta_existente_sem_trocar_a_senha(monkeypatch):
+    _admin_do_env(monkeypatch, credencial="ana", senha="outrasenha123")
+    cfg, eng = _banco_ate("d8b3f6a2c914")
+    try:
+        with eng.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO docentes (nome, credencial_institucional, "
+                    "senha_hash, perfil) VALUES ('Ana', 'ana', 'hash-antigo', 'DOCENTE')"
+                )
+            )
+        command.upgrade(cfg, "head")
+
+        with eng.connect() as conn:
+            linha = conn.execute(
+                text("SELECT perfil, senha_hash FROM docentes WHERE credencial_institucional = 'ana'")
+            ).one()
+        assert tuple(linha) == ("ADMINISTRADOR", "hash-antigo")
+    finally:
+        eng.dispose()
+
+
+def test_semente_sem_env_nao_cria_admin_mas_ativa_prompt(monkeypatch):
+    _admin_do_env(monkeypatch, credencial=None, nome=None, senha=None)
+    cfg, eng = _banco_ate("d8b3f6a2c914")
+    try:
+        command.upgrade(cfg, "head")
+        with eng.connect() as conn:
+            assert conn.execute(text("SELECT count(*) FROM docentes")).scalar_one() == 0
+            assert conn.execute(
+                text("SELECT count(*) FROM prompts_mestres WHERE ativo")
+            ).scalar_one() == 1
+    finally:
+        eng.dispose()
+
+
+def test_semente_recusa_senha_curta(monkeypatch):
+    _admin_do_env(monkeypatch, senha="curta")
+    cfg, eng = _banco_ate("d8b3f6a2c914")
+    try:
+        with pytest.raises(ValueError, match="ADMIN_SENHA"):
+            command.upgrade(cfg, "head")
+    finally:
+        eng.dispose()

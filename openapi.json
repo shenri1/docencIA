@@ -2133,6 +2133,27 @@
             "maxLength": 50,
             "title": "Versao",
             "description": "Identificador do banco."
+          },
+          "apos": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Apos",
+            "description": "Só números do plano maiores que este.",
+            "default": 0
+          },
+          "limite": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 25.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limite",
+            "description": "Tenta no máximo este tanto de números e devolve. Sem limite, tenta todos."
           }
         },
         "type": "object",
@@ -4034,6 +4055,23 @@
             "type": "object",
             "title": "Geradas Por Tipo",
             "description": "Questões persistidas nesta chamada, por tipo."
+          },
+          "ultimo_numero": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ultimo Numero",
+            "description": "Último número tentado nesta chamada; nulo se nenhum."
+          },
+          "restantes": {
+            "type": "integer",
+            "title": "Restantes",
+            "description": "Números do plano acima do último tentado (ou de `apos`) ainda sem questão. O laço do cliente termina em zero."
           }
         },
         "type": "object",
@@ -4044,7 +4082,9 @@
           "ja_existentes",
           "improdutivas",
           "com_violacoes",
-          "geradas_por_tipo"
+          "geradas_por_tipo",
+          "ultimo_numero",
+          "restantes"
         ],
         "title": "ResumoBancoResposta",
         "description": "A lista de âncoras improdutivas só existe aqui — não é persistida."

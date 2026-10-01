@@ -38,4 +38,6 @@ def gerar(
         n_objetivas=dados.n_objetivas,
         n_discursivas=dados.n_discursivas,
         versao=dados.versao,
+        apos=dados.apos,
+        limite=dados.limite,
     )

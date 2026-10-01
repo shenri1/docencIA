@@ -864,3 +864,80 @@ def test_criacao_concorrente_do_banco_reaproveita_o_que_a_outra_criou(
 
     assert banco.versao == "v1"
     assert db_session.query(BancoQuestoes).count() == 1
+
+
+def gerar_lote(db, emb, rer, sessao, provedor, apos=0, limite=None, n=4):
+    return gerar_banco(
+        db, emb, rer, provedor, sessao,
+        n_objetivas=n, n_discursivas=0, versao="v1", apos=apos, limite=limite,
+    )
+
+
+def test_limite_tenta_so_n_numeros_e_diz_onde_parou(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    provedor = ProvedorLLMFake(roteiro(4))
+    args = (db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
+
+    r = gerar_lote(*args, limite=1)
+    assert (r.geradas, r.ultimo_numero, r.restantes) == (1, 1, 3)
+    r = gerar_lote(*args, apos=1, limite=2)
+    assert (r.geradas, r.ultimo_numero, r.restantes) == (2, 3, 1)
+    r = gerar_lote(*args, apos=3, limite=1)
+    assert (r.geradas, r.ultimo_numero, r.restantes) == (1, 4, 0)
+    assert provedor.chamadas == 8
+
+
+def test_improdutiva_conta_como_tentada_e_o_apos_passa_por_cima(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    provedor = ProvedorLLMFake([corpo_insuficiencia()] + roteiro(1))
+    args = (db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
+
+    r = gerar_lote(*args, limite=1)
+    assert (r.geradas, r.ultimo_numero, r.restantes) == (0, 1, 3)
+    assert [i.numero for i in r.improdutivas] == [1]
+
+    r = gerar_lote(*args, apos=1, limite=1)
+    assert (r.geradas, r.ultimo_numero) == (1, 2)
+
+
+def test_sem_limite_tenta_todos_e_termina_em_zero(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    r = gerar_lote(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
+        ProvedorLLMFake(roteiro(4)),
+    )
+    assert (r.geradas, r.ultimo_numero, r.restantes) == (4, 4, 0)
+
+
+def test_lote_sem_pendentes_nao_tenta_nada(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    args = (db_session, embeddings_fake, reranker_fake, sessao_rascunho)
+    gerar_lote(*args, ProvedorLLMFake(roteiro(4)))
+
+    provedor = ProvedorLLMFake([])
+    r = gerar_lote(*args, provedor, limite=1)
+    assert (r.geradas, r.ultimo_numero, r.restantes) == (0, None, 0)
+    assert provedor.chamadas == 0
+
+
+def test_retomada_com_apos_zero_retenta_so_as_lacunas(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    args = (db_session, embeddings_fake, reranker_fake, sessao_rascunho)
+    # 1ª passada: o número 2 fica sem sustentação.
+    gerar_lote(
+        *args,
+        ProvedorLLMFake(roteiro(1) + [corpo_insuficiencia()] + roteiro(2)),
+    )
+
+    r = gerar_lote(*args, ProvedorLLMFake(roteiro(1)), limite=1)
+    assert (r.geradas, r.ultimo_numero, r.restantes) == (1, 2, 0)

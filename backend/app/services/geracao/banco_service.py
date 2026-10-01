@@ -100,6 +100,10 @@ class ResumoBanco:
     # quais questões olhar antes da janela de exclusões.
     com_violacoes: list[ItemComViolacao]
     geradas_por_tipo: dict[TipoQuestao, int]
+    # Geração em lotes. Tentar = chamar
+    # produzir_questao, com resultado produzido ou improdutivo.
+    ultimo_numero: int | None
+    restantes: int
 
 
 @dataclass(frozen=True)
@@ -404,6 +408,8 @@ def gerar_banco(
     n_objetivas: int,
     n_discursivas: int,
     versao: str,
+    apos: int = 0,
+    limite: int | None = None,
 ) -> ResumoBanco:
     n_alvo = n_objetivas + n_discursivas
     if n_alvo < 1:
@@ -423,6 +429,13 @@ def gerar_banco(
         db.scalars(select(Questao.numero).where(Questao.banco_id == banco.id))
     )
 
+    pendentes = [
+        item
+        for item in plano
+        if item.numero > apos and item.numero not in ja_existentes
+    ]
+    tentar = pendentes if limite is None else pendentes[:limite]
+
     geradas = 0
     geradas_por_tipo: dict[TipoQuestao, int] = {
         TipoQuestao.OBJETIVA: 0,
@@ -430,9 +443,7 @@ def gerar_banco(
     }
     improdutivas: list[Improdutiva] = []
     com_violacoes: list[ItemComViolacao] = []
-    for item in plano:
-        if item.numero in ja_existentes:
-            continue
+    for item in tentar:
         produzida = produzir_questao(
             db,
             embeddings,
@@ -471,4 +482,6 @@ def gerar_banco(
         improdutivas=improdutivas,
         com_violacoes=com_violacoes,
         geradas_por_tipo=geradas_por_tipo,
+        ultimo_numero=tentar[-1].numero if tentar else None,
+        restantes=len(pendentes) - len(tentar),
     )

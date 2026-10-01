@@ -26,6 +26,18 @@ class BancoCriar(BaseModel):
     n_objetivas: int = Field(..., ge=0, description="Quantas questões objetivas.")
     n_discursivas: int = Field(..., ge=0, description="Quantas questões discursivas.")
     versao: str = Field(..., max_length=50, description="Identificador do banco.")
+    # o cliente gera em lotes curtos para nenhuma
+    # requisição passar do timeout do navegador ou do proxy.
+    apos: int = Field(
+        0, ge=0, description="Só números do plano maiores que este."
+    )
+    limite: int | None = Field(
+        None,
+        ge=1,
+        le=N_MAXIMO_BANCO,
+        description="Tenta no máximo este tanto de números e devolve. "
+        "Sem limite, tenta todos.",
+    )
 
     @model_validator(mode="after")
     def _soma_dentro_do_limite(self) -> BancoCriar:
@@ -86,6 +98,14 @@ class ResumoBancoResposta(BaseModel):
     )
     geradas_por_tipo: dict[TipoQuestao, int] = Field(
         ..., description="Questões persistidas nesta chamada, por tipo."
+    )
+    ultimo_numero: int | None = Field(
+        ..., description="Último número tentado nesta chamada; nulo se nenhum."
+    )
+    restantes: int = Field(
+        ...,
+        description="Números do plano acima do último tentado (ou de `apos`) "
+        "ainda sem questão. O laço do cliente termina em zero.",
     )
 
 

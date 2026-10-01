@@ -70,3 +70,29 @@ def test_limite_de_25_somando_os_dois_tipos(client, n_obj, n_disc, status):
 def test_resumo_expoe_geradas_por_tipo(client):
     componentes = client.get("/openapi.json").json()["components"]["schemas"]
     assert "geradas_por_tipo" in componentes["ResumoBancoResposta"]["properties"]
+
+
+@pytest.mark.parametrize(
+    ("credencial", "extra", "status"),
+    [
+        ("lote-ok", {"limite": 1, "apos": 3}, 404),
+        ("lote-zero", {"limite": 0}, 422),
+        ("lote-26", {"limite": 26}, 422),
+        ("lote-neg", {"apos": -1}, 422),
+    ],
+)
+def test_limite_e_apos_validados_no_schema(client, credencial, extra, status):
+    """404 = passou da validação e esbarrou na sessão inexistente."""
+    cabecalhos = _auth(client, credencial)
+    resposta = client.post(
+        "/sessoes/999999/banco",
+        json={"n_objetivas": 5, "n_discursivas": 0, "versao": "v1", **extra},
+        headers=cabecalhos,
+    )
+    assert resposta.status_code == status
+
+
+def test_resumo_expoe_onde_o_lote_parou(client):
+    componentes = client.get("/openapi.json").json()["components"]["schemas"]
+    propriedades = componentes["ResumoBancoResposta"]["properties"]
+    assert {"ultimo_numero", "restantes"} <= set(propriedades)

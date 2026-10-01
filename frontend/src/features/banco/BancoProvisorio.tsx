@@ -4,16 +4,15 @@ import { proximaAcao } from "../sessoes/proximaAcao";
 import { useMarcoSessao } from "../sessoes/api";
 
 /**
- * Destino de todo marco depois do M1. A geração do banco (M2) e as telas
- * seguintes são as fases 2 a 6; por ora esta tela só informa onde a
+ * Destino de /sessoes/:id/banco (curadoria): só informa onde a
  * sessão está, a partir do que o servidor diz.
  */
-export function GeracaoDoBanco({ sessaoId }: { sessaoId: string }) {
+export function BancoProvisorio({ sessaoId }: { sessaoId: string }) {
   const marco = useMarcoSessao(Number(sessaoId));
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
-      <h1 className="font-serifa text-titulo">Geração do banco</h1>
+      <h1 className="font-serifa text-titulo">Banco de questões</h1>
 
       {marco.isError && <Alerta variante="erro">{marco.error.message}</Alerta>}
 

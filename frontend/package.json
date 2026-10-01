@@ -1,0 +1,42 @@
+{
+  "name": "docencia-frontend",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "bunx --bun vite",
+    "build": "bunx --bun tsc --noEmit && bunx --bun vite build",
+    "typecheck": "bunx --bun tsc --noEmit",
+    "test": "bun --bun node_modules/vitest/vitest.mjs run",
+    "test:watch": "bun --bun node_modules/vitest/vitest.mjs",
+    "gen:openapi": "cd .. && uv run python -c \"import json; from backend.app.main import app; json.dump(app.openapi(), open('openapi.json','w',encoding='utf-8'), ensure_ascii=False, indent=2)\"",
+    "gen:api": "bunx --bun openapi-typescript ../openapi.json -o src/api/schema.d.ts",
+    "dev:mocks": "bunx --bun vite --mode mocks"
+  },
+  "dependencies": {
+    "@fontsource-variable/hanken-grotesk": "^5.3.0",
+    "@fontsource-variable/newsreader": "^5.3.0",
+    "@tanstack/react-query": "^5.104.0",
+    "@tanstack/react-router": "^1.170.41",
+    "openapi-fetch": "^0.17.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "happy-dom": "^20.14.5",
+    "msw": "^2",
+    "openapi-typescript": "^7.13.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9",
+    "vite": "^8.3.2",
+    "vitest": "^4.1"
+  }
+}

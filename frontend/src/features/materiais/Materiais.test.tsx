@@ -52,7 +52,7 @@ describe("Materiais — envio", () => {
     const { router } = renderApp("/sessoes/5/materiais", { token: "t" });
 
     await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/sessoes/5/banco"),
+      expect(router.state.location.pathname).toBe("/sessoes/5/geracao"),
     );
   });
 

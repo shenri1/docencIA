@@ -137,7 +137,7 @@ describe("Índice de materiais", () => {
 
     expect(await screen.findByRole("status")).toHaveTextContent(/indexando/i);
     await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/sessoes/5/banco"),
+      expect(router.state.location.pathname).toBe("/sessoes/5/geracao"),
     );
     expect(chamadas.confirmacoes).toBe(1);
   });
@@ -189,7 +189,7 @@ describe("Índice de materiais", () => {
     const { router } = renderApp("/sessoes/5/indice", { token: "t" });
 
     await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/sessoes/5/banco"),
+      expect(router.state.location.pathname).toBe("/sessoes/5/geracao"),
     );
   });
 });

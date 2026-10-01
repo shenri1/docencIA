@@ -5,6 +5,7 @@ import { useApi } from "../../app/api-context";
 import { desembrulhar } from "../../api/cliente";
 import type { Indice, Material, TipoMaterial } from "../../api/tipos";
 import { chaves as chavesSessao, useMarcoSessao } from "../sessoes/api";
+import { rotaDoMarco } from "../sessoes/marco";
 
 const chaveIndice = (sessaoId: number) =>
   ["sessoes", sessaoId, "indice"] as const;
@@ -93,14 +94,13 @@ export function useConfirmarIndice(sessaoId: number) {
 export function useSairDoM1SeJaConfirmado(sessaoId: number) {
   const navigate = useNavigate();
   const marco = useMarcoSessao(sessaoId);
-  const atual = marco.data?.marco;
   useEffect(() => {
-    if (atual && atual !== "m1_materiais") {
+    if (marco.data && marco.data.marco !== "m1_materiais") {
       void navigate({
-        to: "/sessoes/$sessaoId/banco",
+        to: rotaDoMarco(marco.data),
         params: { sessaoId: String(sessaoId) },
         replace: true,
       });
     }
-  }, [atual, navigate, sessaoId]);
+  }, [marco.data, navigate, sessaoId]);
 }

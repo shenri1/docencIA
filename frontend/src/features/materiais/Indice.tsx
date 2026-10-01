@@ -26,7 +26,7 @@ export function Indice({ sessaoId }: { sessaoId: string }) {
     confirmar.mutate(undefined, {
       onSuccess: () =>
         void navigate({
-          to: "/sessoes/$sessaoId/banco",
+          to: "/sessoes/$sessaoId",
           params: { sessaoId },
         }),
     });

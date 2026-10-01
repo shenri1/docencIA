@@ -5,6 +5,12 @@ O Qwen3-Reranker não tem cabeça de classificação: é um LM causal que respon
 os dois tokens. O `classifier_from_token: ["no", "yes"]` do vLLM só automatiza
 isso. Como o Ollama expõe logprobs a partir da 0.12.11, o mesmo cálculo é
 feito aqui, no cliente.
+
+O modelo padrão é o `qwen3:1.7b`, não o Qwen3-Reranker: o GGUF
+dengcao/Qwen3-Reranker-0.6B:Q8_0, chamado pelo /api/generate, devolve o mesmo
+logprob (-ln do vocabulário) para todo token — distribuição uniforme, sem
+"yes" nem "no". O Qwen3 comum segue o mesmo template e responde yes/no com
+margem larga. `_uniforme` reconhece o sintoma e diz o que trocar.
 """
 
 from __future__ import annotations
@@ -96,6 +102,20 @@ def _extrair_logprobs(dados: dict[str, Any]) -> tuple[float, float] | None:
     return encontrados.get("yes", -30.0), encontrados.get("no", -30.0)
 
 
+def _uniforme(dados: dict[str, Any]) -> bool:
+    """Todos os candidatos com o mesmo logprob: o modelo não está prevendo
+    nada. É o que o GGUF dengcao/Qwen3-Reranker devolve pelo /api/generate —
+    -ln(tamanho do vocabulário) para todo token."""
+    entradas = dados.get("logprobs")
+    if not isinstance(entradas, list) or not entradas:
+        return False
+    valores = [
+        float(item.get("logprob", 0.0))
+        for item in entradas[0].get("top_logprobs") or []
+    ]
+    return len(valores) > 1 and max(valores) - min(valores) < 1e-6
+
+
 class RerankerOllamaLogprobs:
     def __init__(self, cfg: ConfigRerank, cliente: httpx.Client | None = None) -> None:
         self.cfg = cfg
@@ -110,13 +130,22 @@ class RerankerOllamaLogprobs:
             return []
         pontuados: list[tuple[int, float]] = []
         indecididos = 0
+        uniformes = 0
         for indice, documento in enumerate(documentos):
-            par = _extrair_logprobs(self._pontuar(consulta, documento))
+            dados = self._pontuar(consulta, documento)
+            par = _extrair_logprobs(dados)
             if par is None:
                 indecididos += 1
+                uniformes += _uniforme(dados)
                 pontuados.append((indice, 0.0))
             else:
                 pontuados.append((indice, _softmax_binario(*par)))
+        if uniformes == len(documentos):
+            raise FalhaRerankException(
+                f"o modelo {self.cfg.modelo} devolve distribuição uniforme sobre "
+                "o vocabulário: ele não gera texto pelo /api/generate. Troque "
+                "RERANK_MODEL por um Qwen3 que gere texto (ex.: qwen3:1.7b)"
+            )
         if indecididos == len(documentos):
             raise FalhaRerankException(
                 "nenhum par produziu logprob de 'yes'/'no' — verifique o "

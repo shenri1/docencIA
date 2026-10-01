@@ -676,6 +676,17 @@ export interface components {
              * @description Identificador do banco.
              */
             versao: string;
+            /**
+             * Apos
+             * @description Só números do plano maiores que este.
+             * @default 0
+             */
+            apos: number;
+            /**
+             * Limite
+             * @description Tenta no máximo este tanto de números e devolve. Sem limite, tenta todos.
+             */
+            limite?: number | null;
         };
         /** BancoResposta */
         BancoResposta: {
@@ -1560,6 +1571,16 @@ export interface components {
             geradas_por_tipo: {
                 [key: string]: number;
             };
+            /**
+             * Ultimo Numero
+             * @description Último número tentado nesta chamada; nulo se nenhum.
+             */
+            ultimo_numero: number | null;
+            /**
+             * Restantes
+             * @description Números do plano acima do último tentado (ou de `apos`) ainda sem questão. O laço do cliente termina em zero.
+             */
+            restantes: number;
         };
         /**
          * RiscoAuditoria

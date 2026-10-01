@@ -4,17 +4,11 @@ import { Alerta } from "../../components/Alerta";
 import { Botao } from "../../components/Botao";
 import { Campo } from "../../components/Campo";
 import { PASSOS_NOVA_SESSAO, Passos } from "../../components/Passos";
-import { somaDosPercentuais } from "../../lib/validacao";
+import { inteiroEntre, somaDosPercentuais } from "../../lib/validacao";
 import { useCriarSessao } from "./api";
 
 const K_MIN = 2;
 const K_MAX = 11;
-
-function inteiroEntre(texto: string, min: number, max: number): number | null {
-  if (texto.trim() === "") return null;
-  const n = Number(texto);
-  return Number.isInteger(n) && n >= min && n <= max ? n : null;
-}
 
 export function NovaSessao() {
   const router = useRouter();

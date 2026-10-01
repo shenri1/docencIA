@@ -54,6 +54,13 @@ describe("proximaAcao", () => {
     );
   });
 
+  it("banco aberto com lacunas: continuar geração", () => {
+    const comLacunas = { ...banco("m3_exclusoes"), lacunas: 3 };
+    expect(proximaAcao(marcoDaSessao("m2_banco", [comLacunas]))).toBe(
+      "Continuar geração",
+    );
+  });
+
   it("com vários bancos usa o mais recente", () => {
     const bancos = [banco("concluido", 1), banco("m3_exclusoes", 2)];
     expect(proximaAcao(marcoDaSessao("m2_banco", bancos))).toBe("Revisar banco");

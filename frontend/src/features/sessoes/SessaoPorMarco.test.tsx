@@ -29,17 +29,65 @@ describe("/sessoes/:id lê o marco e redireciona", () => {
     );
   });
 
-  it("depois do M1 leva à geração do banco", async () => {
+  it("M2 sem banco leva à geração", async () => {
     backend(umMarcoSessao({ sessao_id: 5, marco: "m2_banco", n_materiais: 3 }));
+    const { router } = renderApp("/sessoes/5", { token: "t" });
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/sessoes/5/geracao"),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Geração do banco" }),
+    ).toBeInTheDocument();
+  });
+
+  it("banco aberto com lacunas leva à geração", async () => {
+    backend(
+      umMarcoSessao({
+        sessao_id: 5,
+        marco: "m2_banco",
+        bancos: [umMarcoBanco({ marco: "m3_exclusoes", lacunas: 2 })],
+      }),
+    );
+    const { router } = renderApp("/sessoes/5", { token: "t" });
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/sessoes/5/geracao"),
+    );
+  });
+
+  it("banco completo leva ao banco", async () => {
+    backend(
+      umMarcoSessao({
+        sessao_id: 5,
+        marco: "m2_banco",
+        bancos: [umMarcoBanco({ marco: "m3_exclusoes", lacunas: 0 })],
+      }),
+    );
     const { router } = renderApp("/sessoes/5", { token: "t" });
 
     await waitFor(() =>
       expect(router.state.location.pathname).toBe("/sessoes/5/banco"),
     );
     expect(
-      await screen.findByRole("heading", { name: "Geração do banco" }),
+      await screen.findByRole("heading", { name: "Banco de questões" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/3 materiais/)).toBeInTheDocument();
+  });
+
+  it("recarregar em /banco com lacunas fica em /banco", async () => {
+    backend(
+      umMarcoSessao({
+        sessao_id: 5,
+        marco: "m2_banco",
+        bancos: [umMarcoBanco({ marco: "m3_exclusoes", lacunas: 2 })],
+      }),
+    );
+    const { router } = renderApp("/sessoes/5/banco", { token: "t" });
+
+    expect(
+      await screen.findByRole("heading", { name: "Banco de questões" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/sessoes/5/banco");
   });
 
   it("recarregar mais adiante mostra a próxima ação do banco, ainda sem tela própria", async () => {

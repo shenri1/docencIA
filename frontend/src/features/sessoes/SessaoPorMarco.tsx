@@ -2,6 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { Alerta } from "../../components/Alerta";
 import { useMarcoSessao } from "./api";
+import { rotaDoMarco } from "./marco";
 
 /**
  * A rota da sessão não tem tela: pergunta o marco ao servidor e encaminha para
@@ -11,19 +12,11 @@ import { useMarcoSessao } from "./api";
 export function SessaoPorMarco({ sessaoId }: { sessaoId: string }) {
   const navigate = useNavigate();
   const marco = useMarcoSessao(Number(sessaoId));
-  const atual = marco.data?.marco;
 
   useEffect(() => {
-    if (!atual) return;
-    void navigate({
-      to:
-        atual === "m1_materiais"
-          ? "/sessoes/$sessaoId/materiais"
-          : "/sessoes/$sessaoId/banco",
-      params: { sessaoId },
-      replace: true,
-    });
-  }, [atual, navigate, sessaoId]);
+    if (!marco.data) return;
+    void navigate({ to: rotaDoMarco(marco.data), params: { sessaoId }, replace: true });
+  }, [marco.data, navigate, sessaoId]);
 
   if (marco.isError) {
     return <Alerta variante="erro">{marco.error.message}</Alerta>;

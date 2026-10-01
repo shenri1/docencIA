@@ -5,27 +5,64 @@
  * necessário para exercitar a interface.
  *
  * Gatilhos de teste manual: um arquivo cujo nome começa com "ilegivel" é recusado
- * como PDF sem texto extraível; extensão fora de PDF/PPTX/DOCX/TXT dá 415.
+ * como PDF sem texto extraível; extensão fora de PDF/PPTX/DOCX/TXT dá 415;
+ * versão de banco começando com "lacuna" deixa o número 2 sem sustentação na
+ * primeira tentativa; cadastrar a credencial "admin" cria um administrador (na
+ * API real, ele vem da migração e1a4c8f02b77). O estado nasce com o prompt mestre
+ * 1.0.0 ativo, como depois da migração.
  */
 import { http, HttpResponse } from "msw";
-import type { Docente, Material, MarcoSessao, Sessao } from "../api/tipos";
+import type {
+  Banco,
+  Docente,
+  MarcoBanco,
+  MarcoSessao,
+  Material,
+  Prompt,
+  PromptCriar,
+  ResumoBanco,
+  Sessao,
+} from "../api/tipos";
 
 interface DocenteFalso extends Docente {
   senha: string;
 }
 
+interface BancoFalso {
+  banco_id: number;
+  versao: string;
+  n_objetivas: number;
+  n_discursivas: number;
+  gerados: Set<number>;
+  recusados: Set<number>;
+}
+
 interface SessaoFalsa extends Sessao {
   materiais: Material[];
+  banco?: BancoFalso;
 }
 
 export interface EstadoFalso {
   docentes: DocenteFalso[];
   sessoes: SessaoFalsa[];
   proximoMaterial: number;
+  prompts: Prompt[];
+}
+
+function promptInicial(): Prompt {
+  return {
+    id: 1,
+    versao: "1.0.0",
+    papel_definido: "docente universitário elaborador de questões",
+    conteudo: "Você é um docente universitário elaborador de questões…",
+    hash_modulos: "0".repeat(64),
+    ativo: true,
+    criado_em: new Date().toISOString(),
+  };
 }
 
 export function novoEstado(): EstadoFalso {
-  return { docentes: [], sessoes: [], proximoMaterial: 1 };
+  return { docentes: [], sessoes: [], proximoMaterial: 1, prompts: [promptInicial()] };
 }
 
 const PREFIXO: Record<Material["tipo"], string> = { slide: "S", pdf: "P", livro: "L" };
@@ -33,6 +70,25 @@ const FORMATOS = ["pdf", "pptx", "docx", "txt"] as const;
 
 const erro = (status: number, detail: string, codigo: string, extras = {}) =>
   HttpResponse.json({ detail, codigo, ...extras }, { status });
+
+function marcoDoBanco(banco: BancoFalso): MarcoBanco {
+  const n_alvo = banco.n_objetivas + banco.n_discursivas;
+  return {
+    versao: banco.versao,
+    banco_id: banco.banco_id,
+    revisao: 0,
+    marco: "m3_exclusoes",
+    motivo: null,
+    n_alvo,
+    n_atual: banco.gerados.size,
+    lacunas: n_alvo - banco.gerados.size,
+    alerta_desvio: false,
+    objetivas_ativas: banco.gerados.size,
+    objetivas_auditadas: 0,
+    comandos: ["prosseguir", "excluir", "auditar"],
+    campos_prosseguir: ["versao", "revisao_esperada"],
+  };
+}
 
 export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) {
   const docenteDoToken = (request: Request) => {
@@ -42,6 +98,8 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
   };
   const naoAutorizado = () =>
     erro(401, "Token inválido ou expirado.", "TOKEN_INVALIDO");
+  const proibido = () =>
+    erro(403, "Perfil insuficiente para este recurso.", "PERFIL_INSUFICIENTE");
   const publico = ({ senha: _senha, ...docente }: DocenteFalso): Docente => docente;
 
   const sessaoDe = (id: string | readonly string[] | undefined) =>
@@ -65,7 +123,7 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
         id: estado.docentes.length + 1,
         nome: dados.nome,
         credencial_institucional: dados.credencial_institucional,
-        perfil: "docente",
+        perfil: dados.credencial_institucional === "admin" ? "administrador" : "docente",
         senha: dados.senha,
       };
       estado.docentes.push(docente);
@@ -99,7 +157,7 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
       const limit = Number(url.searchParams.get("limit") ?? 20);
       const offset = Number(url.searchParams.get("offset") ?? 0);
       return HttpResponse.json(
-        estado.sessoes.slice(offset, offset + limit).map(({ materiais: _m, ...s }) => s),
+        estado.sessoes.slice(offset, offset + limit).map(({ materiais: _m, banco: _b, ...s }) => s),
       );
     }),
 
@@ -122,7 +180,7 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
         materiais: [],
       };
       estado.sessoes.push(sessao);
-      const { materiais: _m, ...resposta } = sessao;
+      const { materiais: _m, banco: _b, ...resposta } = sessao;
       return HttpResponse.json(resposta, { status: 201 });
     }),
 
@@ -130,7 +188,7 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
       const sessao = sessaoDe(params.id);
       if (!docenteDoToken(request)) return naoAutorizado();
       if (!sessao) return erro(404, `Sessão ${params.id} não encontrada.`, "SESSAO_NAO_ENCONTRADA");
-      const { materiais: _m, ...resposta } = sessao;
+      const { materiais: _m, banco: _b, ...resposta } = sessao;
       return HttpResponse.json(resposta);
     }),
 
@@ -145,7 +203,7 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
         n_materiais: sessao.materiais.length,
         comandos: ["prosseguir"],
         campos_prosseguir: rascunho ? [] : ["versao", "n_objetivas", "n_discursivas"],
-        bancos: [],
+        bancos: sessao.banco ? [marcoDoBanco(sessao.banco)] : [],
       };
       return HttpResponse.json(marco);
     }),
@@ -244,6 +302,123 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
       }
       sessao.estado = "materiais_confirmados";
       return HttpResponse.json({ materiais: sessao.materiais, confirmado: true });
+    }),
+
+    http.post(`${base}/sessoes/:id/banco`, async ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const sessao = sessaoDe(params.id);
+      if (!sessao) return erro(404, `Sessão ${params.id} não encontrada.`, "SESSAO_NAO_ENCONTRADA");
+      const dados = (await request.json()) as {
+        versao: string;
+        n_objetivas: number;
+        n_discursivas: number;
+        apos?: number;
+        limite?: number | null;
+      };
+      sessao.banco ??= {
+        banco_id: sessao.id,
+        versao: dados.versao,
+        n_objetivas: dados.n_objetivas,
+        n_discursivas: dados.n_discursivas,
+        gerados: new Set(),
+        recusados: new Set(),
+      };
+      const banco = sessao.banco;
+      const numeros = Array.from(
+        { length: banco.n_objetivas + banco.n_discursivas },
+        (_, i) => i + 1,
+      );
+      const pendentes = numeros.filter((n) => n > (dados.apos ?? 0) && !banco.gerados.has(n));
+      const tentar = dados.limite ? pendentes.slice(0, dados.limite) : pendentes;
+      const improdutivas: ResumoBanco["improdutivas"] = [];
+      for (const n of tentar) {
+        if (banco.versao.startsWith("lacuna") && n === 2 && !banco.recusados.has(n)) {
+          banco.recusados.add(n);
+          improdutivas.push({ numero: n, localizacao: "página 2", motivo: "o trecho não sustenta a questão" });
+        } else {
+          banco.gerados.add(n);
+        }
+      }
+      const resumo: ResumoBanco = {
+        banco_id: banco.banco_id,
+        revisao: 0,
+        geradas: tentar.length - improdutivas.length,
+        ja_existentes: 0,
+        improdutivas,
+        com_violacoes: [],
+        geradas_por_tipo: { objetiva: tentar.length - improdutivas.length, discursiva: 0 },
+        ultimo_numero: tentar.at(-1) ?? null,
+        restantes: pendentes.length - tentar.length,
+      };
+      return HttpResponse.json(resumo, { status: 201 });
+    }),
+
+    http.get(`${base}/bancos/:id`, ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const banco = estado.sessoes.find((s) => s.banco?.banco_id === Number(params.id))?.banco;
+      if (!banco) return erro(404, `Banco ${params.id} não encontrado.`, "BANCO_NAO_ENCONTRADO");
+      const resposta: Banco = {
+        banco_id: banco.banco_id,
+        versao: banco.versao,
+        revisao: 0,
+        rotulo: `${banco.versao}.r0`,
+        estado: "aberto",
+        n_alvo: banco.n_objetivas + banco.n_discursivas,
+        n_alvo_objetivas: banco.n_objetivas,
+        n_alvo_discursivas: banco.n_discursivas,
+        n_atual: banco.gerados.size,
+        ultimo_relatorio: null,
+        questoes: [],
+      };
+      return HttpResponse.json(resposta);
+    }),
+
+    http.get(`${base}/prompts`, ({ request }) => {
+      const docente = docenteDoToken(request);
+      if (!docente) return naoAutorizado();
+      if (docente.perfil !== "administrador") return proibido();
+      return HttpResponse.json([...estado.prompts].reverse());
+    }),
+
+    http.post(`${base}/prompts`, async ({ request }) => {
+      const docente = docenteDoToken(request);
+      if (!docente) return naoAutorizado();
+      if (docente.perfil !== "administrador") return proibido();
+      const dados = (await request.json()) as PromptCriar;
+      if (estado.prompts.some((p) => p.versao === dados.versao)) {
+        return erro(409, `A versão ${dados.versao} já existe.`, "VERSAO_PROMPT_DUPLICADA");
+      }
+      const prompt: Prompt = {
+        id: estado.prompts.length + 1,
+        versao: dados.versao,
+        papel_definido: dados.papel_definido,
+        conteudo: `Texto montado para ${dados.disciplina} (${dados.periodo}), K=${dados.k_alternativas}.`,
+        hash_modulos: "0".repeat(64),
+        ativo: false,
+        criado_em: new Date().toISOString(),
+      };
+      estado.prompts.push(prompt);
+      return HttpResponse.json(prompt, { status: 201 });
+    }),
+
+    http.post(`${base}/prompts/:versao/ativar`, ({ request, params }) => {
+      const docente = docenteDoToken(request);
+      if (!docente) return naoAutorizado();
+      if (docente.perfil !== "administrador") return proibido();
+      const alvo = estado.prompts.find((p) => p.versao === params.versao);
+      if (!alvo) {
+        return erro(404, `Versão ${String(params.versao)} não encontrada.`, "VERSAO_PROMPT_NAO_ENCONTRADA");
+      }
+      for (const p of estado.prompts) p.ativo = p === alvo;
+      return HttpResponse.json(alvo);
+    }),
+
+    // O back-end falso não grava eventos: a tela de log abre vazia.
+    http.get(`${base}/admin/logs`, ({ request }) => {
+      const docente = docenteDoToken(request);
+      if (!docente) return naoAutorizado();
+      if (docente.perfil !== "administrador") return proibido();
+      return HttpResponse.json([]);
     }),
   ];
 }

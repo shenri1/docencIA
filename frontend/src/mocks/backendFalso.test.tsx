@@ -53,15 +53,23 @@ describe("fluxo contra o back-end falso", () => {
     await user.click(await screen.findByRole("link", { name: "Continuar para o índice" }));
     await user.click(await screen.findByRole("button", { name: "Confirmar índice" }));
     await waitFor(() =>
-      expect(router.state.location.pathname).toMatch(/\/sessoes\/\d+\/banco$/),
+      expect(router.state.location.pathname).toMatch(/\/sessoes\/\d+\/geracao$/),
     );
     expect(await screen.findByRole("heading", { name: "Geração do banco" })).toBeInTheDocument();
 
+    // gera um banco pequeno até o fim
+    const objetivas = await screen.findByLabelText("Questões objetivas");
+    await user.clear(objetivas);
+    await user.type(objetivas, "2");
+    await user.click(screen.getByRole("button", { name: "Gerar banco" }));
+    expect(await screen.findByText(/O banco v1 está completo, com 2 questões/)).toBeInTheDocument();
+
     // Recarregar na tela de materiais: o servidor diz que já passou do M1
-    const caminhoBanco = router.state.location.pathname;
-    const sessaoId = caminhoBanco.split("/")[2] ?? "";
+    const sessaoId = router.state.location.pathname.split("/")[2] ?? "";
     await router.navigate({ to: "/sessoes/$sessaoId/materiais", params: { sessaoId } });
-    await waitFor(() => expect(router.state.location.pathname).toBe(caminhoBanco));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/sessoes/${sessaoId}/banco`),
+    );
   });
 
   it("recusa credencial já cadastrada como a API faz", async () => {
@@ -103,5 +111,23 @@ describe("fluxo contra o back-end falso", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Credenciais inválidas.");
     expect(router.state.location.pathname).toBe("/login");
+  });
+
+  it("a credencial admin vira administrador e vê o prompt 1.0.0 ativo", async () => {
+    server.use(...criarHandlers(API));
+    const { user } = renderApp("/cadastro");
+
+    await user.type(await screen.findByLabelText("Nome completo"), "Administrador");
+    await user.type(screen.getByLabelText("Credencial institucional"), "admin");
+    await user.type(screen.getByLabelText("Senha"), "segredo123");
+    await user.click(screen.getByRole("checkbox", { name: /LGPD/ }));
+    await user.click(screen.getByRole("button", { name: "Criar conta" }));
+    await user.type(await screen.findByLabelText("Credencial institucional"), "admin");
+    await user.type(screen.getByLabelText("Senha"), "segredo123");
+    await user.click(screen.getByRole("button", { name: "Entrar" }));
+
+    await user.click(await screen.findByRole("link", { name: "Administração" }));
+    const versao = (await screen.findByText("1.0.0")).closest("li")!;
+    expect(within(versao).getByText("Ativa")).toBeInTheDocument();
   });
 });

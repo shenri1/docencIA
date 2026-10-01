@@ -14,7 +14,7 @@ import { AreaAdmin } from "./features/admin/AreaAdmin";
 import { Logs } from "./features/admin/Logs";
 import { Prompts } from "./features/admin/Prompts";
 import { Geracao } from "./features/banco/Geracao";
-import { BancoProvisorio } from "./features/banco/BancoProvisorio";
+import { MesaCuradoria } from "./features/banco/MesaCuradoria";
 import { Cadastro } from "./features/auth/Cadastro";
 import { Login } from "./features/auth/Login";
 import { NovaSessao } from "./features/sessoes/NovaSessao";
@@ -100,7 +100,7 @@ const banco = createRoute({
   path: "/sessoes/$sessaoId/banco",
   component: function RotaBanco() {
     const { sessaoId } = banco.useParams();
-    return <BancoProvisorio sessaoId={sessaoId} />;
+    return <MesaCuradoria sessaoId={sessaoId} />;
   },
 });
 

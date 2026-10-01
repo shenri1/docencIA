@@ -17,3 +17,6 @@ export type Prompt = Schemas["PromptResposta"];
 export type PromptCriar = Schemas["PromptCriar"];
 export type RegistroAuditoria = Schemas["RegistroAuditoriaResposta"];
 export type TipoEventoAuditoria = Schemas["TipoEventoAuditoria"];
+export type Questao = Schemas["QuestaoResposta"];
+export type RelatorioImpacto = Schemas["RelatorioImpactoResposta"];
+export type PropostaSubstituicao = Schemas["PropostaSubstituicaoResposta"];

@@ -1,9 +1,11 @@
 import type {
+  Banco,
   Docente,
   Indice,
   MarcoBanco,
   MarcoSessao,
   Material,
+  ResumoBanco,
   Sessao,
 } from "../api/tipos";
 
@@ -83,4 +85,36 @@ export function umIndice(
   confirmado = false,
 ): Indice {
   return { materiais, confirmado };
+}
+
+export function umResumoBanco(sobrescrever: Partial<ResumoBanco> = {}): ResumoBanco {
+  return {
+    banco_id: 1,
+    revisao: 0,
+    geradas: 0,
+    ja_existentes: 0,
+    improdutivas: [],
+    com_violacoes: [],
+    geradas_por_tipo: { objetiva: 0, discursiva: 0 },
+    ultimo_numero: null,
+    restantes: 0,
+    ...sobrescrever,
+  };
+}
+
+export function umBanco(sobrescrever: Partial<Banco> = {}): Banco {
+  return {
+    banco_id: 1,
+    versao: "v1",
+    revisao: 0,
+    rotulo: "v1.r0",
+    estado: "aberto",
+    n_alvo: 10,
+    n_alvo_objetivas: 10,
+    n_alvo_discursivas: 0,
+    n_atual: 0,
+    ultimo_relatorio: null,
+    questoes: [],
+    ...sobrescrever,
+  };
 }

@@ -10,7 +10,11 @@ import {
 import type { ClienteApi } from "./api/cliente";
 import { AppShell } from "./app/AppShell";
 import { lerToken } from "./auth/token";
-import { GeracaoDoBanco } from "./features/banco/GeracaoDoBanco";
+import { AreaAdmin } from "./features/admin/AreaAdmin";
+import { Logs } from "./features/admin/Logs";
+import { Prompts } from "./features/admin/Prompts";
+import { Geracao } from "./features/banco/Geracao";
+import { BancoProvisorio } from "./features/banco/BancoProvisorio";
 import { Cadastro } from "./features/auth/Cadastro";
 import { Login } from "./features/auth/Login";
 import { NovaSessao } from "./features/sessoes/NovaSessao";
@@ -96,7 +100,16 @@ const banco = createRoute({
   path: "/sessoes/$sessaoId/banco",
   component: function RotaBanco() {
     const { sessaoId } = banco.useParams();
-    return <GeracaoDoBanco sessaoId={sessaoId} />;
+    return <BancoProvisorio sessaoId={sessaoId} />;
+  },
+});
+
+const geracao = createRoute({
+  getParentRoute: () => autenticado,
+  path: "/sessoes/$sessaoId/geracao",
+  component: function RotaGeracao() {
+    const { sessaoId } = geracao.useParams();
+    return <Geracao sessaoId={sessaoId} />;
   },
 });
 
@@ -124,10 +137,46 @@ const indice = createRoute({
   },
 });
 
+// A casca esconde a área de quem não é administrador; quem decide é a API (403).
+const admin = createRoute({
+  getParentRoute: () => autenticado,
+  path: "/admin",
+  component: AreaAdmin,
+});
+
+const adminInicio = createRoute({
+  getParentRoute: () => admin,
+  path: "/",
+  beforeLoad: () => {
+    throw redirect({ to: "/admin/prompts", replace: true });
+  },
+});
+
+const adminPrompts = createRoute({
+  getParentRoute: () => admin,
+  path: "prompts",
+  component: Prompts,
+});
+
+const adminLogs = createRoute({
+  getParentRoute: () => admin,
+  path: "logs",
+  component: Logs,
+});
+
 const arvore = raiz.addChildren([
   login,
   cadastro,
-  autenticado.addChildren([painel, novaSessao, sessao, materiais, indice, banco]),
+  autenticado.addChildren([
+    painel,
+    novaSessao,
+    sessao,
+    materiais,
+    indice,
+    banco,
+    geracao,
+    admin.addChildren([adminInicio, adminPrompts, adminLogs]),
+  ]),
 ]);
 
 export function criarRouter(contexto: ContextoRota, history?: RouterHistory) {

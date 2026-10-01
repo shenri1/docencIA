@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 docencIA Dev Environment Manager
-Monorepo (docencIA): PostgreSQL+pgvector (Docker), FastAPI backend (backend/, via uv/uvicorn).
-Frontend ainda não implementado — comandos relacionados só avisam.
+Monorepo (docencIA): PostgreSQL+pgvector (Docker), FastAPI backend (backend/, via uv/uvicorn),
+frontend React/Vite (frontend/, via bun).
 Usage: python dev.py <command>
 """
 
@@ -25,10 +25,12 @@ LOGS_DIR = os.path.join(WORKSPACE_ROOT, "logs")
 STATE_FILE = os.path.join(LOGS_DIR, "dev_state.json")
 
 BACKEND_DIR = os.path.join(WORKSPACE_ROOT, "backend")
+FRONTEND_DIR = os.path.join(WORKSPACE_ROOT, "frontend")
 COMPOSE_FILE = os.path.join(WORKSPACE_ROOT, "infra", "compose.yml")
 ENV_FILE = os.path.join(WORKSPACE_ROOT, ".env")
 
 BACKEND_PORT = 8000
+FRONTEND_PORT = 5173
 DB_PORT = 5432
 
 COMPOSE_INFRA_SERVICES = ["db"]
@@ -84,7 +86,7 @@ def load_state() -> dict[str, Any]:
                 return dict(json.load(f))
         except (OSError, ValueError) as e:
             log_warning(f"Failed to load state file, using defaults: {e}")
-    return {"backend_pid": None}
+    return {"backend_pid": None, "frontend_pid": None}
 
 
 def save_state(state):
@@ -113,6 +115,17 @@ def is_backend_running(pid):
         return False
     cmdline = get_process_cmdline(pid)
     return "uvicorn" in cmdline or "uv" in cmdline
+
+
+def is_frontend_running(pid):
+    if not pid:
+        return False
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    cmdline = get_process_cmdline(pid)
+    return "bun" in cmdline or "vite" in cmdline
 
 
 def is_port_in_use(port):
@@ -215,9 +228,58 @@ def follow_file(filepath, prefix, color):
         pass
 
 
-def warn_frontend_not_implemented():
-    log_warning("Frontend ainda não implementado neste projeto (MVP é API pura).")
-    log_warning("Comando ignorado — nada de frontend para iniciar/parar/buildar.")
+def ensure_frontend_deps() -> bool:
+    """Garante bun instalado e frontend/node_modules presente. False = não dá para seguir."""
+    if shutil.which("bun") is None:
+        log_error("bun não encontrado no PATH. Instale em https://bun.sh para rodar o frontend.")
+        return False
+    if os.path.isdir(os.path.join(FRONTEND_DIR, "node_modules")):
+        return True
+    log_info("frontend/node_modules ausente. Rodando 'bun install'...")
+    res = subprocess.run(
+        ["bun", "install"], cwd=FRONTEND_DIR,
+        capture_output=True, text=True, check=False,
+    )
+    if res.returncode != 0:
+        log_error(f"Falha no 'bun install':\n{res.stderr}")
+        return False
+    log_success("Dependências do frontend instaladas.")
+    return True
+
+
+def start_frontend(state):
+    """Sobe o Vite em background. Não derruba o script em caso de falha: o backend já pode ter subido."""
+    if is_frontend_running(state.get("frontend_pid")):
+        log_warning("Frontend já está rodando!")
+        return
+    if is_port_in_use(FRONTEND_PORT):
+        log_error(f"Porta {FRONTEND_PORT} já está em uso! Não é possível iniciar o frontend.")
+        return
+    if not ensure_frontend_deps():
+        return
+
+    log_info("Iniciando frontend (Vite) em background...")
+    frontend_log = os.path.join(LOGS_DIR, "frontend.log")
+    # O proxy do Vite (/api) aponta para o backend local; --strictPort evita o
+    # Vite pular para outra porta e o wait_for_port conferir o processo errado.
+    frontend_env = os.environ.copy()
+    frontend_env["API_ALVO"] = f"http://localhost:{BACKEND_PORT}"
+
+    with open(frontend_log, "w") as log_file:
+        p = subprocess.Popen(
+            ["bun", "run", "dev", "--host", "0.0.0.0",
+             "--port", str(FRONTEND_PORT), "--strictPort"],
+            cwd=FRONTEND_DIR, env=frontend_env,
+            stdout=log_file, stderr=log_file,
+            start_new_session=True,
+        )
+        state["frontend_pid"] = p.pid
+        log_success(f"Frontend iniciado (PID group: {p.pid}). Logs: logs/frontend.log")
+        log_info(f"Aguardando frontend (porta {FRONTEND_PORT}) ficar pronto...")
+        if wait_for_port(FRONTEND_PORT, timeout=30):
+            log_success(f"Frontend pronto em http://localhost:{FRONTEND_PORT}")
+        else:
+            log_warning("Frontend não respondeu após 30s. Verifique logs/frontend.log")
 
 
 # --- Core Commands ---
@@ -225,13 +287,21 @@ def warn_frontend_not_implemented():
 def start_dev():
     state = load_state()
     b_running = is_backend_running(state.get("backend_pid"))
+    f_running = is_frontend_running(state.get("frontend_pid"))
 
-    if b_running:
-        log_warning("Backend já está rodando!")
+    if b_running and f_running:
+        log_warning("Backend e frontend já estão rodando!")
         show_status()
         return
 
     os.makedirs(LOGS_DIR, exist_ok=True)
+
+    if b_running:
+        log_warning("Backend já está rodando! Iniciando só o frontend.")
+        start_frontend(state)
+        save_state(state)
+        show_status()
+        return
 
     # --- 1. Database (Docker Compose: pgvector) ---
     compose_cmd = get_docker_compose_cmd()
@@ -311,8 +381,8 @@ def start_dev():
             else:
                 log_warning("Backend não respondeu após 60s. Verifique logs/backend.log")
 
-    # --- 3. Frontend (ainda não implementado) ---
-    warn_frontend_not_implemented()
+    # --- 3. Frontend (React/Vite via bun) ---
+    start_frontend(state)
 
     save_state(state)
     log_success("Serviços iniciados!")
@@ -323,6 +393,10 @@ def start_dev():
 
 def stop_dev():
     state = load_state()
+
+    if state.get("frontend_pid"):
+        kill_process_group_robust(state["frontend_pid"], "frontend")
+        state["frontend_pid"] = None
 
     if state.get("backend_pid"):
         kill_process_group_robust(state["backend_pid"], "backend")
@@ -347,15 +421,24 @@ def restart_dev():
 
 
 def build_frontend():
-    """Frontend ainda não implementado — apenas avisa."""
-    warn_frontend_not_implemented()
+    """Typecheck + bundle de produção do frontend (bun run build → frontend/dist)."""
+    if not ensure_frontend_deps():
+        sys.exit(1)
+    log_info("Buildando frontend (bun run build)...")
+    res = subprocess.run(["bun", "run", "build"], cwd=FRONTEND_DIR, check=False)
+    if res.returncode != 0:
+        log_error("Build do frontend falhou.")
+        sys.exit(res.returncode)
+    log_success("Build do frontend concluído (frontend/dist).")
 
 
 def show_status():
     state = load_state()
     b_pid = state.get("backend_pid")
+    f_pid = state.get("frontend_pid")
 
     b_running = is_backend_running(b_pid)
+    f_running = is_frontend_running(f_pid)
 
     print(f"\n{BOLD}docencIA Dev Environment Status:{RESET}")
     print("-" * 60)
@@ -363,8 +446,8 @@ def show_status():
     b_status = f"{GREEN}RUNNING{RESET} (PID: {b_pid})" if b_running else f"{RED}STOPPED{RESET}"
     print(f"Backend  (FastAPI {BACKEND_PORT}):     {b_status}")
 
-    f_status = f"{YELLOW}NÃO IMPLEMENTADO{RESET}"
-    print(f"Frontend:                    {f_status}")
+    f_status = f"{GREEN}RUNNING{RESET} (PID: {f_pid})" if f_running else f"{RED}STOPPED{RESET}"
+    print(f"Frontend (Vite {FRONTEND_PORT}):       {f_status}")
 
     db_status = f"{GREEN}RUNNING{RESET} (Port {DB_PORT})" if is_port_in_use(DB_PORT) else f"{RED}STOPPED{RESET}"
     print(f"Database (Postgres+pgvector {DB_PORT}): {db_status}")
@@ -372,9 +455,10 @@ def show_status():
     print("-" * 60)
     print("Logs:")
     print("  Backend:  logs/backend.log")
+    print("  Frontend: logs/frontend.log")
     print()
     print("Commands:")
-    print("  python dev.py start    - Inicia banco e backend")
+    print("  python dev.py start    - Inicia banco, backend e frontend")
     print("  python dev.py stop     - Para todos os serviços")
     print("  python dev.py status   - Mostra status atual")
     print("  python dev.py logs     - Stream de logs")
@@ -389,10 +473,11 @@ def stream_logs(service=None):
             prefix = "[backend]"
             color = GREEN
         elif service in ("frontend", "front"):
-            warn_frontend_not_implemented()
-            return
+            path = os.path.join(LOGS_DIR, "frontend.log")
+            prefix = "[frontend]"
+            color = MAGENTA
         else:
-            log_error(f"Serviço desconhecido: {service}. Use 'backend'.")
+            log_error(f"Serviço desconhecido: {service}. Use 'backend' ou 'frontend'.")
             sys.exit(1)
 
         if not os.path.exists(path):
@@ -406,15 +491,20 @@ def stream_logs(service=None):
             print("\nSaindo.")
     else:
         backend_path = os.path.join(LOGS_DIR, "backend.log")
-        if not os.path.exists(backend_path):
-            with open(backend_path, "w"):
-                pass
+        frontend_path = os.path.join(LOGS_DIR, "frontend.log")
+        for path in (backend_path, frontend_path):
+            if not os.path.exists(path):
+                with open(path, "w"):
+                    pass
 
-        print(f"{CYAN}--- Streaming logs do backend (Ctrl+C para sair) ---{RESET}\n")
+        print(f"{CYAN}--- Streaming logs do backend e do frontend (Ctrl+C para sair) ---{RESET}\n")
         print_last_lines(backend_path, 30, "[backend]", GREEN)
+        print_last_lines(frontend_path, 30, "[frontend]", MAGENTA)
 
         t1 = threading.Thread(target=follow_file, args=(backend_path, "[backend]", GREEN), daemon=True)
+        t2 = threading.Thread(target=follow_file, args=(frontend_path, "[frontend]", MAGENTA), daemon=True)
         t1.start()
+        t2.start()
         try:
             while True:
                 time.sleep(1)
@@ -433,7 +523,7 @@ def clean_dev():
         log_success("Volumes Docker removidos.")
 
     log_info("Limpando arquivos de log...")
-    for file in ["backend.log", "dev_state.json"]:
+    for file in ["backend.log", "frontend.log", "dev_state.json"]:
         path = os.path.join(LOGS_DIR, file)
         if os.path.exists(path):
             try:
@@ -448,8 +538,9 @@ def purge_dev():
     """Remove artefatos de build — mantém o banco intacto."""
     state = load_state()
     b_running = is_backend_running(state.get("backend_pid"))
+    f_running = is_frontend_running(state.get("frontend_pid"))
 
-    if b_running:
+    if b_running or f_running:
         log_info("Parando processos em execução...")
         stop_dev()
         log_info("Processos parados.")
@@ -460,8 +551,16 @@ def purge_dev():
             path = os.path.join(root, "__pycache__")
             shutil.rmtree(path, ignore_errors=True)
 
+    # node_modules fica: reinstalar é lento, e não é artefato de build.
+    log_info("Removendo build e cache do frontend (dist, node_modules/.vite)...")
+    for path in (
+        os.path.join(FRONTEND_DIR, "dist"),
+        os.path.join(FRONTEND_DIR, "node_modules", ".vite"),
+    ):
+        shutil.rmtree(path, ignore_errors=True)
+
     log_info("Limpando arquivos de log...")
-    for file in ["backend.log", "dev_state.json"]:
+    for file in ["backend.log", "frontend.log", "dev_state.json"]:
         path = os.path.join(LOGS_DIR, file)
         if os.path.exists(path):
             try:
@@ -479,18 +578,18 @@ def print_help():
 
 {BOLD}Uso:{RESET} python dev.py <command>
 
-{YELLOW}Aviso: frontend ainda não implementado — este é um projeto de API pura.{RESET}
-
 {BOLD}Commands:{RESET}
-  {GREEN}start{RESET}         Inicia banco (Postgres+pgvector) e backend (FastAPI/uvicorn --reload).
-  {RED}stop{RESET}          Para backend e containers docker.
+  {GREEN}start{RESET}         Inicia banco (Postgres+pgvector), backend (FastAPI/uvicorn --reload)
+                e frontend (Vite, porta {FRONTEND_PORT}; roda 'bun install' se faltar node_modules).
+  {RED}stop{RESET}          Para frontend, backend e containers docker.
   {YELLOW}restart{RESET}       Para e inicia tudo de novo.
   {CYAN}status{RESET}        Verifica status dos processos e portas.
-  {BLUE}logs{RESET}          Stream de logs em tempo real.
+  {BLUE}logs{RESET}          Stream de logs em tempo real (backend e frontend).
   {BLUE}logs backend{RESET}    Stream só do backend.
+  {BLUE}logs frontend{RESET}   Stream só do frontend.
   {RED}clean{RESET}         Para tudo, remove logs E destrói o volume do banco.
   {MAGENTA}purge{RESET}        Remove artefatos de build/cache (mantém o banco).
-  {MAGENTA}build{RESET}         (Frontend ainda não implementado — só avisa.)
+  {MAGENTA}build{RESET}         Typecheck + bundle de produção do frontend (frontend/dist).
 """)
 
 

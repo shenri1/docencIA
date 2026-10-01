@@ -34,9 +34,16 @@ from backend.app.services.geracao.banco_service import Improdutiva, gerar_banco
 from backend.tests.travamento import espiar_lock
 from backend.tests.services.geracao.duplos import (
     ProvedorLLMFake,
+    corpo_discursiva,
     corpo_insuficiencia,
+    corpo_questao,
 )
-from backend.tests.services.geracao.test_banco_service import preparar, roteiro
+from backend.tests.services.geracao.test_banco_service import (
+    VARIACAO,
+    preparar,
+    roteiro,
+    roteiro_variacao,
+)
 
 
 def banco_gerado(db, armazenamento, embeddings, reranker, sessao, n=3):
@@ -58,7 +65,8 @@ def banco_gerado(db, armazenamento, embeddings, reranker, sessao, n=3):
 
 def _propor(db, emb, rer, docente, banco, numero, roteiro_=None):
     return propor_substituicao(
-        db, emb, rer, ProvedorLLMFake(roteiro_ or roteiro(1)), docente, banco, numero
+        db, emb, rer, ProvedorLLMFake(roteiro_ or roteiro_variacao(1)), docente, banco,
+        numero,
     )
 
 
@@ -87,7 +95,7 @@ def test_propor_manda_o_enunciado_da_original_como_evitar(
         db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
     )
     original = next(q for q in banco.questoes if q.numero == 1)
-    provedor = ProvedorLLMFake(roteiro(1))
+    provedor = ProvedorLLMFake(roteiro_variacao(1))
 
     propor_substituicao(
         db_session, embeddings_fake, reranker_fake, provedor, docente, banco, 1
@@ -236,6 +244,75 @@ def test_insuficiencia_na_proposta_nao_persiste_nada(
     assert db_session.query(Questao).count() == antes
 
 
+def test_candidata_que_repete_a_original_e_gerada_de_novo(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    """Medido: o qwen3:4b, com a mesma âncora, devolveu o enunciado da original
+    palavra por palavra, apesar do "não a repita" no prompt."""
+    banco = banco_gerado(
+        db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+    )
+    original = next(q for q in banco.questoes if q.numero == 1)
+    # Caixa e pontuação não disfarçam a cópia.
+    copia = corpo_questao(5, enunciado=original.enunciado.upper() + "!")
+    provedor = ProvedorLLMFake([copia, *roteiro_variacao(1)])
+
+    produzida = propor_substituicao(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco, 1
+    )
+
+    assert produzida.questao.enunciado == VARIACAO
+    # Rascunho repetido, novo rascunho, revisão: a cópia não gasta o crítico.
+    assert provedor.chamadas == 3
+    assert "repetiu" in provedor.requisicoes[1].usuario
+
+
+def test_candidata_que_repete_duas_vezes_vira_insuficiencia(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    banco = banco_gerado(
+        db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+    )
+    antes = db_session.query(Questao).count()
+    provedor = ProvedorLLMFake(roteiro(1))  # o mesmo enunciado da original, 2x
+
+    resultado = propor_substituicao(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco, 1
+    )
+
+    assert isinstance(resultado, Improdutiva)
+    assert "variação diferente da original" in resultado.motivo
+    assert provedor.chamadas == 2
+    assert db_session.query(Questao).count() == antes
+
+
+def test_discursiva_manda_os_aspectos_como_evitar(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    resumo = gerar_banco(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake([corpo_discursiva()] * 2),
+        sessao_rascunho,
+        n_objetivas=0,
+        n_discursivas=1,
+        versao="v1",
+    )
+    banco = db_session.get(BancoQuestoes, resumo.banco_id)
+    outra = corpo_discursiva(
+        enunciado="Compare a fila da busca em largura com a pilha da busca em profundidade."
+    )
+    provedor = ProvedorLLMFake([outra] * 2)
+
+    propor_substituicao(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco, 1
+    )
+
+    assert "a fila preserva a ordem de descoberta" in provedor.requisicoes[0].usuario
+
+
 def test_aceitar_sem_candidata_responde_409(
     db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
 ):
@@ -305,8 +382,12 @@ def test_duas_substituicoes_do_mesmo_numero(
     banco = banco_gerado(
         db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
     )
-    for _ in range(2):
-        _propor(db_session, embeddings_fake, reranker_fake, docente, banco, 1)
+    # Cada variação precisa diferir da questão que está no número naquele momento.
+    for enunciado in (VARIACAO, "Por que a fila preserva a ordem de descoberta?"):
+        _propor(
+            db_session, embeddings_fake, reranker_fake, docente, banco, 1,
+            roteiro_variacao(1, enunciado=enunciado),
+        )
         aceitar_substituicao(db_session, docente, banco, 1, banco.revisao)
 
     do_numero_1 = [q for q in banco.questoes if q.numero == 1]

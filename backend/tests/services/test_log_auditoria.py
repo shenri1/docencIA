@@ -85,7 +85,11 @@ from backend.app.services.exportacao.exportacao_service import exportar
 from backend.app.services.geracao.banco_service import gerar_banco
 from backend.tests.fabrica_banco import criar_banco, criar_questao_objetiva
 from backend.tests.services.geracao.duplos import ProvedorLLMFake
-from backend.tests.services.geracao.test_banco_service import preparar, roteiro
+from backend.tests.services.geracao.test_banco_service import (
+    preparar,
+    roteiro,
+    roteiro_variacao,
+)
 from backend.tests.services.provas.test_gabarito import provas_montadas
 
 E = TipoEventoAuditoria
@@ -151,7 +155,7 @@ def test_substituicao_aceita_e_rejeitada(
     banco = db_session.get(BancoQuestoes, resumo.banco_id)
     for numero in (1, 2):
         propor_substituicao(
-            db_session, embeddings_fake, reranker_fake, ProvedorLLMFake(roteiro(1)),
+            db_session, embeddings_fake, reranker_fake, ProvedorLLMFake(roteiro_variacao(1)),
             docente, banco, numero,
         )
     aceitar_substituicao(db_session, docente, banco, 1, banco.revisao)

@@ -68,12 +68,21 @@ def _questao_por_numero(
 def _texto_a_evitar(questao: Questao) -> str:
     """O que o Gerador recebe como "não repita". Na objetiva vão também as
     alternativas: a mesma questão com as mesmas opções reordenadas não é uma
-    substituição."""
+    substituição. Na discursiva, os aspectos esperados, pelo mesmo motivo."""
     linhas = [f"Enunciado: {questao.enunciado}"]
     if questao.tipo is TipoQuestao.OBJETIVA:
         for alternativa in sorted(questao.alternativas, key=lambda a: a.letra):
             linhas.append(f"{alternativa.letra}) {alternativa.texto}")
+    else:
+        for aspecto in sorted(questao.aspectos, key=lambda a: a.ordem):
+            linhas.append(f"Aspecto esperado: {aspecto.texto}")
     return "\n".join(linhas)
+
+
+_AVISO_REPETICAO = (
+    "A tentativa anterior repetiu o enunciado desta questão. Pergunte outra "
+    "coisa sobre os trechos."
+)
 
 
 def propor_substituicao(
@@ -112,20 +121,35 @@ def propor_substituicao(
     # depois do índice confirmado, então numero-1 recupera o mesmo trecho.
     ancora = selecionar_ancoras(db, sessao, banco.n_alvo)[numero - 1]
 
-    return produzir_questao(
-        db,
-        embeddings,
-        reranker,
-        provedor,
-        sessao,
-        banco,
-        numero,
-        original.tipo,
-        original.faixa_dificuldade,
-        ancora,
-        distribuicao,
-        estado=EstadoQuestao.CANDIDATA,
-        evitar=_texto_a_evitar(original),
+    # Mesma âncora => mesmos trechos, e o modelo tende a devolver o mesmo
+    # enunciado mesmo instruído a não repetir (medido no qwen3:4b). A cópia é
+    # medida no rascunho e ganha UMA nova tentativa, com o aviso explícito.
+    evitar = _texto_a_evitar(original)
+    for tentativa in range(2):
+        resultado = produzir_questao(
+            db,
+            embeddings,
+            reranker,
+            provedor,
+            sessao,
+            banco,
+            numero,
+            original.tipo,
+            original.faixa_dificuldade,
+            ancora,
+            distribuicao,
+            estado=EstadoQuestao.CANDIDATA,
+            evitar=evitar if tentativa == 0 else f"{evitar}\n\n{_AVISO_REPETICAO}",
+            enunciado_original=original.enunciado,
+        )
+        if not (isinstance(resultado, Improdutiva) and resultado.repetida):
+            return resultado
+    # duas cópias seguidas dizem que o trecho não rende outra questão.
+    return Improdutiva(
+        numero=numero,
+        localizacao=resultado.localizacao,
+        motivo="o material não sustentou uma variação diferente da original: "
+        "as duas tentativas repetiram o enunciado",
     )
 
 

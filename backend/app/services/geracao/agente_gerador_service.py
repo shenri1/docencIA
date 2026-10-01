@@ -57,7 +57,11 @@ def _montar_usuario(
     if evitar is not None:
         # A substituição reusa a MESMA âncora: sem esta instrução, a mesma
         # temperatura tenderia a devolver quase a mesma questão.
-        partes.append("Questão que está sendo substituída — não a repita:\n" + evitar)
+        partes.append(
+            "Questão que está sendo substituída — não a repita. Escreva OUTRA "
+            "questão: pergunte outra coisa sobre os trechos (outro aspecto, outra "
+            "habilidade), e não a mesma pergunta com outras palavras.\n" + evitar
+        )
     partes.append(pedido)
     return "\n\n".join(partes)
 

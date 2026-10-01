@@ -62,6 +62,7 @@ from backend.app.services.log_auditoria import registrar_evento
 from backend.app.services.prompt_mestre_service import verificar_integridade
 from backend.app.services.qualidade.validador_itens import (
     Violacao,
+    enunciado_repetido,
     validar_discursiva,
     validar_objetiva,
 )
@@ -73,6 +74,9 @@ class Improdutiva:
     numero: int
     localizacao: str
     motivo: str
+    # Só na substituição: o rascunho repetiu a original. Medido, não declarado
+    # pelo modelo — por isso a substituição tenta de novo em vez de desistir.
+    repetida: bool = False
 
 
 @dataclass(frozen=True)
@@ -336,6 +340,7 @@ def produzir_questao(
     distribuicao: DistribuicaoQuestoes,
     estado: EstadoQuestao = EstadoQuestao.ATIVA,
     evitar: str | None = None,
+    enunciado_original: str | None = None,
 ) -> Produzida | Improdutiva:
     """Uma questão, do rascunho ao commit: gerar, medir, revisar, medir,
     persistir. `gerar_banco` chama em laço; `propor_substituicao` chama uma vez.
@@ -358,6 +363,16 @@ def produzir_questao(
             numero=numero,
             localizacao=resultado.localizacao_ancora,
             motivo=resultado.motivo_insuficiencia or "sem motivo declarado",
+        )
+    if enunciado_original is not None and enunciado_repetido(
+        resultado.questao.enunciado, enunciado_original
+    ):
+        # Medido no rascunho: revisar uma cópia gastaria o crítico à toa.
+        return Improdutiva(
+            numero=numero,
+            localizacao=resultado.localizacao_ancora,
+            motivo="o rascunho repetiu o enunciado da questão original",
+            repetida=True,
         )
 
     # o determinístico mede, o semântico revisa com essa medida como

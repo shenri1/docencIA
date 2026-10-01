@@ -81,6 +81,15 @@ def roteiro(n: int, k: int = 5) -> list[dict]:
     return [corpo_questao(k) for _ in range(2 * n)]
 
 
+VARIACAO = "Que estrutura auxiliar garante a visita por camadas na busca em largura?"
+
+
+def roteiro_variacao(n: int = 1, k: int = 5, enunciado: str = VARIACAO) -> list[dict]:
+    """Como `roteiro`, com outro enunciado: a substituição recusa a candidata
+    que repete a original, e `roteiro` repete sempre o mesmo enunciado."""
+    return [corpo_questao(k, enunciado=enunciado) for _ in range(2 * n)]
+
+
 def test_banco_respeita_a_distribuicao_por_faixa(
     db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
 ):

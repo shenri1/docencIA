@@ -5,7 +5,11 @@ from backend.app.services.geracao.banco_service import gerar_banco
 from backend.tests.conftest import _auth
 from backend.tests.fabrica_banco import criar_banco, criar_questao_objetiva
 from backend.tests.services.geracao.duplos import ProvedorLLMFake
-from backend.tests.services.geracao.test_banco_service import preparar, roteiro
+from backend.tests.services.geracao.test_banco_service import (
+    preparar,
+    roteiro,
+    roteiro_variacao,
+)
 
 SESSAO = {
     "disciplina": "Algoritmos",
@@ -172,7 +176,7 @@ def test_propor_e_aceitar_pela_api(
         versao="v1",
     )
 
-    app.dependency_overrides[get_provedor] = lambda: ProvedorLLMFake(roteiro(1))
+    app.dependency_overrides[get_provedor] = lambda: ProvedorLLMFake(roteiro_variacao(1))
     try:
         proposta = client.post(
             f"/bancos/{resumo.banco_id}/questoes/1/substituicao", headers=headers

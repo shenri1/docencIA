@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 
 from backend.app.domain import RegraQualidade
 
@@ -114,6 +115,21 @@ def _normalizar(texto: str) -> str:
 
 def _palavras(texto: str) -> list[str]:
     return _PALAVRA.findall(texto)
+
+
+# ponytail: palpite. A cópia medida no uso real era idêntica (razão 1,0).
+# Baixar se reescritas leves passarem; subir se variações legítimas forem
+# recusadas.
+LIMIAR_ENUNCIADO_REPETIDO = 0.8
+
+
+def enunciado_repetido(candidato: str, original: str) -> bool:
+    """Substituição: o rascunho repete o enunciado da original?
+    Compara a sequência de palavras normalizadas, então caixa, acento e
+    pontuação não disfarçam a cópia."""
+    a = [_normalizar(p) for p in _palavras(candidato)]
+    b = [_normalizar(p) for p in _palavras(original)]
+    return SequenceMatcher(None, a, b).ratio() >= LIMIAR_ENUNCIADO_REPETIDO
 
 
 def _termos(texto: str) -> set[str]:

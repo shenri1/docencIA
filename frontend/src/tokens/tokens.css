@@ -1,0 +1,99 @@
+/*
+ * Fonte única dos tokens visuais. 
+ * 
+ *
+ * Três camadas:
+ *   1. primitivos  — valores brutos nomeados pela paleta do DESIGN.md
+ *   2. semânticos  — papel na interface; é o que o JSX usa (bg-fundo, text-texto)
+ *   3. componentes — decisões de botão, campo, cartão e chip, em index.css
+ *
+ * Para trocar a identidade visual, edite só a camada 1 (e a 2, se um papel mudar).
+ */
+@theme {
+  /* ---- 1. Primitivos ---- */
+  --color-midnight-ink: #0f1923;
+  --color-midnight-ink-hover: #1e2d3d;
+  --color-academic-oxblood: #681d24;
+  --color-oxblood-tint: #f6ecee;
+  --color-scholars-pine: #284e3a;
+  --color-pine-tint: #e8f0ec;
+  --color-pine-card: #fafbf9;
+  --color-mustard-ink: #6b5916;
+  --color-mustard-tint: #f4efdc;
+  --color-parchment-mist: #f4f1ea;
+  --color-pressed-ivory: #faf8f5;
+  --color-crisp-cotton: #ffffff;
+  --color-archival-edge: #e3ddd2;
+  --color-chip-paper: #efece4;
+  --color-chip-edge: #ddd7cb;
+  --color-graphite: #44474b;
+  --color-graphite-soft: #6a6d72;
+
+  /* ---- 2. Semânticos ---- */
+  --color-fundo: var(--color-parchment-mist);
+  --color-cartao: var(--color-pressed-ivory);
+  --color-folha: var(--color-crisp-cotton);
+  --color-borda: var(--color-archival-edge);
+  --color-texto: var(--color-midnight-ink);
+  --color-texto-suave: var(--color-graphite);
+  --color-texto-placeholder: var(--color-graphite-soft);
+  --color-primaria: var(--color-midnight-ink);
+  --color-primaria-hover: var(--color-midnight-ink-hover);
+  --color-sobre-primaria: var(--color-crisp-cotton);
+  --color-manter: var(--color-scholars-pine);
+  --color-manter-fundo: var(--color-pine-tint);
+  --color-descartar: var(--color-academic-oxblood);
+  --color-descartar-fundo: var(--color-oxblood-tint);
+  --color-aviso: var(--color-mustard-ink);
+  --color-aviso-fundo: var(--color-mustard-tint);
+  --color-chip-fundo: var(--color-chip-paper);
+  --color-chip-borda: var(--color-chip-edge);
+
+  /* Tipografia (DESIGN.md > typography) */
+  --font-serifa: "Newsreader Variable", Georgia, "Times New Roman", serif;
+  --font-grotesca: "Hanken Grotesk Variable", system-ui, sans-serif;
+
+  --text-display: 3rem;
+  --text-display--line-height: 3.5rem;
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 500;
+  --text-titulo: 2rem;
+  --text-titulo--line-height: 2.5rem;
+  --text-titulo--letter-spacing: -0.015em;
+  --text-titulo--font-weight: 400;
+  --text-subtitulo: 1.375rem;
+  --text-subtitulo--line-height: 1.875rem;
+  --text-subtitulo--letter-spacing: -0.01em;
+  --text-subtitulo--font-weight: 500;
+  --text-corpo-lg: 1.1875rem;
+  --text-corpo-lg--line-height: 1.8125rem;
+  --text-corpo: 1rem;
+  --text-corpo--line-height: 1.5625rem;
+  --text-detalhe: 0.875rem;
+  --text-detalhe--line-height: 1.25rem;
+  --text-rotulo-lg: 0.875rem;
+  --text-rotulo-lg--line-height: 1.25rem;
+  --text-rotulo-lg--letter-spacing: 0.03em;
+  --text-rotulo-lg--font-weight: 600;
+  --text-rotulo: 0.75rem;
+  --text-rotulo--line-height: 1rem;
+  --text-rotulo--letter-spacing: 0.06em;
+  --text-rotulo--font-weight: 600;
+  --text-rotulo-sm: 0.6875rem;
+  --text-rotulo-sm--line-height: 0.875rem;
+  --text-rotulo-sm--letter-spacing: 0.08em;
+  --text-rotulo-sm--font-weight: 500;
+
+  /* Formas: 4px em quase tudo; nada de pílula (DESIGN.md > Shapes) */
+  --radius-sm: 0.125rem;
+  --radius-DEFAULT: 0.25rem;
+
+  /* Elevação por empilhamento tonal (DESIGN.md > Elevation) */
+  --shadow-folha: 0 2px 8px -2px rgb(15 25 35 / 0.05), 0 1px 3px 0 rgb(15 25 35 / 0.03);
+  --shadow-sobreposicao: 0 12px 32px -8px rgb(104 29 36 / 0.08), 0 4px 12px -2px rgb(15 25 35 / 0.04);
+
+  /* Espaçamento e largura de leitura */
+  --spacing-gutter: 1.5rem;
+  --spacing-margem: 3rem;
+  --container-leitura: 86.25rem;
+}

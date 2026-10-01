@@ -41,9 +41,20 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      # Só loopback: o acesso do docente é pelo "web". Fica publicada para o
+      # /docs do Swagger, que sob /api não funciona (openapi.json é absoluto).
+      - "127.0.0.1:8000:8000"
     volumes:
       - storage_data:/app/storage
+
+  web:
+    build:
+      context: ../frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
 
 volumes:
   db_data:

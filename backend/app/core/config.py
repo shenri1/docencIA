@@ -65,7 +65,10 @@ class Settings(BaseSettings):
     embedding_timeout_s: float = 120.0
 
     rerank_base_url: str = "http://localhost:11434"
-    rerank_model: str = "dengcao/Qwen3-Reranker-0.6B:Q8_0"
+    # Qwen3 comum como juiz yes/no, não o Qwen3-Reranker: o GGUF
+    # dengcao/Qwen3-Reranker devolve distribuição uniforme pelo /api/generate
+    # (medido; ver docstring de services/rag/rerank.py).
+    rerank_model: str = "qwen3:1.7b"
     rerank_instrucao: str = (
         "Given a web search query, retrieve relevant passages that answer the query"
     )

@@ -70,6 +70,10 @@ describe("fluxo contra o back-end falso", () => {
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(`/sessoes/${sessaoId}/banco`),
     );
+
+    // a mesa mostra as questões que a geração gravou
+    expect(await screen.findByRole("article", { name: "Questão 1" })).toBeInTheDocument();
+    expect(screen.getByRole("article", { name: "Questão 2" })).toBeInTheDocument();
   });
 
   it("recusa credencial já cadastrada como a API faz", async () => {

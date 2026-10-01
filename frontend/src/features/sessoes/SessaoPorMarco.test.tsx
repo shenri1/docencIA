@@ -3,6 +3,7 @@ import { http, HttpResponse } from "msw";
 import { server } from "../../mocks/server";
 import {
   DOCENTE,
+  umBanco,
   umMarcoBanco,
   umMarcoSessao,
   umaSessao,
@@ -14,6 +15,8 @@ function backend(marco: ReturnType<typeof umMarcoSessao>) {
     http.get(`${API}/auth/me`, () => HttpResponse.json(DOCENTE)),
     http.get(`${API}/sessoes/5`, () => HttpResponse.json(umaSessao({ id: 5 }))),
     http.get(`${API}/sessoes/5/marco`, () => HttpResponse.json(marco)),
+    // O umMarcoBanco padrão aponta para o banco 1, e a mesa agora o lê.
+    http.get(`${API}/bancos/1`, () => HttpResponse.json(umBanco())),
   );
 }
 
@@ -88,20 +91,6 @@ describe("/sessoes/:id lê o marco e redireciona", () => {
       await screen.findByRole("heading", { name: "Banco de questões" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/sessoes/5/banco");
-  });
-
-  it("recarregar mais adiante mostra a próxima ação do banco, ainda sem tela própria", async () => {
-    backend(
-      umMarcoSessao({
-        sessao_id: 5,
-        marco: "m2_banco",
-        bancos: [umMarcoBanco({ marco: "m3_exclusoes" })],
-      }),
-    );
-    renderApp("/sessoes/5/banco", { token: "t" });
-
-    expect(await screen.findByText("Revisar banco")).toBeInTheDocument();
-    expect(screen.getByText(/ainda não está disponível/i)).toBeInTheDocument();
   });
 
   it("mostra a mensagem da API quando a sessão não existe", async () => {

@@ -1,13 +1,14 @@
 /**
  * Back-end falso com estado, só para o front avançar sem API nem Ollama
- * e para os testes de fluxo. Reproduz o contrato e os erros de domínio 
- * (auth, sessões, materiais, índice); não reproduz regra de negócio além do
+ * e para os testes de fluxo. Reproduz o contrato e os erros de domínio das telas já feitas
+ * (auth, sessões, materiais, índice, geração e curadoria); não reproduz regra de negócio além do
  * necessário para exercitar a interface.
  *
  * Gatilhos de teste manual: um arquivo cujo nome começa com "ilegivel" é recusado
  * como PDF sem texto extraível; extensão fora de PDF/PPTX/DOCX/TXT dá 415;
  * versão de banco começando com "lacuna" deixa o número 2 sem sustentação na
- * primeira tentativa; cadastrar a credencial "admin" cria um administrador (na
+ * primeira tentativa; versão começando com "insuf" faz todo pedido de variação
+ * voltar com insuficiência de fonte; cadastrar a credencial "admin" cria um administrador (na
  * API real, ele vem da migração e1a4c8f02b77). O estado nasce com o prompt mestre
  * 1.0.0 ativo, como depois da migração.
  */
@@ -20,6 +21,9 @@ import type {
   Material,
   Prompt,
   PromptCriar,
+  PropostaSubstituicao,
+  Questao,
+  RelatorioImpacto,
   ResumoBanco,
   Sessao,
 } from "../api/tipos";
@@ -28,13 +32,18 @@ interface DocenteFalso extends Docente {
   senha: string;
 }
 
-interface BancoFalso {
+export interface BancoFalso {
   banco_id: number;
   versao: string;
   n_objetivas: number;
   n_discursivas: number;
   gerados: Set<number>;
   recusados: Set<number>;
+  revisao: number;
+  estado: Banco["estado"];
+  /** Todas as linhas, como na tabela: ativas, excluídas, substituídas, candidatas. */
+  questoes: Questao[];
+  ultimo_relatorio: RelatorioImpacto | null;
 }
 
 interface SessaoFalsa extends Sessao {
@@ -67,23 +76,76 @@ export function novoEstado(): EstadoFalso {
 
 const PREFIXO: Record<Material["tipo"], string> = { slide: "S", pdf: "P", livro: "L" };
 const FORMATOS = ["pdf", "pptx", "docx", "txt"] as const;
+const FAIXAS = ["facil", "media", "dificil"] as const;
+
+export function questaoFalsa(numero: number, tipo: Questao["tipo"] = "objetiva"): Questao {
+  const fonte = {
+    identificador_material: "S1",
+    localizacao: `slide ${numero}`,
+    trecho_base: `Trecho do material que sustenta a questão ${numero}.`,
+  };
+  return {
+    numero,
+    tipo,
+    estado: "ativa",
+    faixa_dificuldade: FAIXAS[numero % 3] ?? "media",
+    nivel_bloom: "entender",
+    tema: "Ordenação",
+    enunciado: `Enunciado da questão ${numero}.`,
+    fontes: [fonte],
+    violacoes: [],
+    alternativas:
+      tipo === "objetiva"
+        ? ["A", "B", "C", "D", "E"].map((letra) => ({
+            letra,
+            texto: `Alternativa ${letra} da questão ${numero}`,
+          }))
+        : [],
+    letra_correta: tipo === "objetiva" ? "B" : null,
+    aspectos_esperados:
+      tipo === "discursiva"
+        ? [{ ordem: 1, texto: `Aspecto esperado da questão ${numero}`, fonte }]
+        : [],
+  };
+}
+
+const ativasDe = (banco: BancoFalso) => banco.questoes.filter((q) => q.estado === "ativa");
+
+function relatorioFalso(banco: BancoFalso, evento: RelatorioImpacto["evento"]): RelatorioImpacto {
+  const ativas = ativasDe(banco);
+  const contagem: RelatorioImpacto["contagem_por_faixa"] = {};
+  for (const q of ativas) {
+    const doTipo = (contagem[q.tipo] ??= { facil: 0, media: 0, dificil: 0 });
+    doTipo[q.faixa_dificuldade] = (doTipo[q.faixa_dificuldade] ?? 0) + 1;
+  }
+  return {
+    revisao: banco.revisao,
+    evento,
+    n_final: ativas.length,
+    contagem_por_faixa: contagem,
+    desvio_observado: {},
+    alerta_desvio: false,
+    timestamp: new Date().toISOString(),
+  };
+}
 
 const erro = (status: number, detail: string, codigo: string, extras = {}) =>
   HttpResponse.json({ detail, codigo, ...extras }, { status });
 
 function marcoDoBanco(banco: BancoFalso): MarcoBanco {
   const n_alvo = banco.n_objetivas + banco.n_discursivas;
+  const ativas = ativasDe(banco);
   return {
     versao: banco.versao,
     banco_id: banco.banco_id,
-    revisao: 0,
-    marco: "m3_exclusoes",
+    revisao: banco.revisao,
+    marco: banco.estado === "congelado" ? "m6_provas" : "m3_exclusoes",
     motivo: null,
     n_alvo,
-    n_atual: banco.gerados.size,
+    n_atual: ativas.length,
     lacunas: n_alvo - banco.gerados.size,
     alerta_desvio: false,
-    objetivas_ativas: banco.gerados.size,
+    objetivas_ativas: ativas.filter((q) => q.tipo === "objetiva").length,
     objetivas_auditadas: 0,
     comandos: ["prosseguir", "excluir", "auditar"],
     campos_prosseguir: ["versao", "revisao_esperada"],
@@ -104,6 +166,24 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
 
   const sessaoDe = (id: string | readonly string[] | undefined) =>
     estado.sessoes.find((s) => s.id === Number(id));
+  const bancoDe = (id: string | readonly string[] | undefined) =>
+    estado.sessoes.find((s) => s.banco?.banco_id === Number(id))?.banco;
+  const bancoNaoEncontrado = (id: unknown) =>
+    erro(404, `Banco ${String(id)} não encontrado.`, "BANCO_NAO_ENCONTRADO");
+  const revisaoDesatualizada = (banco: BancoFalso, esperada: number) =>
+    esperada === banco.revisao
+      ? null
+      : erro(
+          409,
+          `O banco está na revisão ${banco.revisao} e o comando esperava a ${esperada}. Leia o banco de novo antes de decidir.`,
+          "REVISAO_DESATUALIZADA",
+        );
+  /** Toda mudança do banco ganha revisão nova e relatório de impacto. */
+  const registrar = (banco: BancoFalso, evento: RelatorioImpacto["evento"]) => {
+    banco.revisao += 1;
+    banco.ultimo_relatorio = relatorioFalso(banco, evento);
+    return HttpResponse.json(banco.ultimo_relatorio);
+  };
 
   return [
     http.post(`${base}/auth/registrar`, async ({ request }) => {
@@ -322,6 +402,10 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
         n_discursivas: dados.n_discursivas,
         gerados: new Set(),
         recusados: new Set(),
+        revisao: 0,
+        estado: "aberto",
+        questoes: [],
+        ultimo_relatorio: null,
       };
       const banco = sessao.banco;
       const numeros = Array.from(
@@ -337,6 +421,9 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
           improdutivas.push({ numero: n, localizacao: "página 2", motivo: "o trecho não sustenta a questão" });
         } else {
           banco.gerados.add(n);
+          banco.questoes.push(
+            questaoFalsa(n, n > banco.n_objetivas ? "discursiva" : "objetiva"),
+          );
         }
       }
       const resumo: ResumoBanco = {
@@ -353,24 +440,143 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
       return HttpResponse.json(resumo, { status: 201 });
     }),
 
+    // O falso sempre devolve o gabarito: a mesa sempre pede com_gabarito=true.
     http.get(`${base}/bancos/:id`, ({ request, params }) => {
       if (!docenteDoToken(request)) return naoAutorizado();
-      const banco = estado.sessoes.find((s) => s.banco?.banco_id === Number(params.id))?.banco;
-      if (!banco) return erro(404, `Banco ${params.id} não encontrado.`, "BANCO_NAO_ENCONTRADO");
+      const banco = bancoDe(params.id);
+      if (!banco) return bancoNaoEncontrado(params.id);
+      const url = new URL(request.url);
+      const de = Number(url.searchParams.get("de") ?? 1);
+      const ate = Number(url.searchParams.get("ate") ?? 20);
+      const historico = url.searchParams.get("incluir_historico") === "true";
       const resposta: Banco = {
         banco_id: banco.banco_id,
         versao: banco.versao,
-        revisao: 0,
-        rotulo: `${banco.versao}.r0`,
-        estado: "aberto",
+        revisao: banco.revisao,
+        rotulo: `${banco.versao}.r${banco.revisao}`,
+        estado: banco.estado,
         n_alvo: banco.n_objetivas + banco.n_discursivas,
         n_alvo_objetivas: banco.n_objetivas,
         n_alvo_discursivas: banco.n_discursivas,
-        n_atual: banco.gerados.size,
-        ultimo_relatorio: null,
-        questoes: [],
+        n_atual: ativasDe(banco).length,
+        ultimo_relatorio: banco.ultimo_relatorio,
+        questoes: banco.questoes
+          .filter(
+            (q) =>
+              q.numero >= de && q.numero <= ate && (historico || q.estado === "ativa"),
+          )
+          .sort((a, b) => a.numero - b.numero),
       };
       return HttpResponse.json(resposta);
+    }),
+
+    http.post(`${base}/bancos/:id/exclusoes`, async ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const banco = bancoDe(params.id);
+      if (!banco) return bancoNaoEncontrado(params.id);
+      const dados = (await request.json()) as { numeros: number[]; revisao_esperada: number };
+      if (banco.estado === "congelado") {
+        return erro(
+          409,
+          `O banco ${banco.versao} está congelado: a janela de exclusões fechou.`,
+          "JANELA_EXCLUSOES_FECHADA",
+        );
+      }
+      const conflito = revisaoDesatualizada(banco, dados.revisao_esperada);
+      if (conflito) return conflito;
+      const alvos = ativasDe(banco).filter((q) => dados.numeros.includes(q.numero));
+      if (alvos.length !== new Set(dados.numeros).size) {
+        return erro(
+          422,
+          `Nenhuma exclusão foi aplicada: ${dados.numeros.join(", ")} não pode(m) ser excluído(s).`,
+          "NUMEROS_INVALIDOS",
+        );
+      }
+      for (const q of alvos) q.estado = "excluida";
+      return registrar(banco, "exclusao");
+    }),
+
+    http.post(`${base}/bancos/:id/congelar`, async ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const banco = bancoDe(params.id);
+      if (!banco) return bancoNaoEncontrado(params.id);
+      const dados = (await request.json()) as { revisao_esperada: number };
+      const conflito = revisaoDesatualizada(banco, dados.revisao_esperada);
+      if (conflito) return conflito;
+      if (banco.estado === "congelado") {
+        return erro(409, `O banco ${banco.versao} já está congelado.`, "BANCO_CONGELADO");
+      }
+      if (ativasDe(banco).length === 0) {
+        return erro(409, `O banco ${banco.versao} não tem nenhuma questão ativa para congelar.`, "BANCO_VAZIO");
+      }
+      banco.estado = "congelado";
+      return registrar(banco, "congelamento");
+    }),
+
+    http.post(`${base}/bancos/:id/questoes/:numero/substituicao`, ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const banco = bancoDe(params.id);
+      if (!banco) return bancoNaoEncontrado(params.id);
+      const numero = Number(params.numero);
+      const original = ativasDe(banco).find((q) => q.numero === numero);
+      if (!original) {
+        return erro(409, `A questão ${numero} não está ativa e não pode ser substituída.`, "ESTADO_QUESTAO_INVALIDO");
+      }
+      if (banco.questoes.some((q) => q.numero === numero && q.estado === "candidata")) {
+        return erro(
+          409,
+          `A questão ${numero} já tem uma candidata pendente. Aceite ou rejeite antes de pedir outra.`,
+          "CANDIDATA_PENDENTE",
+        );
+      }
+      if (banco.versao.startsWith("insuf")) {
+        const proposta: PropostaSubstituicao = {
+          numero,
+          candidata: null,
+          motivo_insuficiencia: "o material não sustenta outra questão sobre este trecho",
+          localizacao: original.fontes[0]?.localizacao ?? null,
+        };
+        return HttpResponse.json(proposta);
+      }
+      const candidata: Questao = {
+        ...original,
+        estado: "candidata",
+        enunciado: `Variação do enunciado da questão ${numero}.`,
+      };
+      banco.questoes.push(candidata);
+      const proposta: PropostaSubstituicao = { numero, candidata };
+      return HttpResponse.json(proposta, { status: 201 });
+    }),
+
+    http.post(`${base}/bancos/:id/questoes/:numero/substituicao/aceitar`, async ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const banco = bancoDe(params.id);
+      if (!banco) return bancoNaoEncontrado(params.id);
+      const numero = Number(params.numero);
+      const dados = (await request.json()) as { revisao_esperada: number };
+      const candidata = banco.questoes.find((q) => q.numero === numero && q.estado === "candidata");
+      if (!candidata) {
+        return erro(409, `A questão ${numero} não tem candidata pendente.`, "SEM_CANDIDATA_PENDENTE");
+      }
+      const conflito = revisaoDesatualizada(banco, dados.revisao_esperada);
+      if (conflito) return conflito;
+      const original = ativasDe(banco).find((q) => q.numero === numero);
+      if (original) original.estado = "substituida";
+      candidata.estado = "ativa";
+      return registrar(banco, "substituicao");
+    }),
+
+    http.post(`${base}/bancos/:id/questoes/:numero/substituicao/rejeitar`, ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const banco = bancoDe(params.id);
+      if (!banco) return bancoNaoEncontrado(params.id);
+      const numero = Number(params.numero);
+      const candidata = banco.questoes.find((q) => q.numero === numero && q.estado === "candidata");
+      if (!candidata) {
+        return erro(409, `A questão ${numero} não tem candidata pendente.`, "SEM_CANDIDATA_PENDENTE");
+      }
+      candidata.estado = "descartada";
+      return HttpResponse.json({ numero, decisao: "rejeitada" });
     }),
 
     http.get(`${base}/prompts`, ({ request }) => {

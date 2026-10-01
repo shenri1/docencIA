@@ -5,6 +5,8 @@ import type {
   MarcoBanco,
   MarcoSessao,
   Material,
+  Questao,
+  RelatorioImpacto,
   ResumoBanco,
   Sessao,
 } from "../api/tipos";
@@ -115,6 +117,47 @@ export function umBanco(sobrescrever: Partial<Banco> = {}): Banco {
     n_atual: 0,
     ultimo_relatorio: null,
     questoes: [],
+    ...sobrescrever,
+  };
+}
+
+export function umaQuestao(sobrescrever: Partial<Questao> = {}): Questao {
+  return {
+    numero: 1,
+    tipo: "objetiva",
+    estado: "ativa",
+    faixa_dificuldade: "media",
+    nivel_bloom: "entender",
+    tema: "Ordenação",
+    enunciado: "Qual é o papel do pivô no quicksort?",
+    fontes: [
+      {
+        identificador_material: "S1",
+        localizacao: "slide 4",
+        trecho_base: "O quicksort escolhe um pivô e particiona o vetor em torno dele.",
+      },
+    ],
+    violacoes: [],
+    alternativas: [
+      { letra: "A", texto: "Ordenar o vetor inteiro de uma vez" },
+      { letra: "B", texto: "Particionar o vetor em menores e maiores" },
+      { letra: "C", texto: "Mesclar duas metades ordenadas" },
+    ],
+    letra_correta: "B",
+    aspectos_esperados: [],
+    ...sobrescrever,
+  };
+}
+
+export function umRelatorio(sobrescrever: Partial<RelatorioImpacto> = {}): RelatorioImpacto {
+  return {
+    revisao: 1,
+    evento: "exclusao",
+    n_final: 9,
+    contagem_por_faixa: { objetiva: { facil: 1, media: 5, dificil: 3 } },
+    desvio_observado: { objetiva: { facil: "1.1", media: "-4.4", dificil: "3.3" } },
+    alerta_desvio: false,
+    timestamp: "2026-10-01T12:00:00Z",
     ...sobrescrever,
   };
 }

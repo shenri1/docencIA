@@ -1,0 +1,4452 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FastAPI",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health Check",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Check Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/registrar": {
+      "post": {
+        "tags": [
+          "Autenticação"
+        ],
+        "summary": "Registrar",
+        "operationId": "registrar_auth_registrar_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocenteCriar"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocenteResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "Autenticação"
+        ],
+        "summary": "Login",
+        "operationId": "login_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_login_auth_login_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "Autenticação"
+        ],
+        "summary": "Me",
+        "operationId": "me_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocenteResposta"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/sessoes": {
+      "post": {
+        "tags": [
+          "Sessões"
+        ],
+        "summary": "Criar",
+        "operationId": "criar_sessoes_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessaoCriar"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessaoResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Sessões"
+        ],
+        "summary": "Listar",
+        "operationId": "listar_sessoes_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SessaoResposta"
+                  },
+                  "title": "Response Listar Sessoes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessoes/{sessao_id}": {
+      "get": {
+        "tags": [
+          "Sessões"
+        ],
+        "summary": "Obter",
+        "operationId": "obter_sessoes__sessao_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessao_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sessao Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessaoResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessoes/{sessao_id}/materiais": {
+      "post": {
+        "tags": [
+          "Materiais"
+        ],
+        "summary": "Enviar",
+        "operationId": "enviar_sessoes__sessao_id__materiais_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessao_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sessao Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_enviar_sessoes__sessao_id__materiais_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessoes/{sessao_id}/materiais/indice": {
+      "get": {
+        "tags": [
+          "Materiais"
+        ],
+        "summary": "Indice",
+        "operationId": "indice_sessoes__sessao_id__materiais_indice_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessao_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sessao Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndiceResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessoes/{sessao_id}/materiais/confirmar": {
+      "post": {
+        "tags": [
+          "Materiais"
+        ],
+        "summary": "Confirmar",
+        "operationId": "confirmar_sessoes__sessao_id__materiais_confirmar_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessao_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sessao Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndiceResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessoes/{sessao_id}/materiais/{material_id}": {
+      "delete": {
+        "tags": [
+          "Materiais"
+        ],
+        "summary": "Remover",
+        "operationId": "remover_sessoes__sessao_id__materiais__material_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessao_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sessao Id"
+            }
+          },
+          {
+            "name": "material_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Material Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessoes/{sessao_id}/buscar": {
+      "get": {
+        "tags": [
+          "RAG"
+        ],
+        "summary": "Buscar Trechos",
+        "operationId": "buscar_trechos_sessoes__sessao_id__buscar_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessao_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sessao Id"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "description": "Consulta em linguagem natural.",
+              "title": "Q"
+            },
+            "description": "Consulta em linguagem natural."
+          },
+          {
+            "name": "k",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "description": "Quantos trechos devolver depois da reordenação.",
+              "default": 8,
+              "title": "K"
+            },
+            "description": "Quantos trechos devolver depois da reordenação."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrechoResposta"
+                  },
+                  "title": "Response Buscar Trechos Sessoes  Sessao Id  Buscar Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/prompts": {
+      "get": {
+        "tags": [
+          "Prompt Mestre"
+        ],
+        "summary": "Listar",
+        "operationId": "listar_prompts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PromptResposta"
+                  },
+                  "type": "array",
+                  "title": "Response Listar Prompts Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Prompt Mestre"
+        ],
+        "summary": "Criar",
+        "operationId": "criar_prompts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptCriar"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/prompts/ativo": {
+      "get": {
+        "tags": [
+          "Prompt Mestre"
+        ],
+        "summary": "Ativo",
+        "operationId": "ativo_prompts_ativo_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptResposta"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/prompts/{versao}/ativar": {
+      "post": {
+        "tags": [
+          "Prompt Mestre"
+        ],
+        "summary": "Ativar Versao",
+        "operationId": "ativar_versao_prompts__versao__ativar_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "versao",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Versao"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessoes/{sessao_id}/banco": {
+      "post": {
+        "tags": [
+          "Banco de Questões"
+        ],
+        "summary": "Gerar",
+        "operationId": "gerar_sessoes__sessao_id__banco_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessao_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sessao Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BancoCriar"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumoBancoResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bancos/{banco_id}": {
+      "get": {
+        "tags": [
+          "Controle do Banco"
+        ],
+        "summary": "Ler",
+        "operationId": "ler_bancos__banco_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "banco_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Banco Id"
+            }
+          },
+          {
+            "name": "de",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Primeiro número do bloco.",
+              "default": 1,
+              "title": "De"
+            },
+            "description": "Primeiro número do bloco."
+          },
+          {
+            "name": "ate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Último número do bloco.",
+              "default": 20,
+              "title": "Ate"
+            },
+            "description": "Último número do bloco."
+          },
+          {
+            "name": "com_gabarito",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "só com pedido explícito.",
+              "default": false,
+              "title": "Com Gabarito"
+            },
+            "description": "só com pedido explícito."
+          },
+          {
+            "name": "incluir_historico",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Mostra também substituídas, candidatas e descartadas.",
+              "default": false,
+              "title": "Incluir Historico"
+            },
+            "description": "Mostra também substituídas, candidatas e descartadas."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BancoResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bancos/{banco_id}/relatorios": {
+      "get": {
+        "tags": [
+          "Controle do Banco"
+        ],
+        "summary": "Relatorios",
+        "operationId": "relatorios_bancos__banco_id__relatorios_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "banco_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Banco Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RelatorioImpactoResposta"
+                  },
+                  "title": "Response Relatorios Bancos  Banco Id  Relatorios Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bancos/{banco_id}/catalogo": {
+      "get": {
+        "tags": [
+          "Controle do Banco"
+        ],
+        "summary": "Catalogo",
+        "operationId": "catalogo_bancos__banco_id__catalogo_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "banco_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Banco Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ItemCatalogoResposta"
+                  },
+                  "title": "Response Catalogo Bancos  Banco Id  Catalogo Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bancos/{banco_id}/exclusoes": {
+      "post": {
+        "tags": [
+          "Controle do Banco"
+        ],
+        "summary": "Excluir",
+        "operationId": "excluir_bancos__banco_id__exclusoes_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "banco_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Banco Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExclusaoCriar"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelatorioImpactoResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bancos/{banco_id}/congelar": {
+      "post": {
+        "tags": [
+          "Controle do Banco"
+        ],
+        "summary": "Congelar",
+        "operationId": "congelar_bancos__banco_id__congelar_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "banco_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Banco Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComandoRevisao"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelatorioImpactoResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bancos/{banco_id}/questoes/{numero}/substituicao": {
+      "post": {
+        "tags": [
+          "Controle do Banco"
+        ],
+        "summary": "Propor",
+        "operationId": "propor_bancos__banco_id__questoes__numero__substituicao_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "banco_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Banco Id"
+            }
+          },
+          {
+            "name": "numero",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Numero"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropostaSubstituicaoResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bancos/{banco_id}/questoes/{numero}/substituicao/aceitar": {
+      "post": {
+        "tags": [
+          "Controle do Banco"
+        ],
+        "summary": "Aceitar",
+        "operationId": "aceitar_bancos__banco_id__questoes__numero__substituicao_aceitar_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "banco_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Banco Id"
+            }
+          },
+          {
+            "name": "numero",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Numero"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComandoRevisao"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelatorioImpactoResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bancos/{banco_id}/questoes/{numero}/substituicao/rejeitar": {
+      "post": {
+        "tags": [
+          "Controle do Banco"
+        ],
+        "summary": "Rejeitar",
+        "operationId": "rejeitar_bancos__banco_id__questoes__numero__substituicao_rejeitar_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "banco_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Banco Id"
+            }
+          },
+          {
+            "name": "numero",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Numero"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RejeicaoResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bancos/{banco_id}/auditoria": {
+      "post": {
+        "tags": [
+          "Controle do Banco"
+        ],
+        "summary": "Auditar",
+        "operationId": "auditar_bancos__banco_id__auditoria_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "banco_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Banco Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumoAuditoriaResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Controle do Banco"
+        ],
+        "summary": "Ler Auditoria",
+        "description": "Achados da revisão atual. Banco nunca auditado devolve resumo vazio, não\n404: ausência de auditoria não é ausência de banco.",
+        "operationId": "ler_auditoria_bancos__banco_id__auditoria_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "banco_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Banco Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumoAuditoriaResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bancos/{banco_id}/provas": {
+      "post": {
+        "tags": [
+          "Controle do Banco"
+        ],
+        "summary": "Montar",
+        "operationId": "montar_bancos__banco_id__provas_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "banco_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Banco Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProvasCriar"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvasMontadasResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bancos/{banco_id}/exportacoes": {
+      "post": {
+        "tags": [
+          "Controle do Banco"
+        ],
+        "summary": "Exportar Docx",
+        "operationId": "exportar_docx_bancos__banco_id__exportacoes_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "banco_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Banco Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExportacaoResposta"
+                  },
+                  "title": "Response Exportar Docx Bancos  Banco Id  Exportacoes Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Controle do Banco"
+        ],
+        "summary": "Historico Exportacoes",
+        "operationId": "historico_exportacoes_bancos__banco_id__exportacoes_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "banco_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Banco Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExportacaoResposta"
+                  },
+                  "title": "Response Historico Exportacoes Bancos  Banco Id  Exportacoes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/provas/{prova_id}": {
+      "get": {
+        "tags": [
+          "Provas"
+        ],
+        "summary": "Ler",
+        "operationId": "ler_provas__prova_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "prova_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Prova Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvaResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/provas/{prova_id}/verificacao": {
+      "get": {
+        "tags": [
+          "Provas"
+        ],
+        "summary": "Verificacao",
+        "description": "Recomputada a cada chamada: é função pura sobre as ItemProva, e coluna\nderivada seria mais um lugar para divergir.",
+        "operationId": "verificacao_provas__prova_id__verificacao_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "prova_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Prova Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificacaoResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/provas/{prova_id}/gabarito": {
+      "get": {
+        "tags": [
+          "Provas"
+        ],
+        "summary": "Gabarito",
+        "operationId": "gabarito_provas__prova_id__gabarito_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "prova_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Prova Id"
+            }
+          },
+          {
+            "name": "modalidade",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TipoGabarito"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GabaritoResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/exportacoes/{exportacao_id}/arquivo": {
+      "get": {
+        "tags": [
+          "Exportação"
+        ],
+        "summary": "Baixar",
+        "operationId": "baixar_exportacoes__exportacao_id__arquivo_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "exportacao_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Exportacao Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessoes/{sessao_id}/marco": {
+      "get": {
+        "tags": [
+          "Orquestrador"
+        ],
+        "summary": "Marco",
+        "operationId": "marco_sessoes__sessao_id__marco_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessao_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sessao Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarcoSessaoResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessoes/{sessao_id}/comando": {
+      "post": {
+        "tags": [
+          "Orquestrador"
+        ],
+        "summary": "Comando",
+        "operationId": "comando_sessoes__sessao_id__comando_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessao_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sessao Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ComandoProsseguir"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ComandoExcluir"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ComandoAuditar"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "comando",
+                  "mapping": {
+                    "prosseguir": "#/components/schemas/ComandoProsseguir",
+                    "excluir": "#/components/schemas/ComandoExcluir",
+                    "auditar": "#/components/schemas/ComandoAuditar"
+                  }
+                },
+                "title": "Dados"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultadoComandoResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/logs": {
+      "get": {
+        "tags": [
+          "Administração"
+        ],
+        "summary": "Logs",
+        "operationId": "logs_admin_logs_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tipo_evento",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TipoEventoAuditoria"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tipo Evento"
+            }
+          },
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Inclusivo.",
+              "title": "Desde"
+            },
+            "description": "Inclusivo."
+          },
+          {
+            "name": "ate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exclusivo.",
+              "title": "Ate"
+            },
+            "description": "Exclusivo."
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limite"
+            }
+          },
+          {
+            "name": "deslocamento",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Deslocamento"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RegistroAuditoriaResposta"
+                  },
+                  "title": "Response Logs Admin Logs Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AchadoResposta": {
+        "properties": {
+          "risco": {
+            "$ref": "#/components/schemas/RiscoAuditoria"
+          },
+          "alvo": {
+            "type": "string",
+            "title": "Alvo",
+            "description": "Letra da alternativa apontada."
+          },
+          "localizacao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Localizacao",
+            "description": "Onde no material. Nulo nos achados de forma."
+          },
+          "trecho_fonte": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trecho Fonte",
+            "description": "Trecho que sustenta a concorrência. Nulo nos achados de forma: assimetria não é concorrência de fonte."
+          },
+          "proposta_ajuste": {
+            "type": "string",
+            "title": "Proposta Ajuste",
+            "description": "Orientação ao docente. Nunca executada."
+          }
+        },
+        "type": "object",
+        "required": [
+          "risco",
+          "alvo",
+          "localizacao",
+          "trecho_fonte",
+          "proposta_ajuste"
+        ],
+        "title": "AchadoResposta"
+      },
+      "AlternativaProvaResposta": {
+        "properties": {
+          "letra": {
+            "type": "string",
+            "title": "Letra",
+            "description": "Letra na prova, não a original."
+          },
+          "texto": {
+            "type": "string",
+            "title": "Texto"
+          }
+        },
+        "type": "object",
+        "required": [
+          "letra",
+          "texto"
+        ],
+        "title": "AlternativaProvaResposta",
+        "description": "Sem `correta`, de propósito."
+      },
+      "AlternativaResposta": {
+        "properties": {
+          "letra": {
+            "type": "string",
+            "title": "Letra"
+          },
+          "texto": {
+            "type": "string",
+            "title": "Texto"
+          }
+        },
+        "type": "object",
+        "required": [
+          "letra",
+          "texto"
+        ],
+        "title": "AlternativaResposta"
+      },
+      "AncoraImprodutivaResposta": {
+        "properties": {
+          "numero": {
+            "type": "integer",
+            "title": "Numero",
+            "description": "Número que a questão teria recebido."
+          },
+          "localizacao": {
+            "type": "string",
+            "title": "Localizacao",
+            "description": "Onde no material estava a âncora."
+          },
+          "motivo": {
+            "type": "string",
+            "title": "Motivo",
+            "description": "O que faltou para sustentar a questão."
+          }
+        },
+        "type": "object",
+        "required": [
+          "numero",
+          "localizacao",
+          "motivo"
+        ],
+        "title": "AncoraImprodutivaResposta"
+      },
+      "AspectoEsperadoResposta": {
+        "properties": {
+          "ordem": {
+            "type": "integer",
+            "title": "Ordem"
+          },
+          "texto": {
+            "type": "string",
+            "title": "Texto"
+          },
+          "fonte": {
+            "$ref": "#/components/schemas/FonteResposta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ordem",
+          "texto",
+          "fonte"
+        ],
+        "title": "AspectoEsperadoResposta"
+      },
+      "AspectoGabaritoResposta": {
+        "properties": {
+          "ordem": {
+            "type": "integer",
+            "title": "Ordem"
+          },
+          "texto": {
+            "type": "string",
+            "title": "Texto"
+          },
+          "fonte": {
+            "$ref": "#/components/schemas/FonteGabaritoResposta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ordem",
+          "texto",
+          "fonte"
+        ],
+        "title": "AspectoGabaritoResposta"
+      },
+      "BancoCriar": {
+        "properties": {
+          "n_objetivas": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "N Objetivas",
+            "description": "Quantas questões objetivas."
+          },
+          "n_discursivas": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "N Discursivas",
+            "description": "Quantas questões discursivas."
+          },
+          "versao": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Versao",
+            "description": "Identificador do banco."
+          }
+        },
+        "type": "object",
+        "required": [
+          "n_objetivas",
+          "n_discursivas",
+          "versao"
+        ],
+        "title": "BancoCriar"
+      },
+      "BancoResposta": {
+        "properties": {
+          "banco_id": {
+            "type": "integer",
+            "title": "Banco Id"
+          },
+          "versao": {
+            "type": "string",
+            "title": "Versao"
+          },
+          "revisao": {
+            "type": "integer",
+            "title": "Revisao"
+          },
+          "rotulo": {
+            "type": "string",
+            "title": "Rotulo",
+            "description": "Versão e revisão juntas, ex.: \"v1.r3\"."
+          },
+          "estado": {
+            "$ref": "#/components/schemas/EstadoBanco"
+          },
+          "n_alvo": {
+            "type": "integer",
+            "title": "N Alvo"
+          },
+          "n_alvo_objetivas": {
+            "type": "integer",
+            "title": "N Alvo Objetivas"
+          },
+          "n_alvo_discursivas": {
+            "type": "integer",
+            "title": "N Alvo Discursivas"
+          },
+          "n_atual": {
+            "type": "integer",
+            "title": "N Atual",
+            "description": "Questões ATIVA."
+          },
+          "ultimo_relatorio": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RelatorioImpactoResposta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "questoes": {
+            "items": {
+              "$ref": "#/components/schemas/QuestaoResposta"
+            },
+            "type": "array",
+            "title": "Questoes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "banco_id",
+          "versao",
+          "revisao",
+          "rotulo",
+          "estado",
+          "n_alvo",
+          "n_alvo_objetivas",
+          "n_alvo_discursivas",
+          "n_atual",
+          "ultimo_relatorio",
+          "questoes"
+        ],
+        "title": "BancoResposta"
+      },
+      "Body_enviar_sessoes__sessao_id__materiais_post": {
+        "properties": {
+          "tipo": {
+            "$ref": "#/components/schemas/TipoMaterial",
+            "description": "Classificação didática do material."
+          },
+          "arquivo": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Arquivo",
+            "description": "PDF, PPTX, DOCX ou TXT."
+          }
+        },
+        "type": "object",
+        "required": [
+          "tipo",
+          "arquivo"
+        ],
+        "title": "Body_enviar_sessoes__sessao_id__materiais_post"
+      },
+      "Body_login_auth_login_post": {
+        "properties": {
+          "grant_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^password$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grant Type"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "title": "Password"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "default": ""
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "format": "password",
+            "title": "Client Secret"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "Body_login_auth_login_post"
+      },
+      "ComandoAuditar": {
+        "properties": {
+          "comando": {
+            "type": "string",
+            "const": "auditar",
+            "title": "Comando"
+          },
+          "versao": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Versao"
+          }
+        },
+        "type": "object",
+        "required": [
+          "comando",
+          "versao"
+        ],
+        "title": "ComandoAuditar",
+        "description": "Sem `revisao_esperada`: auditar não muda o banco."
+      },
+      "ComandoExcluir": {
+        "properties": {
+          "comando": {
+            "type": "string",
+            "const": "excluir",
+            "title": "Comando"
+          },
+          "versao": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Versao"
+          },
+          "revisao_esperada": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Revisao Esperada"
+          },
+          "numeros": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 25,
+            "minItems": 1,
+            "title": "Numeros"
+          }
+        },
+        "type": "object",
+        "required": [
+          "comando",
+          "versao",
+          "revisao_esperada",
+          "numeros"
+        ],
+        "title": "ComandoExcluir"
+      },
+      "ComandoOrquestrador": {
+        "type": "string",
+        "enum": [
+          "prosseguir",
+          "excluir",
+          "auditar"
+        ],
+        "title": "ComandoOrquestrador"
+      },
+      "ComandoProsseguir": {
+        "properties": {
+          "comando": {
+            "type": "string",
+            "const": "prosseguir",
+            "title": "Comando"
+          },
+          "versao": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Versao",
+            "description": "Banco alvo; nova no M2."
+          },
+          "revisao_esperada": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revisao Esperada",
+            "description": "Revisão do banco que o docente viu."
+          },
+          "n_objetivas": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "N Objetivas"
+          },
+          "n_discursivas": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "N Discursivas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "comando"
+        ],
+        "title": "ComandoProsseguir",
+        "description": "Executa o passo do marco atual. Os campos exigidos dependem do marco —\n`GET /sessoes/{id}/marco` os lista em `campos_prosseguir`."
+      },
+      "ComandoRevisao": {
+        "properties": {
+          "revisao_esperada": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Revisao Esperada",
+            "description": "Revisão que o docente viu."
+          }
+        },
+        "type": "object",
+        "required": [
+          "revisao_esperada"
+        ],
+        "title": "ComandoRevisao"
+      },
+      "DocenteCriar": {
+        "properties": {
+          "nome": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Nome",
+            "description": "Nome completo do docente."
+          },
+          "credencial_institucional": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Credencial Institucional",
+            "description": "Identificador único de login (ex.: matrícula institucional)."
+          },
+          "senha": {
+            "type": "string",
+            "maxLength": 72,
+            "minLength": 8,
+            "title": "Senha",
+            "description": "Senha em texto puro — usada só pra gerar o hash, nunca persistida. Limite de 72 bytes (não caracteres) por restrição do bcryptacentos e outros caracteres não-ASCII ocupam mais de 1 byte em UTF-8."
+          }
+        },
+        "type": "object",
+        "required": [
+          "nome",
+          "credencial_institucional",
+          "senha"
+        ],
+        "title": "DocenteCriar"
+      },
+      "DocenteResposta": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "description": "Identificador interno do docente."
+          },
+          "nome": {
+            "type": "string",
+            "title": "Nome",
+            "description": "Nome completo do docente."
+          },
+          "credencial_institucional": {
+            "type": "string",
+            "title": "Credencial Institucional",
+            "description": "Identificador único de login."
+          },
+          "perfil": {
+            "$ref": "#/components/schemas/PerfilDocente",
+            "description": "Nível de acesso do docente."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "nome",
+          "credencial_institucional",
+          "perfil"
+        ],
+        "title": "DocenteResposta"
+      },
+      "EstadoBanco": {
+        "type": "string",
+        "enum": [
+          "aberto",
+          "congelado"
+        ],
+        "title": "EstadoBanco"
+      },
+      "EstadoProva": {
+        "type": "string",
+        "enum": [
+          "rascunho",
+          "montada",
+          "congelada"
+        ],
+        "title": "EstadoProva"
+      },
+      "EstadoQuestao": {
+        "type": "string",
+        "enum": [
+          "ativa",
+          "excluida",
+          "substituida",
+          "candidata",
+          "descartada"
+        ],
+        "title": "EstadoQuestao"
+      },
+      "EstadoSessao": {
+        "type": "string",
+        "enum": [
+          "rascunho",
+          "materiais_confirmados",
+          "banco_gerado",
+          "banco_congelado",
+          "provas_montadas",
+          "exportado"
+        ],
+        "title": "EstadoSessao"
+      },
+      "EventoBanco": {
+        "type": "string",
+        "enum": [
+          "exclusao",
+          "substituicao",
+          "congelamento"
+        ],
+        "title": "EventoBanco",
+        "description": "O que motivou um RelatorioImpacto."
+      },
+      "ExclusaoCriar": {
+        "properties": {
+          "numeros": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 25,
+            "minItems": 1,
+            "title": "Numeros",
+            "description": "Números das questões a excluir."
+          },
+          "revisao_esperada": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Revisao Esperada",
+            "description": "Revisão que o docente estava vendo. Se o banco mudou, o comando é recusado com 409."
+          }
+        },
+        "type": "object",
+        "required": [
+          "numeros",
+          "revisao_esperada"
+        ],
+        "title": "ExclusaoCriar"
+      },
+      "ExportacaoResposta": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "tipo": {
+            "$ref": "#/components/schemas/TipoExportacao"
+          },
+          "revisao_banco": {
+            "type": "integer",
+            "title": "Revisao Banco",
+            "description": "Revisão do banco que o arquivo representa."
+          },
+          "hash_conteudo": {
+            "type": "string",
+            "title": "Hash Conteudo",
+            "description": "sha256 do arquivo entregue. Conferível com `sha256sum`."
+          },
+          "criado_em": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Criado Em"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tipo",
+          "revisao_banco",
+          "hash_conteudo",
+          "criado_em"
+        ],
+        "title": "ExportacaoResposta",
+        "description": "Sem `caminho_arquivo`, de propósito: a chave de armazenamento nunca sai\nna resposta."
+      },
+      "FaixaDificuldade": {
+        "type": "string",
+        "enum": [
+          "facil",
+          "media",
+          "dificil"
+        ],
+        "title": "FaixaDificuldade"
+      },
+      "FonteGabaritoResposta": {
+        "properties": {
+          "identificador_material": {
+            "type": "string",
+            "title": "Identificador Material"
+          },
+          "localizacao": {
+            "type": "string",
+            "title": "Localizacao"
+          },
+          "trecho_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trecho Base",
+            "description": "Só no comentado."
+          }
+        },
+        "type": "object",
+        "required": [
+          "identificador_material",
+          "localizacao",
+          "trecho_base"
+        ],
+        "title": "FonteGabaritoResposta"
+      },
+      "FonteResposta": {
+        "properties": {
+          "identificador_material": {
+            "type": "string",
+            "title": "Identificador Material"
+          },
+          "localizacao": {
+            "type": "string",
+            "title": "Localizacao"
+          },
+          "trecho_base": {
+            "type": "string",
+            "title": "Trecho Base"
+          }
+        },
+        "type": "object",
+        "required": [
+          "identificador_material",
+          "localizacao",
+          "trecho_base"
+        ],
+        "title": "FonteResposta"
+      },
+      "FormatoArquivo": {
+        "type": "string",
+        "enum": [
+          "pdf",
+          "pptx",
+          "docx",
+          "txt"
+        ],
+        "title": "FormatoArquivo",
+        "description": "Formato físico do arquivo enviado — detectado pelo sistema, diferente\nde TipoMaterial, que é a classificação didática informada pelo docente."
+      },
+      "GabaritoResposta": {
+        "properties": {
+          "prova_id": {
+            "type": "integer",
+            "title": "Prova Id"
+          },
+          "versao": {
+            "type": "string",
+            "title": "Versao"
+          },
+          "modalidade": {
+            "$ref": "#/components/schemas/TipoGabarito"
+          },
+          "revisao_banco": {
+            "type": "integer",
+            "title": "Revisao Banco",
+            "description": "O \"Gabarito_vZ\"."
+          },
+          "desatualizada": {
+            "type": "boolean",
+            "title": "Desatualizada"
+          },
+          "completo": {
+            "type": "boolean",
+            "title": "Completo",
+            "description": "Gabarito para 100% das questões da prova."
+          },
+          "problemas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Problemas"
+          },
+          "itens": {
+            "items": {
+              "$ref": "#/components/schemas/ItemGabaritoResposta"
+            },
+            "type": "array",
+            "title": "Itens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prova_id",
+          "versao",
+          "modalidade",
+          "revisao_banco",
+          "desatualizada",
+          "completo",
+          "problemas",
+          "itens"
+        ],
+        "title": "GabaritoResposta"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IndiceResposta": {
+        "properties": {
+          "materiais": {
+            "items": {
+              "$ref": "#/components/schemas/MaterialResposta"
+            },
+            "type": "array",
+            "title": "Materiais",
+            "description": "Materiais da sessão, em ordem de envio."
+          },
+          "confirmado": {
+            "type": "boolean",
+            "title": "Confirmado",
+            "description": "Se o docente já confirmou o índice."
+          }
+        },
+        "type": "object",
+        "required": [
+          "materiais",
+          "confirmado"
+        ],
+        "title": "IndiceResposta"
+      },
+      "InvalidacaoGabaritoResposta": {
+        "properties": {
+          "letra": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Letra",
+            "description": "Letra DA PROVA da alternativa errada. Nula quando o banco é anterior à ou o vínculo gravado é inválido."
+          },
+          "motivo": {
+            "type": "string",
+            "title": "Motivo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "letra",
+          "motivo"
+        ],
+        "title": "InvalidacaoGabaritoResposta"
+      },
+      "ItemCatalogoResposta": {
+        "properties": {
+          "numero": {
+            "type": "integer",
+            "title": "Numero"
+          },
+          "tipo": {
+            "$ref": "#/components/schemas/TipoQuestao"
+          },
+          "tema": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tema",
+            "description": "Tema principal. None se o Gerador não classificou."
+          },
+          "faixa": {
+            "$ref": "#/components/schemas/FaixaDificuldade"
+          }
+        },
+        "type": "object",
+        "required": [
+          "numero",
+          "tipo",
+          "tema",
+          "faixa"
+        ],
+        "title": "ItemCatalogoResposta",
+        "description": "número do item, tema principal e grau de dificuldade."
+      },
+      "ItemComViolacaoResposta": {
+        "properties": {
+          "numero": {
+            "type": "integer",
+            "title": "Numero"
+          },
+          "violacoes": {
+            "items": {
+              "$ref": "#/components/schemas/ViolacaoResposta"
+            },
+            "type": "array",
+            "title": "Violacoes",
+            "description": "Violações que sobreviveram à revisão."
+          }
+        },
+        "type": "object",
+        "required": [
+          "numero",
+          "violacoes"
+        ],
+        "title": "ItemComViolacaoResposta"
+      },
+      "ItemGabaritoResposta": {
+        "properties": {
+          "posicao": {
+            "type": "integer",
+            "title": "Posicao"
+          },
+          "numero": {
+            "type": "integer",
+            "title": "Numero"
+          },
+          "tipo": {
+            "$ref": "#/components/schemas/TipoQuestao"
+          },
+          "letra": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Letra",
+            "description": "Letra da correta NA PROVA."
+          },
+          "fontes": {
+            "items": {
+              "$ref": "#/components/schemas/FonteGabaritoResposta"
+            },
+            "type": "array",
+            "title": "Fontes"
+          },
+          "aspectos": {
+            "items": {
+              "$ref": "#/components/schemas/AspectoGabaritoResposta"
+            },
+            "type": "array",
+            "title": "Aspectos",
+            "description": "Discursiva: o gabarito são os aspectos esperados."
+          },
+          "justificativa_correta": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Justificativa Correta"
+          },
+          "invalidacoes": {
+            "items": {
+              "$ref": "#/components/schemas/InvalidacaoGabaritoResposta"
+            },
+            "type": "array",
+            "title": "Invalidacoes"
+          },
+          "objetivo_cognitivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objetivo Cognitivo"
+          },
+          "invalidacoes_sem_letra": {
+            "type": "boolean",
+            "title": "Invalidacoes Sem Letra",
+            "description": "Motivos das erradas mostrados sem dizer qual é de qual."
+          },
+          "cita_letra": {
+            "type": "boolean",
+            "title": "Cita Letra",
+            "description": "O texto aprovado cita letra de alternativa, que muda na prova. Mostrado como está."
+          }
+        },
+        "type": "object",
+        "required": [
+          "posicao",
+          "numero",
+          "tipo",
+          "letra",
+          "fontes",
+          "aspectos",
+          "justificativa_correta",
+          "invalidacoes",
+          "objetivo_cognitivo",
+          "invalidacoes_sem_letra",
+          "cita_letra"
+        ],
+        "title": "ItemGabaritoResposta"
+      },
+      "ItemProvaResposta": {
+        "properties": {
+          "posicao": {
+            "type": "integer",
+            "title": "Posicao"
+          },
+          "numero": {
+            "type": "integer",
+            "title": "Numero",
+            "description": "Número da questão no banco."
+          },
+          "tipo": {
+            "$ref": "#/components/schemas/TipoQuestao"
+          },
+          "faixa_dificuldade": {
+            "$ref": "#/components/schemas/FaixaDificuldade"
+          },
+          "enunciado": {
+            "type": "string",
+            "title": "Enunciado"
+          },
+          "alternativas": {
+            "items": {
+              "$ref": "#/components/schemas/AlternativaProvaResposta"
+            },
+            "type": "array",
+            "title": "Alternativas",
+            "description": "Vazia na discursiva."
+          }
+        },
+        "type": "object",
+        "required": [
+          "posicao",
+          "numero",
+          "tipo",
+          "faixa_dificuldade",
+          "enunciado",
+          "alternativas"
+        ],
+        "title": "ItemProvaResposta"
+      },
+      "Marco": {
+        "type": "string",
+        "enum": [
+          "m1_materiais",
+          "m2_banco",
+          "m3_exclusoes",
+          "m6_provas",
+          "m10_docx",
+          "concluido",
+          "bloqueado"
+        ],
+        "title": "Marco",
+        "description": ". Derivado do estado gravado a cada pedido, nunca persistido.\nNumeração (F5–F12 ↔ M2–M10); M4, M5, M7, M8 e\nM9 não são paradas: auditar é comando próprio, e os demais saem embutidos\nna resposta do passo anterior."
+      },
+      "MarcoBancoResposta": {
+        "properties": {
+          "versao": {
+            "type": "string",
+            "title": "Versao"
+          },
+          "banco_id": {
+            "type": "integer",
+            "title": "Banco Id"
+          },
+          "revisao": {
+            "type": "integer",
+            "title": "Revisao"
+          },
+          "marco": {
+            "$ref": "#/components/schemas/Marco"
+          },
+          "motivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo",
+            "description": "Só em bloqueado: por quê."
+          },
+          "n_alvo": {
+            "type": "integer",
+            "title": "N Alvo"
+          },
+          "n_atual": {
+            "type": "integer",
+            "title": "N Atual"
+          },
+          "lacunas": {
+            "type": "integer",
+            "title": "Lacunas",
+            "description": "Números do plano sem questão (insuficiência de fonte). Reenviar POST /sessoes/{id}/banco retenta só eles."
+          },
+          "alerta_desvio": {
+            "type": "boolean",
+            "title": "Alerta Desvio",
+            "description": "Desvio de pF/pM/pD acima de 5 pontos nas ativas."
+          },
+          "objetivas_ativas": {
+            "type": "integer",
+            "title": "Objetivas Ativas"
+          },
+          "objetivas_auditadas": {
+            "type": "integer",
+            "title": "Objetivas Auditadas",
+            "description": "Auditadas NESTA revisão."
+          },
+          "comandos": {
+            "items": {
+              "$ref": "#/components/schemas/ComandoOrquestrador"
+            },
+            "type": "array",
+            "title": "Comandos"
+          },
+          "campos_prosseguir": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Campos Prosseguir"
+          }
+        },
+        "type": "object",
+        "required": [
+          "versao",
+          "banco_id",
+          "revisao",
+          "marco",
+          "motivo",
+          "n_alvo",
+          "n_atual",
+          "lacunas",
+          "alerta_desvio",
+          "objetivas_ativas",
+          "objetivas_auditadas",
+          "comandos",
+          "campos_prosseguir"
+        ],
+        "title": "MarcoBancoResposta"
+      },
+      "MarcoSessaoResposta": {
+        "properties": {
+          "sessao_id": {
+            "type": "integer",
+            "title": "Sessao Id"
+          },
+          "marco": {
+            "$ref": "#/components/schemas/Marco"
+          },
+          "n_materiais": {
+            "type": "integer",
+            "title": "N Materiais"
+          },
+          "comandos": {
+            "items": {
+              "$ref": "#/components/schemas/ComandoOrquestrador"
+            },
+            "type": "array",
+            "title": "Comandos"
+          },
+          "campos_prosseguir": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Campos Prosseguir"
+          },
+          "bancos": {
+            "items": {
+              "$ref": "#/components/schemas/MarcoBancoResposta"
+            },
+            "type": "array",
+            "title": "Bancos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sessao_id",
+          "marco",
+          "n_materiais",
+          "comandos",
+          "campos_prosseguir",
+          "bancos"
+        ],
+        "title": "MarcoSessaoResposta"
+      },
+      "MaterialResposta": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "description": "Identificador do material."
+          },
+          "identificador_curto": {
+            "type": "string",
+            "title": "Identificador Curto",
+            "description": "Identificador usado nas citações de fonte (S1, P1, L1…)."
+          },
+          "nome_arquivo": {
+            "type": "string",
+            "title": "Nome Arquivo",
+            "description": "Nome original enviado pelo docente."
+          },
+          "tipo": {
+            "$ref": "#/components/schemas/TipoMaterial",
+            "description": "Classificação didática do material."
+          },
+          "formato": {
+            "$ref": "#/components/schemas/FormatoArquivo",
+            "description": "Formato do arquivo enviado."
+          },
+          "contagem_paginas_logicas": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contagem Paginas Logicas",
+            "description": "Páginas físicas (PDF) ou slides (PPTX)."
+          },
+          "origem_texto": {
+            "$ref": "#/components/schemas/OrigemTexto",
+            "description": "Se o texto veio da camada nativa, de OCR, ou de ambos."
+          },
+          "tamanho_bytes": {
+            "type": "integer",
+            "title": "Tamanho Bytes",
+            "description": "Tamanho do arquivo em bytes."
+          },
+          "criado_em": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Criado Em",
+            "description": "Momento do upload."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "identificador_curto",
+          "nome_arquivo",
+          "tipo",
+          "formato",
+          "origem_texto",
+          "tamanho_bytes",
+          "criado_em"
+        ],
+        "title": "MaterialResposta",
+        "description": "Nunca expõe chave de armazenamento, hash ou caminho de servidor."
+      },
+      "NivelBloom": {
+        "type": "string",
+        "enum": [
+          "lembrar",
+          "entender",
+          "aplicar",
+          "analisar",
+          "avaliar",
+          "criar"
+        ],
+        "title": "NivelBloom"
+      },
+      "OrigemTexto": {
+        "type": "string",
+        "enum": [
+          "nativo",
+          "ocr",
+          "misto"
+        ],
+        "title": "OrigemTexto"
+      },
+      "PerfilDocente": {
+        "type": "string",
+        "enum": [
+          "docente",
+          "coordenador",
+          "administrador"
+        ],
+        "title": "PerfilDocente"
+      },
+      "PromptCriar": {
+        "properties": {
+          "versao": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Versao",
+            "description": "Identificador da versão."
+          },
+          "papel_definido": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Papel Definido",
+            "description": "Resumo da identidade assumida pelo modelo."
+          },
+          "disciplina": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Disciplina"
+          },
+          "periodo": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Periodo"
+          },
+          "area_do_conhecimento": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Do Conhecimento"
+          },
+          "tema_escopo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tema Escopo"
+          },
+          "k_alternativas": {
+            "type": "integer",
+            "maximum": 11.0,
+            "minimum": 2.0,
+            "title": "K Alternativas"
+          },
+          "n_faceis": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "N Faceis"
+          },
+          "n_medias": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "N Medias"
+          },
+          "n_dificeis": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "N Dificeis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "versao",
+          "papel_definido",
+          "disciplina",
+          "periodo",
+          "k_alternativas",
+          "n_faceis",
+          "n_medias",
+          "n_dificeis"
+        ],
+        "title": "PromptCriar",
+        "description": "Os parâmetros viajam no corpo porque o texto montado é gravado junto da\nversão: a mesma versão com parâmetros diferentes produziria conteúdo\ndiferente, e o registro precisa dizer qual foi."
+      },
+      "PromptResposta": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "versao": {
+            "type": "string",
+            "title": "Versao",
+            "description": "Identificador da versão."
+          },
+          "papel_definido": {
+            "type": "string",
+            "title": "Papel Definido"
+          },
+          "conteudo": {
+            "type": "string",
+            "title": "Conteudo",
+            "description": "Texto exato enviado ao modelo nesta versão."
+          },
+          "hash_modulos": {
+            "type": "string",
+            "title": "Hash Modulos",
+            "description": "SHA-256 dos módulos em disco quando a versão nasceu."
+          },
+          "ativo": {
+            "type": "boolean",
+            "title": "Ativo"
+          },
+          "criado_em": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Criado Em"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "versao",
+          "papel_definido",
+          "conteudo",
+          "hash_modulos",
+          "ativo",
+          "criado_em"
+        ],
+        "title": "PromptResposta"
+      },
+      "PropostaSubstituicaoResposta": {
+        "properties": {
+          "numero": {
+            "type": "integer",
+            "title": "Numero"
+          },
+          "candidata": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuestaoResposta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "motivo_insuficiencia": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo Insuficiencia",
+            "description": "o material não sustentou outra questão."
+          },
+          "localizacao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Localizacao"
+          }
+        },
+        "type": "object",
+        "required": [
+          "numero"
+        ],
+        "title": "PropostaSubstituicaoResposta",
+        "description": "A candidata vem COM gabarito: o docente precisa dele para julgar. Vem sem\njustificativa, pelo mesmo motivo da leitura."
+      },
+      "ProvaResposta": {
+        "properties": {
+          "prova_id": {
+            "type": "integer",
+            "title": "Prova Id"
+          },
+          "versao": {
+            "type": "string",
+            "title": "Versao"
+          },
+          "estado": {
+            "$ref": "#/components/schemas/EstadoProva"
+          },
+          "n_questoes": {
+            "type": "integer",
+            "title": "N Questoes"
+          },
+          "n_objetivas": {
+            "type": "integer",
+            "title": "N Objetivas"
+          },
+          "n_discursivas": {
+            "type": "integer",
+            "title": "N Discursivas"
+          },
+          "revisao_banco": {
+            "type": "integer",
+            "title": "Revisao Banco"
+          },
+          "banco_revisao_atual": {
+            "type": "integer",
+            "title": "Banco Revisao Atual"
+          },
+          "desatualizada": {
+            "type": "boolean",
+            "title": "Desatualizada",
+            "description": "A revisão do banco mudou desde a montagem. Quem bloqueia a exportação é; aqui é aviso."
+          },
+          "itens": {
+            "items": {
+              "$ref": "#/components/schemas/ItemProvaResposta"
+            },
+            "type": "array",
+            "title": "Itens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prova_id",
+          "versao",
+          "estado",
+          "n_questoes",
+          "n_objetivas",
+          "n_discursivas",
+          "revisao_banco",
+          "banco_revisao_atual",
+          "desatualizada",
+          "itens"
+        ],
+        "title": "ProvaResposta"
+      },
+      "ProvasCriar": {
+        "properties": {
+          "n_objetivas": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "N Objetivas",
+            "description": "Objetivas por prova."
+          },
+          "n_discursivas": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "N Discursivas",
+            "description": "Discursivas por prova."
+          },
+          "revisao_esperada": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Revisao Esperada",
+            "description": "Revisão do banco que o docente estava vendo."
+          }
+        },
+        "type": "object",
+        "required": [
+          "n_objetivas",
+          "n_discursivas",
+          "revisao_esperada"
+        ],
+        "title": "ProvasCriar"
+      },
+      "ProvasMontadasResposta": {
+        "properties": {
+          "prova_a_id": {
+            "type": "integer",
+            "title": "Prova A Id"
+          },
+          "prova_b_id": {
+            "type": "integer",
+            "title": "Prova B Id"
+          },
+          "revisao_banco": {
+            "type": "integer",
+            "title": "Revisao Banco"
+          },
+          "compartilhadas": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Compartilhadas",
+            "description": "Números das questões presentes nas duas provas."
+          },
+          "sem_subtema": {
+            "type": "integer",
+            "title": "Sem Subtema",
+            "description": "Questões selecionadas sem subtema. A regra de sobreposição fica cega para elas — banco gerado antes."
+          },
+          "verificacao": {
+            "$ref": "#/components/schemas/VerificacaoResposta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prova_a_id",
+          "prova_b_id",
+          "revisao_banco",
+          "compartilhadas",
+          "sem_subtema",
+          "verificacao"
+        ],
+        "title": "ProvasMontadasResposta"
+      },
+      "QuestaoAuditadaResposta": {
+        "properties": {
+          "numero": {
+            "type": "integer",
+            "title": "Numero"
+          },
+          "achados": {
+            "items": {
+              "$ref": "#/components/schemas/AchadoResposta"
+            },
+            "type": "array",
+            "title": "Achados"
+          }
+        },
+        "type": "object",
+        "required": [
+          "numero",
+          "achados"
+        ],
+        "title": "QuestaoAuditadaResposta"
+      },
+      "QuestaoResposta": {
+        "properties": {
+          "numero": {
+            "type": "integer",
+            "title": "Numero"
+          },
+          "tipo": {
+            "$ref": "#/components/schemas/TipoQuestao"
+          },
+          "estado": {
+            "$ref": "#/components/schemas/EstadoQuestao"
+          },
+          "faixa_dificuldade": {
+            "$ref": "#/components/schemas/FaixaDificuldade"
+          },
+          "nivel_bloom": {
+            "$ref": "#/components/schemas/NivelBloom"
+          },
+          "tema": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tema"
+          },
+          "enunciado": {
+            "type": "string",
+            "title": "Enunciado"
+          },
+          "fontes": {
+            "items": {
+              "$ref": "#/components/schemas/FonteResposta"
+            },
+            "type": "array",
+            "title": "Fontes",
+            "description": "Rastreabilidade."
+          },
+          "violacoes": {
+            "items": {
+              "$ref": "#/components/schemas/ViolacaoResposta"
+            },
+            "type": "array",
+            "title": "Violacoes",
+            "description": "Violações que sobreviveram à revisão."
+          },
+          "alternativas": {
+            "items": {
+              "$ref": "#/components/schemas/AlternativaResposta"
+            },
+            "type": "array",
+            "title": "Alternativas",
+            "description": "Vazio na discursiva."
+          },
+          "letra_correta": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Letra Correta",
+            "description": "Só com com_gabarito=true."
+          },
+          "aspectos_esperados": {
+            "items": {
+              "$ref": "#/components/schemas/AspectoEsperadoResposta"
+            },
+            "type": "array",
+            "title": "Aspectos Esperados",
+            "description": "Só com com_gabarito=true — é o gabarito da discursiva."
+          }
+        },
+        "type": "object",
+        "required": [
+          "numero",
+          "tipo",
+          "estado",
+          "faixa_dificuldade",
+          "nivel_bloom",
+          "tema",
+          "enunciado",
+          "fontes",
+          "violacoes",
+          "alternativas",
+          "letra_correta",
+          "aspectos_esperados"
+        ],
+        "title": "QuestaoResposta",
+        "description": "Sem justificativa e sem rascunho, de propósito: eles nunca\naparecem no corpo da questão."
+      },
+      "RegistroAuditoriaResposta": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "tipo_evento": {
+            "type": "string",
+            "title": "Tipo Evento"
+          },
+          "entidade_afetada": {
+            "type": "string",
+            "title": "Entidade Afetada"
+          },
+          "ator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ator",
+            "description": "Pseudônimo do docente, ou nulo."
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tipo_evento",
+          "entidade_afetada",
+          "ator",
+          "payload",
+          "timestamp"
+        ],
+        "title": "RegistroAuditoriaResposta",
+        "description": ". `ator` é o pseudônimo HMAC do docente, nunca a\nidentidade."
+      },
+      "RegraQualidade": {
+        "type": "string",
+        "enum": [
+          "tamanho_alternativa",
+          "correta_longa",
+          "termo_absoluto",
+          "mencao_fonte",
+          "gemeos_insuficientes",
+          "gemeo_na_correta",
+          "comando_ausente",
+          "aspectos_repetidos",
+          "invalidacao_letra_invalida",
+          "letra_citada_em_texto"
+        ],
+        "title": "RegraQualidade",
+        "description": "Regras de forma, e, medidas sem LLM."
+      },
+      "RejeicaoResposta": {
+        "properties": {
+          "numero": {
+            "type": "integer",
+            "title": "Numero"
+          },
+          "decisao": {
+            "type": "string",
+            "title": "Decisao",
+            "default": "rejeitada"
+          }
+        },
+        "type": "object",
+        "required": [
+          "numero"
+        ],
+        "title": "RejeicaoResposta"
+      },
+      "RelatorioImpactoResposta": {
+        "properties": {
+          "revisao": {
+            "type": "integer",
+            "title": "Revisao"
+          },
+          "evento": {
+            "$ref": "#/components/schemas/EventoBanco"
+          },
+          "n_final": {
+            "type": "integer",
+            "title": "N Final"
+          },
+          "contagem_por_faixa": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Contagem Por Faixa",
+            "description": "Questões ativas por tipo e faixa."
+          },
+          "desvio_observado": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Desvio Observado",
+            "description": "Desvio em relação ao pF/pM/pD PEDIDO, em pontos percentuais, por tipo e faixa. Texto, porque Decimal não serializa e float não é exato. null quando o tipo não tem questão ativa."
+          },
+          "alerta_desvio": {
+            "type": "boolean",
+            "title": "Alerta Desvio",
+            "description": "Alguma faixa passou de 5 pontos de desvio em relação ao pedido. É observação, nunca ação — o docente decide."
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "revisao",
+          "evento",
+          "n_final",
+          "contagem_por_faixa",
+          "desvio_observado",
+          "alerta_desvio",
+          "timestamp"
+        ],
+        "title": "RelatorioImpactoResposta"
+      },
+      "ResultadoComandoResposta": {
+        "properties": {
+          "comando": {
+            "$ref": "#/components/schemas/ComandoOrquestrador"
+          },
+          "marco_executado": {
+            "$ref": "#/components/schemas/Marco"
+          },
+          "marco": {
+            "$ref": "#/components/schemas/MarcoSessaoResposta"
+          },
+          "indice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndiceResposta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "banco": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResumoBancoResposta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "relatorio": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RelatorioImpactoResposta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "catalogo": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ItemCatalogoResposta"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalogo"
+          },
+          "provas": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProvasMontadasResposta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gabaritos": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GabaritoResposta"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gabaritos"
+          },
+          "exportacoes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ExportacaoResposta"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exportacoes"
+          },
+          "auditoria": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResumoAuditoriaResposta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "comando",
+          "marco_executado",
+          "marco"
+        ],
+        "title": "ResultadoComandoResposta",
+        "description": "Um campo de resultado preenchido por passo; o cliente sabe qual ler por\n`comando` e `marco_executado`."
+      },
+      "ResumoAuditoriaResposta": {
+        "properties": {
+          "banco_id": {
+            "type": "integer",
+            "title": "Banco Id"
+          },
+          "revisao_auditada": {
+            "type": "integer",
+            "title": "Revisao Auditada",
+            "description": "Revisão do banco a que estes achados se referem."
+          },
+          "auditadas": {
+            "type": "integer",
+            "title": "Auditadas",
+            "description": "Objetivas ativas com registro nesta revisão."
+          },
+          "ja_auditadas": {
+            "type": "integer",
+            "title": "Ja Auditadas",
+            "description": "Quantas dessas já tinham registro antes desta chamada."
+          },
+          "discursivas_ignoradas": {
+            "type": "integer",
+            "title": "Discursivas Ignoradas",
+            "description": "As três verificações são sobre alternativas, e discursiva não tem nenhuma."
+          },
+          "questoes": {
+            "items": {
+              "$ref": "#/components/schemas/QuestaoAuditadaResposta"
+            },
+            "type": "array",
+            "title": "Questoes",
+            "description": "Só as questões com achado."
+          },
+          "proporcao_com_achado": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Proporcao Com Achado",
+            "description": "Percentual de questões auditadas com ao menos um achado. É observação, nunca ação — o docente decide se para."
+          }
+        },
+        "type": "object",
+        "required": [
+          "banco_id",
+          "revisao_auditada",
+          "auditadas",
+          "ja_auditadas",
+          "discursivas_ignoradas",
+          "questoes",
+          "proporcao_com_achado"
+        ],
+        "title": "ResumoAuditoriaResposta"
+      },
+      "ResumoBancoResposta": {
+        "properties": {
+          "banco_id": {
+            "type": "integer",
+            "title": "Banco Id"
+          },
+          "revisao": {
+            "type": "integer",
+            "title": "Revisao",
+            "description": "Revisão do banco — é o que os comandos de controle exigem."
+          },
+          "geradas": {
+            "type": "integer",
+            "title": "Geradas",
+            "description": "Questões persistidas nesta chamada."
+          },
+          "ja_existentes": {
+            "type": "integer",
+            "title": "Ja Existentes",
+            "description": "Questões puladas por já existirem (retomada)."
+          },
+          "improdutivas": {
+            "items": {
+              "$ref": "#/components/schemas/AncoraImprodutivaResposta"
+            },
+            "type": "array",
+            "title": "Improdutivas",
+            "description": "Âncoras que não sustentaram questão."
+          },
+          "com_violacoes": {
+            "items": {
+              "$ref": "#/components/schemas/ItemComViolacaoResposta"
+            },
+            "type": "array",
+            "title": "Com Violacoes",
+            "description": "Questões persistidas com violação de forma, para o docente decidir na janela de exclusões."
+          },
+          "geradas_por_tipo": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/TipoQuestao"
+            },
+            "type": "object",
+            "title": "Geradas Por Tipo",
+            "description": "Questões persistidas nesta chamada, por tipo."
+          }
+        },
+        "type": "object",
+        "required": [
+          "banco_id",
+          "revisao",
+          "geradas",
+          "ja_existentes",
+          "improdutivas",
+          "com_violacoes",
+          "geradas_por_tipo"
+        ],
+        "title": "ResumoBancoResposta",
+        "description": "A lista de âncoras improdutivas só existe aqui — não é persistida."
+      },
+      "RiscoAuditoria": {
+        "type": "string",
+        "enum": [
+          "correta_nao_unica",
+          "distrator_indefensavel",
+          "assimetria_forma"
+        ],
+        "title": "RiscoAuditoria",
+        "description": ". Os dois primeiros são juízo semântico e vêm do modelo; o\nterceiro é medido por `validar_objetiva` e nunca vem dele."
+      },
+      "SessaoCriar": {
+        "properties": {
+          "disciplina": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Disciplina",
+            "description": "Disciplina da avaliação."
+          },
+          "periodo": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Periodo",
+            "description": "Período letivo (ex.: 2026.2)."
+          },
+          "tema_escopo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tema Escopo",
+            "description": "Recorte temático da avaliação."
+          },
+          "area_do_conhecimento": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Do Conhecimento",
+            "description": "Área do conhecimento da disciplina."
+          },
+          "k_alternativas": {
+            "type": "integer",
+            "maximum": 11.0,
+            "minimum": 2.0,
+            "title": "K Alternativas",
+            "description": "Número de alternativas por questão (letras A–K)."
+          },
+          "p_f": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "P F",
+            "description": "Percentual de questões fáceis."
+          },
+          "p_m": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "P M",
+            "description": "Percentual de questões médias."
+          },
+          "p_d": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "P D",
+            "description": "Percentual de questões difíceis."
+          }
+        },
+        "type": "object",
+        "required": [
+          "disciplina",
+          "periodo",
+          "k_alternativas",
+          "p_f",
+          "p_m",
+          "p_d"
+        ],
+        "title": "SessaoCriar"
+      },
+      "SessaoResposta": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "description": "Identificador da sessão."
+          },
+          "disciplina": {
+            "type": "string",
+            "title": "Disciplina"
+          },
+          "periodo": {
+            "type": "string",
+            "title": "Periodo"
+          },
+          "tema_escopo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tema Escopo"
+          },
+          "area_do_conhecimento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Do Conhecimento"
+          },
+          "k_alternativas": {
+            "type": "integer",
+            "title": "K Alternativas"
+          },
+          "p_f": {
+            "type": "integer",
+            "title": "P F"
+          },
+          "p_m": {
+            "type": "integer",
+            "title": "P M"
+          },
+          "p_d": {
+            "type": "integer",
+            "title": "P D"
+          },
+          "estado": {
+            "$ref": "#/components/schemas/EstadoSessao",
+            "description": "Estado atual da sessão."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "disciplina",
+          "periodo",
+          "tema_escopo",
+          "area_do_conhecimento",
+          "k_alternativas",
+          "p_f",
+          "p_m",
+          "p_d",
+          "estado"
+        ],
+        "title": "SessaoResposta"
+      },
+      "TipoEventoAuditoria": {
+        "type": "string",
+        "enum": [
+          "questao_gerada",
+          "exclusao",
+          "congelamento",
+          "substituicao_aceita",
+          "substituicao_rejeitada",
+          "provas_montadas",
+          "exportacao_docx",
+          "fallback_provedor",
+          "falha_provedor",
+          "auditoria_questao",
+          "login_falho",
+          "token_suspeito",
+          "acesso_negado"
+        ],
+        "title": "TipoEventoAuditoria",
+        "description": ". `registros_auditoria.tipo_evento` é String(100): este enum é o\nvocabulário, não um tipo do banco — acrescentar membro não pede migração."
+      },
+      "TipoExportacao": {
+        "type": "string",
+        "enum": [
+          "conteudo_puro",
+          "metadados"
+        ],
+        "title": "TipoExportacao"
+      },
+      "TipoGabarito": {
+        "type": "string",
+        "enum": [
+          "simples",
+          "comentado"
+        ],
+        "title": "TipoGabarito"
+      },
+      "TipoMaterial": {
+        "type": "string",
+        "enum": [
+          "slide",
+          "pdf",
+          "livro"
+        ],
+        "title": "TipoMaterial"
+      },
+      "TipoQuestao": {
+        "type": "string",
+        "enum": [
+          "objetiva",
+          "discursiva"
+        ],
+        "title": "TipoQuestao",
+        "description": "Discriminador do item. Decide schema, prompt, validador e o\nque é persistido: alternativas ou aspectos esperados."
+      },
+      "TokenResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token",
+            "description": "JWT de acesso."
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "description": "Sempre 'bearer'.",
+            "default": "bearer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token"
+        ],
+        "title": "TokenResponse"
+      },
+      "TrechoResposta": {
+        "properties": {
+          "material_id": {
+            "type": "integer",
+            "title": "Material Id",
+            "description": "Identificador do material de origem."
+          },
+          "identificador_curto": {
+            "type": "string",
+            "title": "Identificador Curto",
+            "description": "Identificador usado nas citações de fonte (S1, P1, L1…)."
+          },
+          "localizacao": {
+            "type": "string",
+            "title": "Localizacao",
+            "description": "Onde o trecho está no material (página, slide, parágrafo)."
+          },
+          "texto": {
+            "type": "string",
+            "title": "Texto",
+            "description": "Trecho-base recuperado."
+          },
+          "score": {
+            "type": "number",
+            "title": "Score",
+            "description": "Relevância atribuída pelo reordenador (0 a 1)."
+          },
+          "score_vetorial": {
+            "type": "number",
+            "title": "Score Vetorial",
+            "description": "Similaridade de cosseno antes da reordenação."
+          }
+        },
+        "type": "object",
+        "required": [
+          "material_id",
+          "identificador_curto",
+          "localizacao",
+          "texto",
+          "score",
+          "score_vetorial"
+        ],
+        "title": "TrechoResposta",
+        "description": "Projeção de `TrechoRecuperado`. Carrega tudo que / exige\npara citar a fonte, e nada de chave de armazenamento."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VerificacaoResposta": {
+        "properties": {
+          "violacoes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Violacoes"
+          },
+          "colisoes_letras": {
+            "type": "integer",
+            "title": "Colisoes Letras"
+          },
+          "posicoes_objetivas": {
+            "type": "integer",
+            "title": "Posicoes Objetivas"
+          },
+          "compartilhadas": {
+            "type": "integer",
+            "title": "Compartilhadas"
+          },
+          "subtemas_compartilhados": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Subtemas Compartilhados"
+          }
+        },
+        "type": "object",
+        "required": [
+          "violacoes",
+          "colisoes_letras",
+          "posicoes_objetivas",
+          "compartilhadas",
+          "subtemas_compartilhados"
+        ],
+        "title": "VerificacaoResposta",
+        "description": "as duas auditorias pós-montagem. `violacoes` vazia é o\nresultado esperado."
+      },
+      "ViolacaoResposta": {
+        "properties": {
+          "regra": {
+            "$ref": "#/components/schemas/RegraQualidade",
+            "description": "Regra /020b violada."
+          },
+          "alvo": {
+            "type": "string",
+            "title": "Alvo",
+            "description": "Letra da alternativa, \"enunciado\" ou \"questao\"."
+          },
+          "detalhe": {
+            "type": "string",
+            "title": "Detalhe",
+            "description": "O que foi medido."
+          }
+        },
+        "type": "object",
+        "required": [
+          "regra",
+          "alvo",
+          "detalhe"
+        ],
+        "title": "ViolacaoResposta"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2PasswordBearer": {
+        "type": "oauth2",
+        "flows": {
+          "password": {
+            "scopes": {},
+            "tokenUrl": "auth/login"
+          }
+        }
+      }
+    }
+  }
+}

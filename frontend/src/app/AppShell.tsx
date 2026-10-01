@@ -15,6 +15,11 @@ export function AppShell() {
             <Marca />
           </Link>
           <div className="flex items-center gap-3 font-grotesca text-detalhe">
+            {docente.data?.perfil === "administrador" && (
+              <Link to="/admin/prompts" className="underline">
+                Administração
+              </Link>
+            )}
             {docente.data && <span>{docente.data.nome}</span>}
             <Botao variante="fantasma" onClick={sair}>
               Sair

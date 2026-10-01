@@ -193,3 +193,32 @@ def test_token_amostrado_fora_do_top_logprobs_ainda_conta():
     [(_, score)] = reranker.reordenar("q", ["a"], top_n=1)
     esperado = math.exp(-0.1) / (math.exp(-0.1) + math.exp(-3.0))
     assert score == pytest.approx(esperado)
+
+
+def test_distribuicao_uniforme_aponta_o_modelo():
+    """Regressão: o GGUF dengcao/Qwen3-Reranker devolve, pelo /api/generate, o
+    mesmo logprob (-ln do vocabulário) para todo token. Não é template nem
+    versão do Ollama: o modelo não está gerando texto."""
+    uniforme = -math.log(151_669)
+
+    def responder(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "response": "3",
+                "logprobs": [
+                    {
+                        "token": "3",
+                        "logprob": uniforme,
+                        "top_logprobs": [
+                            {"token": t, "logprob": uniforme} for t in "3+%1-)4"
+                        ],
+                    }
+                ],
+            },
+        )
+
+    reranker = RerankerOllamaLogprobs(CFG, cliente=cliente_com(responder))
+    with pytest.raises(FalhaRerankException, match="uniforme") as erro:
+        reranker.reordenar("q", ["a", "b"], top_n=2)
+    assert CFG.modelo in str(erro.value)

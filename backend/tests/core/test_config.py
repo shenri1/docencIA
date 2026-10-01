@@ -28,7 +28,7 @@ def test_embedding_dim_e_1024_para_caber_no_indice_hnsw():
 def test_defaults_do_rag():
     assert settings.embedding_base_url == "http://localhost:11434"
     assert settings.embedding_model == "dengcao/Qwen3-Embedding-0.6B:Q8_0"
-    assert settings.rerank_model == "dengcao/Qwen3-Reranker-0.6B:Q8_0"
+    assert settings.rerank_model == "qwen3:1.7b"
     assert settings.rag_candidatos == 20
     assert settings.rag_top_k == 8
 
@@ -38,7 +38,7 @@ def test_defaults_de_modelo_apontam_para_tags_realmente_instaladas():
     # e para a tag `:F16`, que não existem na máquina alvo. Como não há .env
     # no projeto, o default É o valor usado, e a primeira chamada dava 404.
     assert settings.embedding_model == "dengcao/Qwen3-Embedding-0.6B:Q8_0"
-    assert settings.rerank_model == "dengcao/Qwen3-Reranker-0.6B:Q8_0"
+    assert settings.rerank_model == "qwen3:1.7b"
 
 
 def test_defaults_do_provider_adapter():

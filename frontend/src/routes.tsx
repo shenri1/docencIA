@@ -13,6 +13,7 @@ import { lerToken } from "./auth/token";
 import { AreaAdmin } from "./features/admin/AreaAdmin";
 import { Logs } from "./features/admin/Logs";
 import { Prompts } from "./features/admin/Prompts";
+import { Auditoria } from "./features/auditoria/Auditoria";
 import { Geracao } from "./features/banco/Geracao";
 import { MesaCuradoria } from "./features/banco/MesaCuradoria";
 import { Cadastro } from "./features/auth/Cadastro";
@@ -113,6 +114,15 @@ const geracao = createRoute({
   },
 });
 
+const auditoria = createRoute({
+  getParentRoute: () => autenticado,
+  path: "/sessoes/$sessaoId/auditoria",
+  component: function RotaAuditoria() {
+    const { sessaoId } = auditoria.useParams();
+    return <Auditoria sessaoId={sessaoId} />;
+  },
+});
+
 const novaSessao = createRoute({
   getParentRoute: () => autenticado,
   path: "/sessoes/nova",
@@ -175,6 +185,7 @@ const arvore = raiz.addChildren([
     indice,
     banco,
     geracao,
+    auditoria,
     admin.addChildren([adminInicio, adminPrompts, adminLogs]),
   ]),
 ]);

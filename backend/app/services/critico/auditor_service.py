@@ -1,4 +1,4 @@
-"""Agente Crítico, auditoria sob comando —.
+"""Agente Crítico, auditoria sob comando — .
 
 Parte B do mesmo agente da `agente_critico_service`. Duas metades por questão:
 o Núcleo Determinístico remede as duas regras de assimetria sobre a `Questao`
@@ -50,9 +50,9 @@ from backend.app.services.qualidade.validador_itens import (
 from backend.app.services.rag.retrieval_service import TrechoRecuperado, buscar
 
 # Das seis regras que `validar_objetiva` devolve, só estas duas são o que o
-# chama de "assimetria de forma ou extensão". As outras quatro
+#  chama de "assimetria de forma ou extensão". As outras quatro
 # (termo_absoluto, mencao_fonte, gemeos_insuficientes, gemeo_na_correta) são
-# e já apareceram na geração.
+#  e já apareceram na geração.
 _REGRAS_DE_ASSIMETRIA = (
     RegraQualidade.TAMANHO_ALTERNATIVA,
     RegraQualidade.CORRETA_LONGA,
@@ -113,7 +113,7 @@ def achados_de_forma(item: ItemObjetivo) -> list[Achado]:
     """Assimetria de forma ou extensão, medida sem LLM.
 
     A proposta carrega o `detalhe` da violação, que já diz o que foi medido — é
-    o "risco identificado" que pede, sem um campo a mais.
+    o "risco identificado" que  pede, sem um campo a mais.
     """
     return [
         Achado(
@@ -218,7 +218,7 @@ def auditar_questao(
     )
 
 
-# Discriminador do evento em `registros_auditoria`. vai usar a mesma
+# Discriminador do evento em `registros_auditoria`.  vai usar a mesma
 # tabela para o log transversal de comandos, com outro tipo_evento — é o que
 # permite as duas coisas conviverem sem tabela nova.
 TIPO_EVENTO_AUDITORIA = TipoEventoAuditoria.AUDITORIA_QUESTAO.value
@@ -239,7 +239,7 @@ class ResumoAuditoria:
     auditadas: int
     ja_auditadas: int
     discursivas_ignoradas: int
-    # Só as questões COM achado: relatório lista item problemático.
+    # Só as questões COM achado: relatório  lista item problemático.
     questoes: list[QuestaoAuditada]
     proporcao_com_achado: Decimal
 
@@ -264,19 +264,28 @@ def _ativas_por_tipo(db: Session, banco: BancoQuestoes) -> tuple[list[Questao], 
 def _payloads_da_revisao(
     db: Session, banco: BancoQuestoes, objetivas: list[Questao]
 ) -> list[dict]:
-    """Registros desta revisão. Filtra por `entidade_afetada` das questões do
-    banco e confere a revisão em Python: evita cast de JSONB no SQL, e a lista
-    de entidades é pequena (no máximo 25)."""
+    """Registros desta revisão, um por número de questão. Filtra por
+    `entidade_afetada` das questões do banco e confere a revisão em Python:
+    evita cast de JSONB no SQL, e a lista de entidades é pequena (no máximo 25).
+
+    Dois registros do mesmo número (duas janelas auditando ao mesmo tempo; a
+    tabela é append-only e não tem índice único) contam como um: vale o último.
+    """
     if not objetivas:
         return []
     entidades = {f"questoes:{q.id}" for q in objetivas}
     payloads = db.scalars(
-        select(RegistroAuditoria.payload).where(
+        select(RegistroAuditoria.payload)
+        .where(
             RegistroAuditoria.tipo_evento == TIPO_EVENTO_AUDITORIA,
             RegistroAuditoria.entidade_afetada.in_(entidades),
         )
+        .order_by(RegistroAuditoria.id)
     )
-    return [p for p in payloads if p.get("revisao_auditada") == banco.revisao]
+    por_numero = {
+        p["numero"]: p for p in payloads if p.get("revisao_auditada") == banco.revisao
+    }
+    return list(por_numero.values())
 
 
 def _achado_de_dict(dados: dict) -> Achado:
@@ -344,11 +353,15 @@ def auditar_banco(
     provedor,
     docente: Docente,
     banco: BancoQuestoes,
+    limite: int | None = None,
 ) -> ResumoAuditoria:
-    """Roda com o banco aberto ou congelado: auditoria é leitura.
+    """. Roda com o banco aberto ou congelado: auditoria é leitura.
 
     Não muda estado, não incrementa revisão, não gera RelatorioImpacto. A única
     escrita é INSERT em registros_auditoria.
+
+    `limite` é o máximo de questões auditadas nesta chamada (o cliente audita em lotes para nenhuma requisição passar do timeout
+    do navegador ou do proxy). Sem `limite`, audita todas as pendentes.
     """
     # Verificações baratas primeiro: descobrir divergência de prompt no minuto 7
     # desperdiçaria minutos de GPU.
@@ -368,9 +381,12 @@ def auditar_banco(
         banco.n_alvo_objetivas, sessao.p_f, sessao.p_m, sessao.p_d
     )
 
+    feitas = 0
     for questao in objetivas:
         if questao.numero in ja_auditados:
             continue
+        if limite is not None and feitas >= limite:
+            break
         resultado = auditar_questao(
             db, embeddings, reranker, provedor, sessao, questao, distribuicao
         )
@@ -391,7 +407,8 @@ def auditar_banco(
             },
         )
         # Commit por questão: ~19 s mais retrieval por item, e falha no item 20
-        # preserva os 19 anteriores. Mesmo padrão.
+        # preserva os 19 anteriores. Mesmo padrão .
         db.commit()
+        feitas += 1
 
     return montar_resumo(db, banco, ja_antes=len(ja_auditados))

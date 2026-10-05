@@ -101,3 +101,27 @@ def test_auditoria_nao_expoe_delete_nem_justificativa():
         "trecho_fonte",
         "proposta_ajuste",
     }
+
+
+def test_post_auditoria_com_limite_audita_so_esse_tanto(client, db_session, armazenamento):
+    headers, banco = preparar_banco(client, db_session, armazenamento, n=3)
+    app.dependency_overrides[get_provedor] = lambda: ProvedorLLMFake([sem_achado()])
+    try:
+        resposta = client.post(
+            f"/bancos/{banco.id}/auditoria", params={"limite": 1}, headers=headers
+        )
+    finally:
+        app.dependency_overrides.pop(get_provedor, None)
+
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert (corpo["auditadas"], corpo["ja_auditadas"]) == (1, 0)
+
+
+def test_post_auditoria_recusa_limite_fora_de_faixa(client, db_session, armazenamento):
+    headers, banco = preparar_banco(client, db_session, armazenamento)
+    for limite in (0, 26):
+        resposta = client.post(
+            f"/bancos/{banco.id}/auditoria", params={"limite": limite}, headers=headers
+        )
+        assert resposta.status_code == 422

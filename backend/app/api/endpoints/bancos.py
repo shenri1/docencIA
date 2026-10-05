@@ -14,6 +14,7 @@ from backend.app.models.banco import RelatorioImpacto
 from backend.app.models.identidade import Docente
 from backend.app.models.provas import ExportacaoDocx
 from backend.app.schemas.banco import (
+    N_MAXIMO_BANCO,
     BancoResposta,
     ComandoRevisao,
     ExclusaoCriar,
@@ -190,6 +191,13 @@ def rejeitar(
 @router.post("/auditoria", response_model=ResumoAuditoriaResposta)
 def auditar(
     banco_id: int,
+    limite: int | None = Query(
+        None,
+        ge=1,
+        le=N_MAXIMO_BANCO,
+        description="Audita no máximo este tanto de questões nesta chamada. "
+        "Sem limite, audita todas as pendentes.",
+    ),
     db: Session = Depends(get_db),
     docente: Docente = Depends(get_current_docente),
     embeddings: Embeddings = Depends(get_embeddings),
@@ -198,12 +206,13 @@ def auditar(
 ) -> ResumoAuditoria:
     # Chamada longa: ~19 s por questão mais o retrieval. O commit por questão do
     # auditor_service é o que torna um timeout de proxy não destrutivo — a
-    # chamada seguinte retoma de onde parou.
+    # chamada seguinte retoma de onde parou. O front chama com `limite` para
+    # nenhuma requisição chegar perto do timeout.
     #
     # Sem `revisao_esperada`: auditar não muda o banco, então não há estado a
     # proteger. Mesma razão pela qual `rejeitar_substituicao` não a exige.
     banco = obter_banco(db, docente, banco_id)
-    return auditar_banco(db, embeddings, reranker, provedor, docente, banco)
+    return auditar_banco(db, embeddings, reranker, provedor, docente, banco, limite)
 
 
 @router.get("/auditoria", response_model=ResumoAuditoriaResposta)

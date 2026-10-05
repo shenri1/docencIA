@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from backend.app.domain import EstadoQuestao
+from backend.app.domain import EstadoQuestao, TipoEventoAuditoria
 from backend.app.exceptions import (
     InconsistenciaDeEstadoException,
     PromptDivergenteException,
@@ -15,7 +15,7 @@ from backend.app.services.critico.auditor_service import (
     auditar_banco,
     montar_resumo,
 )
-from backend.app.services.log_auditoria import pseudonimo
+from backend.app.services.log_auditoria import pseudonimo, registrar_evento
 from backend.tests.fabrica_banco import (
     criar_banco,
     criar_questao_discursiva,
@@ -282,3 +282,65 @@ def test_montar_resumo_sem_ja_antes_iguala_os_contadores(
     )
     resumo = montar_resumo(db_session, banco)
     assert resumo.auditadas == resumo.ja_auditadas == 2
+
+
+def test_limite_audita_so_esse_tanto_e_a_chamada_seguinte_retoma(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    banco = banco_misto(
+        db_session, armazenamento, sessao_rascunho, objetivas=3, discursivas=0
+    )
+    primeira = ProvedorLLMFake([sem_achado(), sem_achado()])
+    resumo = auditar_banco(
+        db_session, embeddings_fake, reranker_fake, primeira, docente, banco, limite=2
+    )
+    assert primeira.chamadas == 2
+    assert (resumo.auditadas, resumo.ja_auditadas) == (2, 0)
+
+    segunda = ProvedorLLMFake([sem_achado()])
+    resumo = auditar_banco(
+        db_session, embeddings_fake, reranker_fake, segunda, docente, banco, limite=2
+    )
+    assert segunda.chamadas == 1
+    assert (resumo.auditadas, resumo.ja_auditadas) == (3, 2)
+
+
+def test_limite_maior_que_o_pendente_audita_so_o_pendente(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    banco = banco_misto(
+        db_session, armazenamento, sessao_rascunho, objetivas=2, discursivas=0
+    )
+    provedor = ProvedorLLMFake([sem_achado(), sem_achado()])
+    resumo = auditar_banco(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco, limite=5
+    )
+    assert provedor.chamadas == 2
+    assert resumo.auditadas == 2
+
+
+def test_registros_duplicados_do_mesmo_numero_contam_uma_vez(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    """registros_auditoria é append-only e sem índice único: duas janelas
+    auditando ao mesmo tempo gravam o mesmo número duas vezes."""
+    banco = banco_misto(
+        db_session, armazenamento, sessao_rascunho, objetivas=1, discursivas=0
+    )
+    _auditar(
+        db_session, embeddings_fake, reranker_fake,
+        ProvedorLLMFake([sem_achado()]), docente, banco,
+    )
+    existente = db_session.query(RegistroAuditoria).one()
+    registrar_evento(
+        db_session,
+        TipoEventoAuditoria.AUDITORIA_QUESTAO,
+        existente.entidade_afetada,
+        docente.id,
+        dict(existente.payload),
+    )
+    db_session.commit()
+    assert db_session.query(RegistroAuditoria).count() == 2
+
+    resumo = montar_resumo(db_session, banco)
+    assert resumo.auditadas == 1

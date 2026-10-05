@@ -106,6 +106,22 @@ function Mesa({ sessaoId, marcoBanco, proxima }: MesaProps) {
         </Alerta>
       )}
 
+      {marcoBanco.objetivas_ativas > 0 && (
+        <section aria-label="Auditar o banco" className="cartao flex flex-wrap items-center justify-between gap-3 p-5">
+          <p className="max-w-xl font-grotesca text-detalhe">
+            A auditoria confere as alternativas das objetivas e aponta o que merece uma
+            exclusão ou uma variação. Ela funciona com o banco aberto ou congelado.
+          </p>
+          <Link
+            to="/sessoes/$sessaoId/auditoria"
+            params={{ sessaoId: String(sessaoId) }}
+            className="botao botao-fantasma"
+          >
+            Auditar o banco
+          </Link>
+        </section>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Blocos nAlvo={dados.n_alvo} pagina={pagina} aoMudar={setPagina} />
         <label className="flex items-center gap-2 font-grotesca text-detalhe">

@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "../../app/api-context";
-import { desembrulhar } from "../../api/cliente";
+import { type ClienteApi, desembrulhar } from "../../api/cliente";
 import { ErroApi } from "../../api/erros";
 import type { Banco, PropostaSubstituicao, RelatorioImpacto } from "../../api/tipos";
 import { chaves } from "../sessoes/api";
@@ -16,11 +16,12 @@ export const chavesBanco = {
 /**
  * Sempre com gabarito e com histórico: a mesa precisa da correta, e é pelo
  * histórico que reencontra a candidata pendente depois de recarregar.
+ * Separada de `useBanco` para a tela de auditoria ler as mesmas páginas, com a
+ * mesma chave, sem repetir a consulta.
  */
-export function useBanco(bancoId: number, pagina: number) {
-  const cliente = useApi();
-  return useQuery<Banco>({
-    queryKey: [...chavesBanco.banco(bancoId), pagina],
+export function consultaBanco(cliente: ClienteApi, bancoId: number, pagina: number) {
+  return {
+    queryKey: [...chavesBanco.banco(bancoId), pagina] as const,
     queryFn: () =>
       desembrulhar(
         cliente.GET("/bancos/{banco_id}", {
@@ -35,6 +36,13 @@ export function useBanco(bancoId: number, pagina: number) {
           },
         }),
       ),
+  };
+}
+
+export function useBanco(bancoId: number, pagina: number) {
+  const cliente = useApi();
+  return useQuery<Banco>({
+    ...consultaBanco(cliente, bancoId, pagina),
     placeholderData: keepPreviousData,
   });
 }

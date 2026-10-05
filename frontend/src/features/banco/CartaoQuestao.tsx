@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { Questao } from "../../api/tipos";
 import { Alerta } from "../../components/Alerta";
-import { IconeErro, IconeInfo, IconeOk } from "../../components/Icones";
+import { IconeAviso, IconeErro, IconeInfo, IconeOk } from "../../components/Icones";
 import { ROTULO_BLOOM, ROTULO_FAIXA, ROTULO_TIPO_QUESTAO } from "./rotulos";
 
 type FonteQuestao = Questao["fontes"][number];
@@ -25,9 +25,11 @@ interface Props {
   marcada?: boolean;
   /** Botões da mesa; o cartão só exibe e não decide nada. */
   acoes?: ReactNode;
+  /** Letras que a auditoria apontou nesta questão. */
+  apontadas?: ReadonlySet<string>;
 }
 
-export function CartaoQuestao({ questao, marcada = false, acoes }: Props) {
+export function CartaoQuestao({ questao, marcada = false, acoes, apontadas }: Props) {
   const estado = ESTADO[marcada ? "marcada" : questao.estado];
   const nome =
     questao.estado === "candidata"
@@ -68,6 +70,12 @@ export function CartaoQuestao({ questao, marcada = false, acoes }: Props) {
                   <span className="flex items-center gap-1 font-grotesca text-detalhe">
                     <IconeOk />
                     Correta
+                  </span>
+                )}
+                {apontadas?.has(letra) && (
+                  <span className="flex items-center gap-1 font-grotesca text-detalhe text-aviso">
+                    <IconeAviso />
+                    Apontada pela auditoria
                   </span>
                 )}
               </li>

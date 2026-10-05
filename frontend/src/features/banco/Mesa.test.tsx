@@ -323,3 +323,28 @@ describe("Mesa de curadoria — congelar", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("Mesa de curadoria — entrada da auditoria", () => {
+  it("oferece o link com o banco aberto e com o banco congelado", async () => {
+    comBanco();
+    abrirMesa();
+    expect(await screen.findByRole("link", { name: "Auditar o banco" })).toHaveAttribute(
+      "href",
+      "/sessoes/5/auditoria",
+    );
+  });
+
+  it("oferece o link também depois de congelar", async () => {
+    const banco = comBanco();
+    banco.estado = "congelado";
+    abrirMesa();
+    expect(await screen.findByRole("link", { name: "Auditar o banco" })).toBeInTheDocument();
+  });
+
+  it("não oferece o link quando o banco não tem objetivas ativas", async () => {
+    comBanco({ objetivas: 0, discursivas: 2 });
+    abrirMesa();
+    await cartao(1);
+    expect(screen.queryByRole("link", { name: "Auditar o banco" })).not.toBeInTheDocument();
+  });
+});

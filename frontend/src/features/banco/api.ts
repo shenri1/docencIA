@@ -22,7 +22,7 @@ export interface Acumulado {
 
 type Estado = "parado" | "gerando" | "pausando";
 
-function comoErroApi(erro: unknown): ErroApi {
+export function comoErroApi(erro: unknown): ErroApi {
   return erro instanceof ErroApi ? erro : new ErroApi(0, String(erro));
 }
 

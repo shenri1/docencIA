@@ -7,6 +7,16 @@ const decimal = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 1,
 });
 
+const duasCasas = new Intl.NumberFormat("pt-BR", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** A API manda o percentual como texto decimal ("25.00"); a tela mostra "25,00". */
+export function formatarPercentual(valor: string): string {
+  return duasCasas.format(Number(valor));
+}
+
 export function formatarTamanho(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 ** 2) return `${decimal.format(bytes / 1024)} KB`;

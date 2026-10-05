@@ -1,4 +1,4 @@
-import { formatarTamanho, rotuloDePaginas } from "./formatar";
+import { formatarPercentual, formatarTamanho, rotuloDePaginas } from "./formatar";
 
 describe("formatarTamanho", () => {
   it.each([
@@ -26,5 +26,16 @@ describe("rotuloDePaginas", () => {
   it("devolve null quando a API não informou", () => {
     expect(rotuloDePaginas(null, "txt")).toBeNull();
     expect(rotuloDePaginas(undefined, "txt")).toBeNull();
+  });
+});
+
+describe("formatarPercentual", () => {
+  it.each([
+    ["0.00", "0,00"],
+    ["25.00", "25,00"],
+    ["33.33", "33,33"],
+    ["100.00", "100,00"],
+  ])("%s -> %s", (valor, texto) => {
+    expect(formatarPercentual(valor)).toBe(texto);
   });
 });

@@ -2605,7 +2605,10 @@ export interface operations {
     };
     auditar_bancos__banco_id__auditoria_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Audita no máximo este tanto de questões nesta chamada. Sem limite, audita todas as pendentes. */
+                limite?: number | null;
+            };
             header?: never;
             path: {
                 banco_id: number;

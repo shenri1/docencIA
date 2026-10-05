@@ -20,3 +20,6 @@ export type TipoEventoAuditoria = Schemas["TipoEventoAuditoria"];
 export type Questao = Schemas["QuestaoResposta"];
 export type RelatorioImpacto = Schemas["RelatorioImpactoResposta"];
 export type PropostaSubstituicao = Schemas["PropostaSubstituicaoResposta"];
+export type ResumoAuditoria = Schemas["ResumoAuditoriaResposta"];
+export type Achado = Schemas["AchadoResposta"];
+export type RiscoAuditoria = Schemas["RiscoAuditoria"];

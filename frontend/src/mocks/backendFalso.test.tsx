@@ -1,6 +1,13 @@
 import { screen, waitFor, within } from "@testing-library/react";
+import { DOCENTE, umaSessao } from "../test/fixtures";
 import { API, renderApp } from "../test/renderApp";
-import { criarHandlers, novoEstado } from "./backendFalso";
+import {
+  type BancoFalso,
+  auditoriaFalsa,
+  criarHandlers,
+  novoEstado,
+  questaoFalsa,
+} from "./backendFalso";
 import { server } from "./server";
 
 /**
@@ -133,5 +140,93 @@ describe("fluxo contra o back-end falso", () => {
     await user.click(await screen.findByRole("link", { name: "Administração" }));
     const versao = (await screen.findByText("1.0.0")).closest("li")!;
     expect(within(versao).getByText("Ativa")).toBeInTheDocument();
+  });
+});
+
+describe("back-end falso — auditoria", () => {
+  function comBancoAuditavel() {
+    const estado = novoEstado();
+    estado.docentes.push({ ...DOCENTE, senha: "segredo123" });
+    const numeros = [1, 2, 3, 4];
+    const banco: BancoFalso = {
+      banco_id: 7,
+      versao: "v1",
+      n_objetivas: 3,
+      n_discursivas: 1,
+      gerados: new Set(numeros),
+      recusados: new Set(),
+      revisao: 0,
+      estado: "aberto",
+      questoes: numeros.map((n) => questaoFalsa(n, n === 4 ? "discursiva" : "objetiva")),
+      ultimo_relatorio: null,
+    };
+    estado.sessoes.push({ ...umaSessao({ id: 5, estado: "banco_gerado" }), materiais: [], banco });
+    server.use(...criarHandlers(API, estado));
+    return banco;
+  }
+  const auth = { Authorization: "Bearer mock-token-1" };
+
+  it("audita até o limite, conta as discursivas e atualiza o marco", async () => {
+    comBancoAuditavel();
+
+    const primeira = await fetch(`${API}/bancos/7/auditoria?limite=2`, { method: "POST", headers: auth });
+    expect(await primeira.json()).toMatchObject({
+      auditadas: 2,
+      ja_auditadas: 0,
+      discursivas_ignoradas: 1,
+      questoes: [],
+      proporcao_com_achado: "0.00",
+    });
+
+    const segunda = await fetch(`${API}/bancos/7/auditoria?limite=2`, { method: "POST", headers: auth });
+    expect(await segunda.json()).toMatchObject({ auditadas: 3, ja_auditadas: 2 });
+
+    const marco = await (await fetch(`${API}/sessoes/5/marco`, { headers: auth })).json();
+    expect(marco.bancos[0]).toMatchObject({ objetivas_ativas: 3, objetivas_auditadas: 3 });
+
+    const leitura = await (await fetch(`${API}/bancos/7/auditoria`, { headers: auth })).json();
+    expect(leitura).toMatchObject({ auditadas: 3, ja_auditadas: 3 });
+  });
+
+  it("devolve só as questões com achado e a proporção", async () => {
+    const banco = comBancoAuditavel();
+    banco.auditoria = auditoriaFalsa({
+      achados: {
+        2: [
+          {
+            risco: "assimetria_forma",
+            alvo: "A",
+            localizacao: null,
+            trecho_fonte: null,
+            proposta_ajuste: "Aproxime o tamanho.",
+          },
+        ],
+      },
+    });
+
+    const corpo = await (
+      await fetch(`${API}/bancos/7/auditoria`, { method: "POST", headers: auth })
+    ).json();
+    expect(corpo.questoes).toEqual([
+      { numero: 2, achados: [expect.objectContaining({ risco: "assimetria_forma" })] },
+    ]);
+    expect(corpo.proporcao_com_achado).toBe("33.33");
+  });
+
+  it("uma revisão nova do banco zera a contagem", async () => {
+    const banco = comBancoAuditavel();
+    await fetch(`${API}/bancos/7/auditoria`, { method: "POST", headers: auth });
+    banco.revisao += 1;
+    const corpo = await (await fetch(`${API}/bancos/7/auditoria`, { headers: auth })).json();
+    expect(corpo).toMatchObject({ revisao_auditada: 1, auditadas: 0 });
+  });
+
+  it("a chamada marcada em falhaNa responde 502 e não audita nada", async () => {
+    const banco = comBancoAuditavel();
+    banco.auditoria = auditoriaFalsa({ falhaNa: 1 });
+    const resposta = await fetch(`${API}/bancos/7/auditoria`, { method: "POST", headers: auth });
+    expect(resposta.status).toBe(502);
+    const leitura = await (await fetch(`${API}/bancos/7/auditoria`, { headers: auth })).json();
+    expect(leitura.auditadas).toBe(0);
   });
 });

@@ -1,4 +1,5 @@
 import type {
+  Achado,
   Banco,
   Docente,
   Indice,
@@ -7,6 +8,7 @@ import type {
   Material,
   Questao,
   RelatorioImpacto,
+  ResumoAuditoria,
   ResumoBanco,
   Sessao,
 } from "../api/tipos";
@@ -158,6 +160,32 @@ export function umRelatorio(sobrescrever: Partial<RelatorioImpacto> = {}): Relat
     desvio_observado: { objetiva: { facil: "1.1", media: "-4.4", dificil: "3.3" } },
     alerta_desvio: false,
     timestamp: "2026-10-01T12:00:00Z",
+    ...sobrescrever,
+  };
+}
+
+export function umResumoAuditoria(
+  sobrescrever: Partial<ResumoAuditoria> = {},
+): ResumoAuditoria {
+  return {
+    banco_id: 1,
+    revisao_auditada: 0,
+    auditadas: 0,
+    ja_auditadas: 0,
+    discursivas_ignoradas: 0,
+    questoes: [],
+    proporcao_com_achado: "0.00",
+    ...sobrescrever,
+  };
+}
+
+export function umAchado(sobrescrever: Partial<Achado> = {}): Achado {
+  return {
+    risco: "distrator_indefensavel",
+    alvo: "C",
+    localizacao: "slide 4",
+    trecho_fonte: "O quicksort escolhe um pivô e particiona o vetor em torno dele.",
+    proposta_ajuste: "Reescreva a alternativa C com uma ideia que o aluno não elimine de imediato.",
     ...sobrescrever,
   };
 }

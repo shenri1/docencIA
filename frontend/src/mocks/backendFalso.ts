@@ -8,12 +8,15 @@
  * como PDF sem texto extraível; extensão fora de PDF/PPTX/DOCX/TXT dá 415;
  * versão de banco começando com "lacuna" deixa o número 2 sem sustentação na
  * primeira tentativa; versão começando com "insuf" faz todo pedido de variação
- * voltar com insuficiência de fonte; cadastrar a credencial "admin" cria um administrador (na
+ * voltar com insuficiência de fonte; versão começando com "achados" faz a
+ * auditoria apontar problemas nas questões 1 (correta não única) e 2 (assimetria
+ * de forma); cadastrar a credencial "admin" cria um administrador (na
  * API real, ele vem da migração e1a4c8f02b77). O estado nasce com o prompt mestre
  * 1.0.0 ativo, como depois da migração.
  */
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import type {
+  Achado,
   Banco,
   Docente,
   MarcoBanco,
@@ -24,6 +27,7 @@ import type {
   PropostaSubstituicao,
   Questao,
   RelatorioImpacto,
+  ResumoAuditoria,
   ResumoBanco,
   Sessao,
 } from "../api/tipos";
@@ -44,6 +48,26 @@ export interface BancoFalso {
   /** Todas as linhas, como na tabela: ativas, excluídas, substituídas, candidatas. */
   questoes: Questao[];
   ultimo_relatorio: RelatorioImpacto | null;
+  auditoria?: AuditoriaFalsa;
+}
+
+export interface AuditoriaFalsa {
+  /** número → achados que a auditoria encontra nele (padrão: nenhum). */
+  achados: Record<number, Achado[]>;
+  /** número → revisão do banco em que foi auditado. */
+  feitas: Map<number, number>;
+  /** Quantas vezes o POST foi chamado. */
+  chamadas: number;
+  /** `limite` de cada chamada, na ordem. */
+  limites: Array<number | null>;
+  /** A chamada de número N (a partir de 1) responde 502, sem auditar nada. */
+  falhaNa?: number;
+  /** Atraso de cada POST, em ms, para os testes conseguirem pausar. */
+  atraso?: number;
+}
+
+export function auditoriaFalsa(parcial: Partial<AuditoriaFalsa> = {}): AuditoriaFalsa {
+  return { achados: {}, feitas: new Map(), chamadas: 0, limites: [], ...parcial };
 }
 
 interface SessaoFalsa extends Sessao {
@@ -111,6 +135,55 @@ export function questaoFalsa(numero: number, tipo: Questao["tipo"] = "objetiva")
 
 const ativasDe = (banco: BancoFalso) => banco.questoes.filter((q) => q.estado === "ativa");
 
+const ACHADOS_PADRAO: Record<number, Achado[]> = {
+  1: [
+    {
+      risco: "correta_nao_unica",
+      alvo: "C",
+      localizacao: "slide 1",
+      trecho_fonte: "Trecho do material que também sustenta a alternativa C.",
+      proposta_ajuste: "Torne a alternativa C claramente incorreta ou reformule o enunciado.",
+    },
+  ],
+  2: [
+    {
+      risco: "assimetria_forma",
+      alvo: "A",
+      localizacao: null,
+      trecho_fonte: null,
+      proposta_ajuste: "A alternativa A é bem mais longa que as outras — encurte-a.",
+    },
+  ],
+};
+
+const objetivasAtivas = (banco: BancoFalso) =>
+  ativasDe(banco).filter((q) => q.tipo === "objetiva");
+const auditadasDe = (banco: BancoFalso) =>
+  objetivasAtivas(banco).filter((q) => banco.auditoria?.feitas.get(q.numero) === banco.revisao);
+
+function achadosDe(banco: BancoFalso, numero: number): Achado[] {
+  const roteiro = banco.auditoria?.achados[numero];
+  if (roteiro) return roteiro;
+  return banco.versao.startsWith("achados") ? (ACHADOS_PADRAO[numero] ?? []) : [];
+}
+
+function resumoDaAuditoria(banco: BancoFalso, jaAntes: number | null): ResumoAuditoria {
+  const feitas = auditadasDe(banco);
+  const questoes = feitas
+    .map((q) => ({ numero: q.numero, achados: achadosDe(banco, q.numero) }))
+    .filter((q) => q.achados.length > 0);
+  return {
+    banco_id: banco.banco_id,
+    revisao_auditada: banco.revisao,
+    auditadas: feitas.length,
+    ja_auditadas: jaAntes ?? feitas.length,
+    discursivas_ignoradas: ativasDe(banco).filter((q) => q.tipo === "discursiva").length,
+    questoes,
+    proporcao_com_achado:
+      feitas.length === 0 ? "0.00" : ((100 * questoes.length) / feitas.length).toFixed(2),
+  };
+}
+
 function relatorioFalso(banco: BancoFalso, evento: RelatorioImpacto["evento"]): RelatorioImpacto {
   const ativas = ativasDe(banco);
   const contagem: RelatorioImpacto["contagem_por_faixa"] = {};
@@ -145,8 +218,8 @@ function marcoDoBanco(banco: BancoFalso): MarcoBanco {
     n_atual: ativas.length,
     lacunas: n_alvo - banco.gerados.size,
     alerta_desvio: false,
-    objetivas_ativas: ativas.filter((q) => q.tipo === "objetiva").length,
-    objetivas_auditadas: 0,
+    objetivas_ativas: objetivasAtivas(banco).length,
+    objetivas_auditadas: auditadasDe(banco).length,
     comandos: ["prosseguir", "excluir", "auditar"],
     campos_prosseguir: ["versao", "revisao_esperada"],
   };
@@ -577,6 +650,39 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
       }
       candidata.estado = "descartada";
       return HttpResponse.json({ numero, decisao: "rejeitada" });
+    }),
+
+    http.post(`${base}/bancos/:id/auditoria`, async ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const banco = bancoDe(params.id);
+      if (!banco) return bancoNaoEncontrado(params.id);
+      const auditoria = (banco.auditoria ??= auditoriaFalsa());
+      const limite = Number(new URL(request.url).searchParams.get("limite")) || null;
+      auditoria.chamadas += 1;
+      auditoria.limites.push(limite);
+      await delay(auditoria.atraso ?? 0);
+      if (auditoria.falhaNa === auditoria.chamadas) {
+        return erro(
+          502,
+          "O modelo devolveu uma resposta que o sistema não conseguiu usar. Tente de novo.",
+          "RESPOSTA_LLM_INVALIDA",
+        );
+      }
+      const jaAntes = auditadasDe(banco).length;
+      const pendentes = objetivasAtivas(banco).filter(
+        (q) => auditoria.feitas.get(q.numero) !== banco.revisao,
+      );
+      for (const q of limite ? pendentes.slice(0, limite) : pendentes) {
+        auditoria.feitas.set(q.numero, banco.revisao);
+      }
+      return HttpResponse.json(resumoDaAuditoria(banco, jaAntes));
+    }),
+
+    http.get(`${base}/bancos/:id/auditoria`, ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const banco = bancoDe(params.id);
+      if (!banco) return bancoNaoEncontrado(params.id);
+      return HttpResponse.json(resumoDaAuditoria(banco, null));
     }),
 
     http.get(`${base}/prompts`, ({ request }) => {

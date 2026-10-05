@@ -1287,6 +1287,26 @@
               "type": "integer",
               "title": "Banco Id"
             }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 25,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Audita no máximo este tanto de questões nesta chamada. Sem limite, audita todas as pendentes.",
+              "title": "Limite"
+            },
+            "description": "Audita no máximo este tanto de questões nesta chamada. Sem limite, audita todas as pendentes."
           }
         ],
         "responses": {

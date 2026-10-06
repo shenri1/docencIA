@@ -2,7 +2,9 @@
  * Back-end falso com estado, só para o front avançar sem API nem Ollama
  * e para os testes de fluxo. Reproduz o contrato e os erros de domínio das telas já feitas
  * (auth, sessões, materiais, índice, geração e curadoria); não reproduz regra de negócio além do
- * necessário para exercitar a interface.
+ * necessário para exercitar a interface. A montagem de provas do falso é
+ * simplificada: A recebe as primeiras questões ativas de cada tipo, B as seguintes,
+ * e B completa com as de A quando faltam (compartilhadas); não há subtema nem plano de letras.
  *
  * Gatilhos de teste manual: um arquivo cujo nome começa com "ilegivel" é recusado
  * como PDF sem texto extraível; extensão fora de PDF/PPTX/DOCX/TXT dá 415;
@@ -22,9 +24,11 @@ import type {
   MarcoBanco,
   MarcoSessao,
   Material,
+  Prova,
   Prompt,
   PromptCriar,
   PropostaSubstituicao,
+  ProvasMontadas,
   Questao,
   RelatorioImpacto,
   ResumoAuditoria,
@@ -49,6 +53,8 @@ export interface BancoFalso {
   questoes: Questao[];
   ultimo_relatorio: RelatorioImpacto | null;
   auditoria?: AuditoriaFalsa;
+  /** Provas montadas: as questões de cada uma, em ordem de posição. */
+  provas?: ProvasFalsas;
 }
 
 export interface AuditoriaFalsa {
@@ -64,6 +70,15 @@ export interface AuditoriaFalsa {
   falhaNa?: number;
   /** Atraso de cada POST, em ms, para os testes conseguirem pausar. */
   atraso?: number;
+}
+
+export interface ProvasFalsas {
+  a: Questao[];
+  b: Questao[];
+  /** Revisão do banco na montagem. */
+  revisao: number;
+  /** O falso não tem subtema: o teste diz quantas questões ficariam sem. */
+  sem_subtema: number;
 }
 
 export function auditoriaFalsa(parcial: Partial<AuditoriaFalsa> = {}): AuditoriaFalsa {
@@ -134,6 +149,83 @@ export function questaoFalsa(numero: number, tipo: Questao["tipo"] = "objetiva")
 }
 
 const ativasDe = (banco: BancoFalso) => banco.questoes.filter((q) => q.estado === "ativa");
+
+/** Seleção do falso: A pega as primeiras de cada tipo, B as seguintes, e B
+ * completa com as de A quando faltam — essas são as compartilhadas. */
+export function montarFalso(
+  banco: BancoFalso,
+  nObjetivas: number,
+  nDiscursivas: number,
+): ProvasFalsas {
+  const escolher = (tipo: Questao["tipo"], n: number) => {
+    const doTipo = ativasDe(banco).filter((q) => q.tipo === tipo);
+    const a = doTipo.slice(0, n);
+    const resto = doTipo.slice(n, 2 * n);
+    return { a, b: [...resto, ...a.slice(0, n - resto.length)] };
+  };
+  const objetivas = escolher("objetiva", nObjetivas);
+  const discursivas = escolher("discursiva", nDiscursivas);
+  banco.provas = {
+    a: [...objetivas.a, ...discursivas.a],
+    b: [...objetivas.b, ...discursivas.b],
+    revisao: banco.revisao,
+    sem_subtema: 0,
+  };
+  return banco.provas;
+}
+
+const idDaProva = (banco: BancoFalso, versao: "A" | "B") =>
+  banco.banco_id * 10 + (versao === "A" ? 1 : 2);
+
+const objetivasEm = (questoes: Questao[]) =>
+  questoes.filter((q) => q.tipo === "objetiva").length;
+
+function montadasFalsas(banco: BancoFalso, provas: ProvasFalsas): ProvasMontadas {
+  const numerosB = new Set(provas.b.map((q) => q.numero));
+  const compartilhadas = provas.a
+    .map((q) => q.numero)
+    .filter((n) => numerosB.has(n))
+    .sort((x, y) => x - y);
+  return {
+    prova_a_id: idDaProva(banco, "A"),
+    prova_b_id: idDaProva(banco, "B"),
+    revisao_banco: provas.revisao,
+    compartilhadas,
+    sem_subtema: provas.sem_subtema,
+    verificacao: {
+      violacoes: [],
+      colisoes_letras: 0,
+      posicoes_objetivas: Math.min(objetivasEm(provas.a), objetivasEm(provas.b)),
+      compartilhadas: compartilhadas.length,
+      subtemas_compartilhados: {},
+    },
+  };
+}
+
+function provaLida(banco: BancoFalso, provas: ProvasFalsas, versao: "A" | "B"): Prova {
+  const questoes = versao === "A" ? provas.a : provas.b;
+  const objetivas = objetivasEm(questoes);
+  return {
+    prova_id: idDaProva(banco, versao),
+    versao,
+    estado: "montada",
+    n_questoes: questoes.length,
+    n_objetivas: objetivas,
+    n_discursivas: questoes.length - objetivas,
+    revisao_banco: provas.revisao,
+    banco_revisao_atual: banco.revisao,
+    desatualizada: provas.revisao !== banco.revisao,
+    // só letra e texto, nunca a correta.
+    itens: questoes.map((q, i) => ({
+      posicao: i + 1,
+      numero: q.numero,
+      tipo: q.tipo,
+      faixa_dificuldade: q.faixa_dificuldade,
+      enunciado: q.enunciado,
+      alternativas: q.alternativas.map(({ letra, texto }) => ({ letra, texto })),
+    })),
+  };
+}
 
 const ACHADOS_PADRAO: Record<number, Achado[]> = {
   1: [
@@ -212,7 +304,11 @@ function marcoDoBanco(banco: BancoFalso): MarcoBanco {
     versao: banco.versao,
     banco_id: banco.banco_id,
     revisao: banco.revisao,
-    marco: banco.estado === "congelado" ? "m6_provas" : "m3_exclusoes",
+    marco: banco.provas
+      ? "m10_docx"
+      : banco.estado === "congelado"
+        ? "m6_provas"
+        : "m3_exclusoes",
     motivo: null,
     n_alvo,
     n_atual: ativas.length,
@@ -650,6 +746,94 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
       }
       candidata.estado = "descartada";
       return HttpResponse.json({ numero, decisao: "rejeitada" });
+    }),
+
+    http.get(`${base}/bancos/:id/provas`, ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const banco = bancoDe(params.id);
+      if (!banco) return bancoNaoEncontrado(params.id);
+      if (!banco.provas) {
+        return erro(
+          404,
+          `O banco ${banco.versao} ainda não tem provas montadas.`,
+          "PROVAS_NAO_MONTADAS",
+        );
+      }
+      return HttpResponse.json(montadasFalsas(banco, banco.provas));
+    }),
+
+    http.post(`${base}/bancos/:id/provas`, async ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const banco = bancoDe(params.id);
+      if (!banco) return bancoNaoEncontrado(params.id);
+      const dados = (await request.json()) as {
+        n_objetivas: number;
+        n_discursivas: number;
+        revisao_esperada: number;
+      };
+      const conflito = revisaoDesatualizada(banco, dados.revisao_esperada);
+      if (conflito) return conflito;
+      if (banco.estado !== "congelado") {
+        return erro(
+          409,
+          `O banco ${banco.versao} não está congelado. Congele antes de montar as provas.`,
+          "BANCO_NAO_CONGELADO",
+        );
+      }
+      if (banco.provas) {
+        return erro(
+          409,
+          "A sessão já tem prova nas versões A, B. Remontar está fora do escopo.",
+          "PROVAS_JA_MONTADAS",
+        );
+      }
+      const ativas = ativasDe(banco);
+      const doTipo = (tipo: Questao["tipo"]) => ativas.filter((q) => q.tipo === tipo);
+      if (
+        dados.n_objetivas > doTipo("objetiva").length ||
+        dados.n_discursivas > doTipo("discursiva").length
+      ) {
+        const disponivel: Record<string, number> = {};
+        for (const tipo of ["objetiva", "discursiva"] as const) {
+          for (const faixa of FAIXAS) {
+            disponivel[`${tipo}/${faixa}`] = doTipo(tipo).filter(
+              (q) => q.faixa_dificuldade === faixa,
+            ).length;
+          }
+        }
+        return erro(
+          409,
+          "O banco não sustenta duas provas com essa distribuição. Reduza N, mude pF/pM/pD, ou substitua questões para reequilibrar as faixas.",
+          "BANCO_INSUFICIENTE_PARA_PROVA",
+          {
+            // O falso não distribui por faixa: a cota inteira vai para "media".
+            cotas_por_faixa: {
+              facil: 0,
+              media: dados.n_objetivas + dados.n_discursivas,
+              dificil: 0,
+            },
+            pedido_por_tipo: { objetiva: dados.n_objetivas, discursiva: dados.n_discursivas },
+            disponivel_por_celula: disponivel,
+          },
+        );
+      }
+      const provas = montarFalso(banco, dados.n_objetivas, dados.n_discursivas);
+      return HttpResponse.json(montadasFalsas(banco, provas), { status: 201 });
+    }),
+
+    http.get(`${base}/provas/:id`, ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const id = Number(params.id);
+      for (const sessao of estado.sessoes) {
+        const banco = sessao.banco;
+        if (!banco?.provas) continue;
+        for (const versao of ["A", "B"] as const) {
+          if (idDaProva(banco, versao) === id) {
+            return HttpResponse.json(provaLida(banco, banco.provas, versao));
+          }
+        }
+      }
+      return erro(404, `Prova ${id} não encontrada.`, "PROVA_NAO_ENCONTRADA");
     }),
 
     http.post(`${base}/bancos/:id/auditoria`, async ({ request, params }) => {

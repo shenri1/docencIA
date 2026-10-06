@@ -1434,6 +1434,52 @@
             }
           }
         }
+      },
+      "get": {
+        "tags": [
+          "Controle do Banco"
+        ],
+        "summary": "Ler Provas",
+        "description": "O mesmo que o POST devolveu, recalculado. 404 PROVAS_NAO_MONTADAS sem\nprovas; o front só pergunta com o marco em M10 ou concluído.",
+        "operationId": "ler_provas_bancos__banco_id__provas_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "banco_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Banco Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvasMontadasResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/bancos/{banco_id}/exportacoes": {

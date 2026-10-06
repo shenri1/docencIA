@@ -37,6 +37,9 @@ export function criarCliente({
 
 export type ClienteApi = ReturnType<typeof criarCliente>;
 
+export const MENSAGEM_SEM_CONEXAO =
+  "Não foi possível falar com o servidor. Verifique sua conexão e tente de novo.";
+
 interface Resultado<D> {
   data?: D;
   error?: unknown;
@@ -49,10 +52,7 @@ export async function desembrulhar<D>(pendente: Promise<Resultado<D>>): Promise<
   try {
     resultado = await pendente;
   } catch {
-    throw new ErroApi(
-      0,
-      "Não foi possível falar com o servidor. Verifique sua conexão e tente de novo.",
-    );
+    throw new ErroApi(0, MENSAGEM_SEM_CONEXAO);
   }
   if (!resultado.response.ok) {
     throw erroDeResposta(resultado.response.status, resultado.error);

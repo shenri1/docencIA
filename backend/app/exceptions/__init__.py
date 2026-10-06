@@ -679,6 +679,20 @@ class ProvaNaoEncontradaException(DomainException):
         super().__init__(f"Prova {prova_id} não encontrada.", prova_id=prova_id)
 
 
+class ProvasNaoMontadasException(DomainException):
+    """Frontend ler as provas de um banco que ainda não as tem. Não usa
+    `ProvaNaoEncontradaException`, que identifica uma prova por id — aqui não
+    existe id nenhum."""
+
+    status_code = 404
+    codigo = "PROVAS_NAO_MONTADAS"
+
+    def __init__(self, versao: str) -> None:
+        super().__init__(
+            f"O banco {versao} ainda não tem provas montadas.", versao=versao
+        )
+
+
 class BancoNaoCongeladoException(DomainException):
     """Montar sobre banco aberto deixaria uma exclusão invalidar em silêncio uma
     prova já impressa."""

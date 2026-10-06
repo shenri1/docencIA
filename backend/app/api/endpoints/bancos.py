@@ -54,6 +54,7 @@ from backend.app.services.exportacao.exportacao_service import (
     listar_exportacoes,
 )
 from backend.app.services.geracao.banco_service import Produzida
+from backend.app.services.provas.leitura import provas_do_banco
 from backend.app.services.provas.montagem_service import ProvasMontadas, montar_provas
 from backend.app.services.provedor.provedor_service import ProvedorLLMService
 from backend.app.services.rag.embeddings import Embeddings, get_embeddings
@@ -249,6 +250,18 @@ def montar(
         n_discursivas=dados.n_discursivas,
         revisao_esperada=dados.revisao_esperada,
     )
+
+
+@router.get("/provas", response_model=ProvasMontadasResposta)
+def ler_provas(
+    banco_id: int,
+    db: Session = Depends(get_db),
+    docente: Docente = Depends(get_current_docente),
+) -> ProvasMontadas:
+    """O mesmo que o POST devolveu, recalculado. 404 PROVAS_NAO_MONTADAS sem
+    provas; o front só pergunta com o marco em M10 ou concluído."""
+    banco = obter_banco(db, docente, banco_id)
+    return provas_do_banco(db, banco)
 
 
 @router.post(

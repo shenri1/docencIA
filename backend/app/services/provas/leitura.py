@@ -11,13 +11,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.app.domain import EstadoProva, FaixaDificuldade, TipoQuestao
-from backend.app.exceptions import ProvaNaoEncontradaException
+from backend.app.exceptions import ProvaNaoEncontradaException, ProvasNaoMontadasException
+from backend.app.models.banco import BancoQuestoes
 from backend.app.models.identidade import Docente
 from backend.app.models.provas import ItemProva, Prova
-from backend.app.services.provas.montagem_service import VERSAO_A, VERSAO_B
+from backend.app.services.provas.montagem_service import VERSAO_A, VERSAO_B, ProvasMontadas
+from backend.app.services.provas.verificacao import verificar_provas
 
 
 @dataclass(frozen=True)
@@ -123,3 +126,36 @@ def par_da_prova(db: Session, prova: Prova) -> Prova:
     if par is None:
         raise ProvaNaoEncontradaException(prova.id)
     return par
+
+
+def provas_do_banco(db: Session, banco: BancoQuestoes) -> ProvasMontadas:
+    """Frontend o que `montar_provas` devolveu, recalculado do estado
+    gravado a cada pedido — como o marco. Sem isto, recarregar a página no M10
+    deixaria o front sem os ids das provas."""
+    por_versao = {
+        prova.versao: prova
+        for prova in db.scalars(select(Prova).where(Prova.banco_id == banco.id))
+    }
+    prova_a, prova_b = por_versao.get(VERSAO_A), por_versao.get(VERSAO_B)
+    if prova_a is None or prova_b is None:
+        raise ProvasNaoMontadasException(banco.versao)
+
+    numeros_b = {item.questao.numero for item in prova_b.itens}
+    # Mesma definição da seleção: questões distintas das duas provas.
+    selecionadas = {
+        item.questao.id: item.questao
+        for prova in (prova_a, prova_b)
+        for item in prova.itens
+    }
+    return ProvasMontadas(
+        prova_a_id=prova_a.id,
+        prova_b_id=prova_b.id,
+        revisao_banco=prova_a.revisao_banco,
+        compartilhadas=sorted(
+            item.questao.numero
+            for item in prova_a.itens
+            if item.questao.numero in numeros_b
+        ),
+        sem_subtema=sum(1 for q in selecionadas.values() if q.subtema is None),
+        verificacao=verificar_provas(db, prova_a, prova_b),
+    )

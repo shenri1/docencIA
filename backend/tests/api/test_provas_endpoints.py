@@ -1,4 +1,7 @@
+import pytest
+
 from backend.app.main import app
+from backend.app.models.provas import Prova
 from backend.tests.conftest import _auth
 
 
@@ -203,3 +206,49 @@ def test_gabarito_comentado(client, db_session):
     assert item["justificativa_correta"]
     assert len(item["invalidacoes"]) == 4
     assert item["fontes"][0]["trecho_base"]
+
+
+@pytest.mark.parametrize("n_objetivas", [10, 15])
+def test_get_provas_devolve_o_que_o_post_devolveu(client, db_session, n_objetivas):
+    """15 por prova num banco de 25 força questões compartilhadas: a leitura tem
+    de recalcular as mesmas que a montagem escolheu."""
+    headers, banco = preparar(client, db_session, f"prof-get-provas-{n_objetivas}")
+    montada = montar(client, headers, banco, n_objetivas=n_objetivas)
+    assert montada.status_code == 201
+
+    lida = client.get(f"/bancos/{banco.id}/provas", headers=headers)
+
+    assert lida.status_code == 200
+    assert lida.json() == montada.json()
+
+
+def test_get_provas_recalcula_sem_subtema_do_estado_gravado(client, db_session):
+    headers, banco = preparar(client, db_session, "prof-get-sem-subtema")
+    montada = montar(client, headers, banco).json()
+    prova_a = db_session.get(Prova, montada["prova_a_id"])
+    prova_a.itens[0].questao.subtema = None
+    db_session.commit()
+
+    corpo = client.get(f"/bancos/{banco.id}/provas", headers=headers).json()
+
+    assert corpo["sem_subtema"] == 1
+
+
+def test_get_provas_sem_provas_responde_404(client, db_session):
+    headers, banco = preparar(client, db_session, "prof-get-sem-provas")
+
+    resposta = client.get(f"/bancos/{banco.id}/provas", headers=headers)
+
+    assert resposta.status_code == 404
+    assert resposta.json()["codigo"] == "PROVAS_NAO_MONTADAS"
+
+
+def test_get_provas_de_banco_alheio_responde_404(client, db_session):
+    headers, banco = preparar(client, db_session, "prof-dono-get-provas")
+    assert montar(client, headers, banco).status_code == 201
+    outro = _auth(client, "prof-intruso-get-provas")
+
+    resposta = client.get(f"/bancos/{banco.id}/provas", headers=outro)
+
+    assert resposta.status_code == 404
+    assert resposta.json()["codigo"] == "BANCO_NAO_ENCONTRADO"

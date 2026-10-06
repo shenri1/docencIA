@@ -25,10 +25,10 @@ describe("rotas protegidas", () => {
         ),
       ),
     );
-    const { router } = renderApp("/", { token: "expirado" });
+    const { router } = renderApp("/sessoes", { token: "expirado" });
 
     await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
-    expect(router.state.location.search).toMatchObject({ redirect: "/" });
+    expect(router.state.location.search).toMatchObject({ redirect: "/sessoes" });
     expect(lerToken()).toBeNull();
     expect(screen.queryByText("Ana Souza")).not.toBeInTheDocument();
   });
@@ -40,7 +40,7 @@ describe("casca autenticada", () => {
       http.get(`${API}/auth/me`, () => HttpResponse.json(DOCENTE)),
       http.get(`${API}/sessoes`, () => HttpResponse.json([])),
     );
-    const { user, router } = renderApp("/", { token: "valido" });
+    const { user, router } = renderApp("/sessoes", { token: "valido" });
 
     expect(await screen.findByText("Ana Souza")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Sair" }));

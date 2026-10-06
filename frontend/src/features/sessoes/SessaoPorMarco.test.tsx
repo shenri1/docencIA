@@ -77,6 +77,44 @@ describe("/sessoes/:id lê o marco e redireciona", () => {
     ).toBeInTheDocument();
   });
 
+  it("banco congelado (M6) leva às provas", async () => {
+    backend(
+      umMarcoSessao({
+        sessao_id: 5,
+        marco: "m6_provas",
+        bancos: [umMarcoBanco({ marco: "m6_provas" })],
+      }),
+    );
+    const { router } = renderApp("/sessoes/5", { token: "t" });
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/sessoes/5/provas"),
+    );
+  });
+
+  it("provas montadas (M10) levam às provas", async () => {
+    backend(
+      umMarcoSessao({
+        sessao_id: 5,
+        marco: "m10_docx",
+        bancos: [umMarcoBanco({ marco: "m10_docx" })],
+      }),
+    );
+    server.use(
+      http.get(`${API}/bancos/1/provas`, () =>
+        HttpResponse.json(
+          { detail: "O banco v1 ainda não tem provas montadas.", codigo: "PROVAS_NAO_MONTADAS" },
+          { status: 404 },
+        ),
+      ),
+    );
+    const { router } = renderApp("/sessoes/5", { token: "t" });
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/sessoes/5/provas"),
+    );
+  });
+
   it("recarregar em /banco com lacunas fica em /banco", async () => {
     backend(
       umMarcoSessao({

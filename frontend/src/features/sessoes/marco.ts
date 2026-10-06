@@ -12,12 +12,14 @@ export function bancoMaisRecente(marco: MarcoSessao): MarcoBanco | null {
 export type RotaDoMarco =
   | "/sessoes/$sessaoId/materiais"
   | "/sessoes/$sessaoId/geracao"
-  | "/sessoes/$sessaoId/banco";
+  | "/sessoes/$sessaoId/banco"
+  | "/sessoes/$sessaoId/provas";
 
 /**
- * M1 → materiais; sem banco, ou banco aberto com lacunas → geração;
- * o resto → banco. Só a entrada por /sessoes/:id usa isto, para que "seguir com
- * lacunas" não seja desfeito ao recarregar /banco.
+ * M1 → materiais; sem banco, ou banco aberto com lacunas →
+ * geração; congelado ou com provas → provas; o resto → banco. Só a entrada por
+ * /sessoes/:id usa isto, para que "seguir com lacunas" não seja desfeito ao
+ * recarregar /banco.
  */
 export function rotaDoMarco(marco: MarcoSessao): RotaDoMarco {
   if (marco.marco === "m1_materiais") return "/sessoes/$sessaoId/materiais";
@@ -27,6 +29,10 @@ export function rotaDoMarco(marco: MarcoSessao): RotaDoMarco {
   }
   if (banco.marco === "m3_exclusoes" && banco.lacunas > 0) {
     return "/sessoes/$sessaoId/geracao";
+  }
+  // `concluido` volta a ter destino próprio (exportações).
+  if (banco.marco === "m6_provas" || banco.marco === "m10_docx" || banco.marco === "concluido") {
+    return "/sessoes/$sessaoId/provas";
   }
   return "/sessoes/$sessaoId/banco";
 }

@@ -1,47 +1,9 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import {
-  type BancoFalso,
-  auditoriaFalsa,
-  criarHandlers,
-  novoEstado,
-  questaoFalsa,
-} from "../../mocks/backendFalso";
+import { auditoriaFalsa, criarHandlers, novoEstado } from "../../mocks/backendFalso";
 import { server } from "../../mocks/server";
 import { DOCENTE, umAchado, umMaterial, umaSessao } from "../../test/fixtures";
+import { comBanco } from "../../test/comBanco";
 import { API, renderApp } from "../../test/renderApp";
-
-/**
- * Sessão 5 com o banco 7 já gerado, servida pelo back-end falso com estado.
- * O objeto devolvido é o estado vivo do banco, inclusive a auditoria falsa.
- */
-function comBanco({
-  objetivas = 3,
-  discursivas = 0,
-  versao = "v1",
-}: { objetivas?: number; discursivas?: number; versao?: string } = {}): BancoFalso {
-  const estado = novoEstado();
-  estado.docentes.push({ ...DOCENTE, senha: "segredo123" });
-  const numeros = Array.from({ length: objetivas + discursivas }, (_, i) => i + 1);
-  const banco: BancoFalso = {
-    banco_id: 7,
-    versao,
-    n_objetivas: objetivas,
-    n_discursivas: discursivas,
-    gerados: new Set(numeros),
-    recusados: new Set(),
-    revisao: 0,
-    estado: "aberto",
-    questoes: numeros.map((n) => questaoFalsa(n, n > objetivas ? "discursiva" : "objetiva")),
-    ultimo_relatorio: null,
-  };
-  estado.sessoes.push({
-    ...umaSessao({ id: 5, estado: "banco_gerado" }),
-    materiais: [umMaterial()],
-    banco,
-  });
-  server.use(...criarHandlers(API, estado));
-  return banco;
-}
 
 // DOCENTE.id é 1, e o falso reconhece o token "mock-token-<id>".
 const abrir = () => renderApp("/sessoes/5/auditoria", { token: "mock-token-1" });

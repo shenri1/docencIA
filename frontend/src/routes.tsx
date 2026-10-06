@@ -14,6 +14,7 @@ import { AreaAdmin } from "./features/admin/AreaAdmin";
 import { Logs } from "./features/admin/Logs";
 import { Prompts } from "./features/admin/Prompts";
 import { Auditoria } from "./features/auditoria/Auditoria";
+import { Provas } from "./features/provas/Provas";
 import { Geracao } from "./features/banco/Geracao";
 import { MesaCuradoria } from "./features/banco/MesaCuradoria";
 import { Cadastro } from "./features/auth/Cadastro";
@@ -123,6 +124,15 @@ const auditoria = createRoute({
   },
 });
 
+const provas = createRoute({
+  getParentRoute: () => autenticado,
+  path: "/sessoes/$sessaoId/provas",
+  component: function RotaProvas() {
+    const { sessaoId } = provas.useParams();
+    return <Provas sessaoId={sessaoId} />;
+  },
+});
+
 const novaSessao = createRoute({
   getParentRoute: () => autenticado,
   path: "/sessoes/nova",
@@ -186,6 +196,7 @@ const arvore = raiz.addChildren([
     banco,
     geracao,
     auditoria,
+    provas,
     admin.addChildren([adminInicio, adminPrompts, adminLogs]),
   ]),
 ]);

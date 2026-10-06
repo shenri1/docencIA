@@ -60,8 +60,9 @@ def test_seed_cria_a_cadeia_de_fallback(engine_migrado):
         ).all()
 
     assert [(linha[0], linha[1], linha[2]) for linha in linhas] == [
-        ("ollama-qwen3-4b", "qwen3:4b", 1),
-        ("ollama-qwen3-1.7b", "qwen3:1.7b", 2),
+        ("ollama-qwen3.5-9b", "qwen3.5:9b", 1),
+        ("ollama-qwen3-4b", "qwen3:4b", 2),
+        ("ollama-qwen3-1.7b", "qwen3:1.7b", 3),
     ]
     # endpoint NULL = usar settings.llm_base_url, que difere entre local e
     # Compose. Gravar um host aqui quebraria um dos dois ambientes.
@@ -375,5 +376,72 @@ def test_semente_recusa_senha_curta(monkeypatch):
     try:
         with pytest.raises(ValueError, match="ADMIN_SENHA"):
             command.upgrade(cfg, "head")
+    finally:
+        eng.dispose()
+
+
+def _cadeia(eng):
+    with eng.connect() as conn:
+        return [
+            tuple(linha)
+            for linha in conn.execute(
+                text(
+                    "SELECT nome, modelo, prioridade FROM provedores_llm "
+                    "WHERE ativo = true ORDER BY prioridade"
+                )
+            ).all()
+        ]
+
+
+def test_migracao_qwen35_ida_e_volta(monkeypatch):
+    """A troca de modelo regrava as tags (desfaz edição manual da linha), e o
+    downgrade não apaga o 9b quando uma sessão já aponta para ele."""
+    _admin_do_env(monkeypatch, credencial=None, nome=None, senha=None)
+    cfg, eng = _banco_ate("e1a4c8f02b77")
+    try:
+        with eng.begin() as conn:
+            conn.execute(
+                text(
+                    "UPDATE provedores_llm SET modelo = 'qwen3:latest' "
+                    "WHERE nome = 'ollama-qwen3-4b'"
+                )
+            )
+
+        cadeia_nova = [
+            ("ollama-qwen3.5-9b", "qwen3.5:9b", 1),
+            ("ollama-qwen3-4b", "qwen3:4b", 2),
+            ("ollama-qwen3-1.7b", "qwen3:1.7b", 3),
+        ]
+        command.upgrade(cfg, "head")
+        assert _cadeia(eng) == cadeia_nova
+
+        with eng.begin() as conn:
+            docente_id = conn.execute(
+                text(
+                    "INSERT INTO docentes (nome, credencial_institucional, "
+                    "senha_hash, perfil) VALUES ('Ana', 'ana35', 'x', 'DOCENTE') "
+                    "RETURNING id"
+                )
+            ).scalar_one()
+            conn.execute(
+                text(
+                    "INSERT INTO sessoes_geracao (docente_id, disciplina, periodo, "
+                    "k_alternativas, p_f, p_m, p_d, estado, provedor_llm_id) "
+                    "SELECT :d, 'Algoritmos', '2026.2', 5, 30, 40, 30, "
+                    "'MATERIAIS_CONFIRMADOS', id FROM provedores_llm "
+                    "WHERE nome = 'ollama-qwen3.5-9b'"
+                ),
+                {"d": docente_id},
+            )
+
+        command.downgrade(cfg, "e1a4c8f02b77")
+        assert _cadeia(eng) == [
+            ("ollama-qwen3-4b", "qwen3:4b", 1),
+            ("ollama-qwen3-1.7b", "qwen3:1.7b", 2),
+        ]
+
+        # Subir de novo reativa a linha que o downgrade só desativou.
+        command.upgrade(cfg, "head")
+        assert _cadeia(eng) == cadeia_nova
     finally:
         eng.dispose()

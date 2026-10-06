@@ -15,6 +15,8 @@ import { Logs } from "./features/admin/Logs";
 import { Prompts } from "./features/admin/Prompts";
 import { Auditoria } from "./features/auditoria/Auditoria";
 import { Entrega } from "./features/entrega/Entrega";
+import { Landing } from "./features/publico/Landing";
+import { Privacidade } from "./features/publico/Privacidade";
 import { Provas } from "./features/provas/Provas";
 import { Geracao } from "./features/banco/Geracao";
 import { MesaCuradoria } from "./features/banco/MesaCuradoria";
@@ -33,6 +35,16 @@ export interface ContextoRota {
 
 const raiz = createRootRouteWithContext<ContextoRota>()({ component: Outlet });
 
+// a landing é para quem ainda não entrou.
+const inicio = createRoute({
+  getParentRoute: () => raiz,
+  path: "/",
+  beforeLoad: () => {
+    if (lerToken()) throw redirect({ to: "/sessoes" });
+  },
+  component: Landing,
+});
+
 const login = createRoute({
   getParentRoute: () => raiz,
   path: "/login",
@@ -49,7 +61,7 @@ const login = createRoute({
         : undefined,
   }),
   beforeLoad: () => {
-    if (lerToken()) throw redirect({ to: "/" });
+    if (lerToken()) throw redirect({ to: "/sessoes" });
   },
   component: Login,
 });
@@ -58,9 +70,16 @@ const cadastro = createRoute({
   getParentRoute: () => raiz,
   path: "/cadastro",
   beforeLoad: () => {
-    if (lerToken()) throw redirect({ to: "/" });
+    if (lerToken()) throw redirect({ to: "/sessoes" });
   },
   component: Cadastro,
+});
+
+// Pública com ou sem token: quem já entrou também precisa poder lê-la.
+const privacidade = createRoute({
+  getParentRoute: () => raiz,
+  path: "/privacidade",
+  component: Privacidade,
 });
 
 // Layout sem caminho: tudo que mora aqui exige token. Sem ele, o login recebe a
@@ -78,7 +97,7 @@ const autenticado = createRoute({
 
 const painel = createRoute({
   getParentRoute: () => autenticado,
-  path: "/",
+  path: "/sessoes",
   validateSearch: (busca: Record<string, unknown>): { pagina?: number } => {
     const pagina = Number(busca.pagina);
     return { pagina: Number.isInteger(pagina) && pagina > 1 ? pagina : undefined };
@@ -195,8 +214,10 @@ const adminLogs = createRoute({
 });
 
 const arvore = raiz.addChildren([
+  inicio,
   login,
   cadastro,
+  privacidade,
   autenticado.addChildren([
     painel,
     novaSessao,

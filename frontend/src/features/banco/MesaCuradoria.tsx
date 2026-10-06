@@ -96,13 +96,26 @@ function Mesa({ sessaoId, marcoBanco, proxima }: MesaProps) {
       {provasMontadas && (
         <Alerta>
           As provas já foram montadas sobre este banco. Uma variação aceita agora as deixaria
-          desatualizadas, por isso não é possível pedir variação.
+          desatualizadas, por isso não é possível pedir variação.{" "}
+          <Link
+            to="/sessoes/$sessaoId/provas"
+            params={{ sessaoId: String(sessaoId) }}
+            className="underline"
+          >
+            Ver provas
+          </Link>
         </Alerta>
       )}
-      {dados.estado === "congelado" && (
+      {dados.estado === "congelado" && !provasMontadas && (
         <Alerta titulo="Banco congelado">
-          A janela de exclusões está fechada. Próxima ação: {proxima} — ainda não disponível
-          nesta versão da interface.
+          A janela de exclusões está fechada. Próxima ação:{" "}
+          <Link
+            to="/sessoes/$sessaoId/provas"
+            params={{ sessaoId: String(sessaoId) }}
+            className="underline"
+          >
+            {proxima}
+          </Link>
         </Alerta>
       )}
 

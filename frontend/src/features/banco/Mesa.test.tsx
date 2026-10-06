@@ -1,47 +1,10 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
-import {
-  type BancoFalso,
-  criarHandlers,
-  novoEstado,
-  questaoFalsa,
-} from "../../mocks/backendFalso";
+import { questaoFalsa } from "../../mocks/backendFalso";
 import { server } from "../../mocks/server";
-import { DOCENTE, umMarcoBanco, umMarcoSessao, umMaterial, umaSessao } from "../../test/fixtures";
+import { umMarcoBanco, umMarcoSessao } from "../../test/fixtures";
+import { comBanco } from "../../test/comBanco";
 import { API, renderApp } from "../../test/renderApp";
-
-/**
- * Sessão 5 com o banco 7 já gerado, servida pelo back-end falso com estado.
- * O objeto devolvido é o estado vivo do banco: mudá-lo simula outra janela.
- */
-function comBanco({
-  objetivas = 3,
-  discursivas = 0,
-  versao = "v1",
-}: { objetivas?: number; discursivas?: number; versao?: string } = {}): BancoFalso {
-  const estado = novoEstado();
-  estado.docentes.push({ ...DOCENTE, senha: "segredo123" });
-  const numeros = Array.from({ length: objetivas + discursivas }, (_, i) => i + 1);
-  const banco: BancoFalso = {
-    banco_id: 7,
-    versao,
-    n_objetivas: objetivas,
-    n_discursivas: discursivas,
-    gerados: new Set(numeros),
-    recusados: new Set(),
-    revisao: 0,
-    estado: "aberto",
-    questoes: numeros.map((n) => questaoFalsa(n, n > objetivas ? "discursiva" : "objetiva")),
-    ultimo_relatorio: null,
-  };
-  estado.sessoes.push({
-    ...umaSessao({ id: 5, estado: "banco_gerado" }),
-    materiais: [umMaterial()],
-    banco,
-  });
-  server.use(...criarHandlers(API, estado));
-  return banco;
-}
 
 // DOCENTE.id é 1, e o falso reconhece o token "mock-token-<id>".
 const abrirMesa = () => renderApp("/sessoes/5/banco", { token: "mock-token-1" });
@@ -287,6 +250,10 @@ describe("Mesa de curadoria — variação", () => {
     const primeira = await cartao(1);
     expect(within(primeira).queryByRole("button", { name: "Pedir variação" })).not.toBeInTheDocument();
     expect(screen.getByText(/provas já foram montadas/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ver provas" })).toHaveAttribute(
+      "href",
+      "/sessoes/5/provas",
+    );
   });
 });
 
@@ -304,7 +271,10 @@ describe("Mesa de curadoria — congelar", () => {
       await screen.findByText("Banco congelado na revisão r1, com 3 questões ativas."),
     ).toBeInTheDocument();
     expect(banco.estado).toBe("congelado");
-    expect(await screen.findByText(/Próxima ação: Montar provas/)).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Montar provas" })).toHaveAttribute(
+      "href",
+      "/sessoes/5/provas",
+    );
     const primeira = await cartao(1);
     expect(within(primeira).queryByRole("button", { name: "Marcar para exclusão" })).not.toBeInTheDocument();
     expect(within(primeira).getByRole("button", { name: "Pedir variação" })).toBeInTheDocument();

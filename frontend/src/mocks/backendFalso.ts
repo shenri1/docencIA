@@ -23,6 +23,8 @@ import type {
   Docente,
   MarcoBanco,
   MarcoSessao,
+  Exportacao,
+  Gabarito,
   Material,
   Prova,
   Prompt,
@@ -55,6 +57,10 @@ export interface BancoFalso {
   auditoria?: AuditoriaFalsa;
   /** Provas montadas: as questões de cada uma, em ordem de posição. */
   provas?: ProvasFalsas;
+  /** Exportações gravadas. */
+  exportacoes?: ExportacaoFalsa[];
+  /** Se presente, POST /exportacoes responde 409 com estes problemas. */
+  problemasExportacao?: string[];
 }
 
 export interface AuditoriaFalsa {
@@ -79,7 +85,20 @@ export interface ProvasFalsas {
   revisao: number;
   /** O falso não tem subtema: o teste diz quantas questões ficariam sem. */
   sem_subtema: number;
+  /** Gatilhos do gabarito: incompleto, e números com cita_letra ou sem letra. */
+  gabarito?: { incompleto?: boolean; citaLetra?: number[]; semLetra?: number[] };
 }
+
+/** `corrompida` faz o download responder 500, como sha256 divergente na API. */
+export type ExportacaoFalsa = Exportacao & { corrompida?: boolean };
+
+const publica = ({ corrompida: _corrompida, ...exportacao }: ExportacaoFalsa): Exportacao =>
+  exportacao;
+
+const hashFalso = (tipo: Exportacao["tipo"], revisao: number) =>
+  (tipo === "conteudo_puro" ? "a" : "b").repeat(60) + String(revisao).padStart(4, "0");
+
+const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 export function auditoriaFalsa(parcial: Partial<AuditoriaFalsa> = {}): AuditoriaFalsa {
   return { achados: {}, feitas: new Map(), chamadas: 0, limites: [], ...parcial };
@@ -202,6 +221,64 @@ function montadasFalsas(banco: BancoFalso, provas: ProvasFalsas): ProvasMontadas
   };
 }
 
+function gabaritoFalso(
+  banco: BancoFalso,
+  provas: ProvasFalsas,
+  versao: "A" | "B",
+  modalidade: Gabarito["modalidade"],
+): Gabarito {
+  const comentado = modalidade === "comentado";
+  const avisos = provas.gabarito ?? {};
+  const questoes = versao === "A" ? provas.a : provas.b;
+  // Simples: fontes sem trecho, como a API.
+  const fonte = (f: Questao["fontes"][number]) => ({
+    identificador_material: f.identificador_material,
+    localizacao: f.localizacao,
+    trecho_base: comentado ? f.trecho_base : null,
+  });
+  return {
+    prova_id: idDaProva(banco, versao),
+    versao,
+    modalidade,
+    revisao_banco: provas.revisao,
+    desatualizada: provas.revisao !== banco.revisao,
+    completo: !avisos.incompleto,
+    problemas: avisos.incompleto
+      ? [`Questão ${questoes[0]?.numero ?? 1} sem justificativa da correta.`]
+      : [],
+    itens: questoes.map((q, i) => {
+      const objetiva = q.tipo === "objetiva";
+      const semLetra = comentado && objetiva && (avisos.semLetra ?? []).includes(q.numero);
+      return {
+        posicao: i + 1,
+        numero: q.numero,
+        tipo: q.tipo,
+        letra: objetiva ? q.letra_correta : null,
+        fontes: q.fontes.map(fonte),
+        aspectos: q.aspectos_esperados.map((a) => ({
+          ordem: a.ordem,
+          texto: a.texto,
+          fonte: fonte(a.fonte),
+        })),
+        justificativa_correta:
+          comentado && objetiva ? `Justificativa da correta da questão ${q.numero}.` : null,
+        invalidacoes:
+          comentado && objetiva
+            ? q.alternativas
+                .filter((a) => a.letra !== q.letra_correta)
+                .map((a, k) => ({
+                  letra: semLetra ? null : a.letra,
+                  motivo: `Motivo do distrator ${k + 1} da questão ${q.numero}.`,
+                }))
+            : [],
+        objetivo_cognitivo: comentado ? `Objetivo cognitivo da questão ${q.numero}.` : null,
+        invalidacoes_sem_letra: semLetra,
+        cita_letra: comentado && objetiva && (avisos.citaLetra ?? []).includes(q.numero),
+      };
+    }),
+  };
+}
+
 function provaLida(banco: BancoFalso, provas: ProvasFalsas, versao: "A" | "B"): Prova {
   const questoes = versao === "A" ? provas.a : provas.b;
   const objetivas = objetivasEm(questoes);
@@ -304,11 +381,13 @@ function marcoDoBanco(banco: BancoFalso): MarcoBanco {
     versao: banco.versao,
     banco_id: banco.banco_id,
     revisao: banco.revisao,
-    marco: banco.provas
-      ? "m10_docx"
-      : banco.estado === "congelado"
-        ? "m6_provas"
-        : "m3_exclusoes",
+    marco: banco.exportacoes?.some((e) => e.revisao_banco === banco.revisao)
+      ? "concluido"
+      : banco.provas
+        ? "m10_docx"
+        : banco.estado === "congelado"
+          ? "m6_provas"
+          : "m3_exclusoes",
     motivo: null,
     n_alvo,
     n_atual: ativas.length,
@@ -339,6 +418,20 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
     estado.sessoes.find((s) => s.banco?.banco_id === Number(id))?.banco;
   const bancoNaoEncontrado = (id: unknown) =>
     erro(404, `Banco ${String(id)} não encontrado.`, "BANCO_NAO_ENCONTRADO");
+  const provaDe = (id: string | readonly string[] | undefined) => {
+    for (const sessao of estado.sessoes) {
+      const banco = sessao.banco;
+      if (!banco?.provas) continue;
+      for (const versao of ["A", "B"] as const) {
+        if (idDaProva(banco, versao) === Number(id)) {
+          return { banco, provas: banco.provas, versao };
+        }
+      }
+    }
+    return null;
+  };
+  const provaNaoEncontrada = (id: unknown) =>
+    erro(404, `Prova ${String(id)} não encontrada.`, "PROVA_NAO_ENCONTRADA");
   const revisaoDesatualizada = (banco: BancoFalso, esperada: number) =>
     esperada === banco.revisao
       ? null
@@ -353,6 +446,8 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
     banco.ultimo_relatorio = relatorioFalso(banco, evento);
     return HttpResponse.json(banco.ultimo_relatorio);
   };
+
+  let proximaExportacao = 1;
 
   return [
     http.post(`${base}/auth/registrar`, async ({ request }) => {
@@ -823,17 +918,96 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
 
     http.get(`${base}/provas/:id`, ({ request, params }) => {
       if (!docenteDoToken(request)) return naoAutorizado();
-      const id = Number(params.id);
+      const achada = provaDe(params.id);
+      if (!achada) return provaNaoEncontrada(params.id);
+      return HttpResponse.json(provaLida(achada.banco, achada.provas, achada.versao));
+    }),
+
+    http.get(`${base}/provas/:id/gabarito`, ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const achada = provaDe(params.id);
+      if (!achada) return provaNaoEncontrada(params.id);
+      const modalidade = new URL(request.url).searchParams.get("modalidade");
+      if (modalidade !== "simples" && modalidade !== "comentado") {
+        return HttpResponse.json(
+          { detail: [{ loc: ["query", "modalidade"], msg: "Field required" }] },
+          { status: 422 },
+        );
+      }
+      return HttpResponse.json(
+        gabaritoFalso(achada.banco, achada.provas, achada.versao, modalidade),
+      );
+    }),
+
+    http.post(`${base}/bancos/:id/exportacoes`, ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const banco = bancoDe(params.id);
+      if (!banco) return bancoNaoEncontrado(params.id);
+      // A checagem pré-DOCX do falso: o essencial da API, acumulado numa lista.
+      const problemas = [...(banco.problemasExportacao ?? [])];
+      if (!banco.provas) {
+        problemas.push("A sessão não tem as provas A e B montadas.");
+      } else if (banco.provas.revisao !== banco.revisao) {
+        problemas.push(
+          `As provas são da revisão ${banco.provas.revisao} e o banco está na ${banco.revisao}.`,
+        );
+      } else if (banco.provas.gabarito?.incompleto) {
+        problemas.push("O gabarito comentado está incompleto.");
+      }
+      if (problemas.length > 0) {
+        return erro(
+          409,
+          `O banco está em estado incoerente (${problemas.length} problema(s)) e não pode ser entregue.`,
+          "INCONSISTENCIA_DE_ESTADO",
+          { problemas },
+        );
+      }
+      banco.exportacoes ??= [];
+      const daRevisao = banco.exportacoes.filter((e) => e.revisao_banco === banco.revisao);
+      if (daRevisao.length > 0) {
+        // Mesma revisão: os mesmos registros, sem gravar outros.
+        return HttpResponse.json(daRevisao.map(publica), { status: 201 });
+      }
+      const novas = (["conteudo_puro", "metadados"] as const).map((tipo) => ({
+        id: proximaExportacao++,
+        tipo,
+        revisao_banco: banco.revisao,
+        hash_conteudo: hashFalso(tipo, banco.revisao),
+        criado_em: new Date().toISOString(),
+      }));
+      banco.exportacoes.push(...novas);
+      return HttpResponse.json(novas, { status: 201 });
+    }),
+
+    http.get(`${base}/bancos/:id/exportacoes`, ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const banco = bancoDe(params.id);
+      if (!banco) return bancoNaoEncontrado(params.id);
+      return HttpResponse.json((banco.exportacoes ?? []).map(publica));
+    }),
+
+    http.get(`${base}/exportacoes/:id/arquivo`, ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
       for (const sessao of estado.sessoes) {
         const banco = sessao.banco;
-        if (!banco?.provas) continue;
-        for (const versao of ["A", "B"] as const) {
-          if (idDaProva(banco, versao) === id) {
-            return HttpResponse.json(provaLida(banco, banco.provas, versao));
-          }
+        const exportacao = banco?.exportacoes?.find((e) => e.id === Number(params.id));
+        if (!banco || !exportacao) continue;
+        if (exportacao.corrompida) {
+          return erro(
+            500,
+            "O arquivo exportado não confere com o registro: o sha256 lido diverge do gravado.",
+            "ARQUIVO_EXPORTADO_CORROMPIDO",
+          );
         }
+        const nome = `prova-banco${banco.banco_id}-r${exportacao.revisao_banco}-${exportacao.tipo}.docx`;
+        return new HttpResponse(new Blob(["docx falso"], { type: DOCX }), {
+          headers: {
+            "Content-Type": DOCX,
+            "Content-Disposition": `attachment; filename="${nome}"`,
+          },
+        });
       }
-      return erro(404, `Prova ${id} não encontrada.`, "PROVA_NAO_ENCONTRADA");
+      return erro(404, `Exportação ${String(params.id)} não encontrada.`, "EXPORTACAO_NAO_ENCONTRADA");
     }),
 
     http.post(`${base}/bancos/:id/auditoria`, async ({ request, params }) => {

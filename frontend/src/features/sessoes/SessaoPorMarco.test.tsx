@@ -115,6 +115,29 @@ describe("/sessoes/:id lê o marco e redireciona", () => {
     );
   });
 
+  it("banco exportado (concluído) leva à entrega", async () => {
+    backend(
+      umMarcoSessao({
+        sessao_id: 5,
+        marco: "concluido",
+        bancos: [umMarcoBanco({ marco: "concluido" })],
+      }),
+    );
+    server.use(
+      http.get(`${API}/bancos/1/provas`, () =>
+        HttpResponse.json(
+          { detail: "O banco v1 ainda não tem provas montadas.", codigo: "PROVAS_NAO_MONTADAS" },
+          { status: 404 },
+        ),
+      ),
+    );
+    const { router } = renderApp("/sessoes/5", { token: "t" });
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/sessoes/5/entrega"),
+    );
+  });
+
   it("recarregar em /banco com lacunas fica em /banco", async () => {
     backend(
       umMarcoSessao({

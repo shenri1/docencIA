@@ -13,11 +13,12 @@ export type RotaDoMarco =
   | "/sessoes/$sessaoId/materiais"
   | "/sessoes/$sessaoId/geracao"
   | "/sessoes/$sessaoId/banco"
-  | "/sessoes/$sessaoId/provas";
+  | "/sessoes/$sessaoId/provas"
+  | "/sessoes/$sessaoId/entrega";
 
 /**
  * M1 → materiais; sem banco, ou banco aberto com lacunas →
- * geração; congelado ou com provas → provas; o resto → banco. Só a entrada por
+ * geração; congelado ou com provas → provas; exportado → entrega; o resto → banco. Só a entrada por
  * /sessoes/:id usa isto, para que "seguir com lacunas" não seja desfeito ao
  * recarregar /banco.
  */
@@ -30,8 +31,8 @@ export function rotaDoMarco(marco: MarcoSessao): RotaDoMarco {
   if (banco.marco === "m3_exclusoes" && banco.lacunas > 0) {
     return "/sessoes/$sessaoId/geracao";
   }
-  // `concluido` volta a ter destino próprio (exportações).
-  if (banco.marco === "m6_provas" || banco.marco === "m10_docx" || banco.marco === "concluido") {
+  if (banco.marco === "concluido") return "/sessoes/$sessaoId/entrega";
+  if (banco.marco === "m6_provas" || banco.marco === "m10_docx") {
     return "/sessoes/$sessaoId/provas";
   }
   return "/sessoes/$sessaoId/banco";

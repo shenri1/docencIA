@@ -11,7 +11,7 @@ export function AppShell() {
     <div className="min-h-screen">
       <header className="border-b border-borda bg-cartao">
         <div className="mx-auto flex max-w-leitura items-center justify-between gap-4 px-5 py-3 md:px-12">
-          <Link to="/" aria-label="docencIA — início">
+          <Link to="/sessoes" aria-label="docencIA — minhas sessões">
             <Marca />
           </Link>
           <div className="flex items-center gap-3 font-grotesca text-detalhe">

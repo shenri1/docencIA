@@ -51,7 +51,7 @@ export function Geracao({ sessaoId }: { sessaoId: string }) {
 
       {!rodando && geracao.acumulado && <Resumo acumulado={geracao.acumulado} />}
 
-      <Link to="/" className="font-grotesca text-detalhe underline">
+      <Link to="/sessoes" className="font-grotesca text-detalhe underline">
         Voltar às sessões
       </Link>
     </div>

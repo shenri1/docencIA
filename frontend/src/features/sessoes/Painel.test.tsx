@@ -48,7 +48,7 @@ describe("Painel de sessões", () => {
         }),
       },
     });
-    renderApp("/", { token: "t" });
+    renderApp("/sessoes", { token: "t" });
 
     const algoritmos = (await screen.findByText("Algoritmos")).closest("li")!;
     expect(within(algoritmos).getByText("Rascunho")).toBeInTheDocument();
@@ -63,7 +63,7 @@ describe("Painel de sessões", () => {
 
   it("cada sessão leva à sua rota", async () => {
     backend({ sessoes: [umaSessao({ id: 7, disciplina: "Cálculo" })] });
-    const { user, router } = renderApp("/", { token: "t" });
+    const { user, router } = renderApp("/sessoes", { token: "t" });
 
     const link = await screen.findByRole("link", { name: /Cálculo/ });
     expect(link).toHaveAttribute("href", "/sessoes/7");
@@ -77,7 +77,7 @@ describe("Painel de sessões", () => {
 
   it("estado vazio convida a criar a primeira sessão", async () => {
     backend({ sessoes: [] });
-    const { user, router } = renderApp("/", { token: "t" });
+    const { user, router } = renderApp("/sessoes", { token: "t" });
 
     expect(
       await screen.findByText(/ainda não criou nenhuma sessão/i),
@@ -91,7 +91,7 @@ describe("Painel de sessões", () => {
 
   it("tem atalho para nova sessão quando já existem sessões", async () => {
     backend({ sessoes: [umaSessao()] });
-    renderApp("/", { token: "t" });
+    renderApp("/sessoes", { token: "t" });
 
     expect(await screen.findByRole("link", { name: "Nova sessão" })).toHaveAttribute(
       "href",
@@ -119,7 +119,7 @@ describe("Painel de sessões", () => {
         HttpResponse.json(umMarcoSessao({ sessao_id: Number(params.id) })),
       ),
     );
-    const { user } = renderApp("/", { token: "t" });
+    const { user } = renderApp("/sessoes", { token: "t" });
 
     expect(await screen.findByText("Disciplina 1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Página anterior" })).toBeDisabled();
@@ -138,7 +138,7 @@ describe("Painel de sessões", () => {
         HttpResponse.json({ detail: "boom" }, { status: 500 }),
       ),
     );
-    renderApp("/", { token: "t" });
+    renderApp("/sessoes", { token: "t" });
 
     expect(await screen.findByText("Algoritmos")).toBeInTheDocument();
     expect(
@@ -153,7 +153,7 @@ describe("Painel de sessões", () => {
         HttpResponse.json({ detail: "Falha no banco" }, { status: 500 }),
       ),
     );
-    renderApp("/", { token: "t" });
+    renderApp("/sessoes", { token: "t" });
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Falha no banco");
   });

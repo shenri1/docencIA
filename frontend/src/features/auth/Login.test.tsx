@@ -38,7 +38,7 @@ describe("Login", () => {
     await user.type(screen.getByLabelText("Senha"), "segredo123");
     await user.click(screen.getByRole("button", { name: "Entrar" }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/sessoes"));
     const enviado = new URLSearchParams(corpos[0]);
     expect(enviado.get("username")).toBe("ana.souza");
     expect(enviado.get("password")).toBe("segredo123");
@@ -99,7 +99,7 @@ describe("Login", () => {
     );
     const { router } = renderApp("/login", { token: "ja-logado" });
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/sessoes"));
   });
 
   it("avisa que a conta foi criada quando vem do cadastro", async () => {
@@ -123,7 +123,7 @@ describe("destinoSeguro", () => {
   it.each([undefined, "", "https://evil.test", "//evil.test", "/\\evil.test", "sessoes"])(
     "recusa %j e cai no painel",
     (valor) => {
-      expect(destinoSeguro(valor)).toBe("/");
+      expect(destinoSeguro(valor)).toBe("/sessoes");
     },
   );
 });

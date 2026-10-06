@@ -36,7 +36,7 @@ export function MesaCuradoria({ sessaoId }: { sessaoId: string }) {
         <Mesa sessaoId={id} marcoBanco={marcoBanco} proxima={proximaAcao(marco.data)} />
       )}
 
-      <Link to="/" className="font-grotesca text-detalhe underline">
+      <Link to="/sessoes" className="font-grotesca text-detalhe underline">
         Voltar às sessões
       </Link>
     </div>

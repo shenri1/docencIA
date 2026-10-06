@@ -53,7 +53,7 @@ export function Provas({ sessaoId }: { sessaoId: string }) {
         <Link to="/sessoes/$sessaoId/banco" params={{ sessaoId }} className="underline">
           Voltar à mesa
         </Link>
-        <Link to="/" className="underline">
+        <Link to="/sessoes" className="underline">
           Voltar às sessões
         </Link>
       </div>

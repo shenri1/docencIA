@@ -40,7 +40,7 @@ describe("Administração — acesso", () => {
   it("o cabeçalho mostra Administração só para o administrador", async () => {
     comoAdmin();
     server.use(http.get(`${API}/sessoes`, () => HttpResponse.json([])));
-    renderApp("/", { token: "t" });
+    renderApp("/sessoes", { token: "t" });
 
     expect(await screen.findByRole("link", { name: "Administração" })).toHaveAttribute(
       "href",
@@ -53,7 +53,7 @@ describe("Administração — acesso", () => {
       http.get(`${API}/auth/me`, () => HttpResponse.json(DOCENTE)),
       http.get(`${API}/sessoes`, () => HttpResponse.json([])),
     );
-    renderApp("/", { token: "t" });
+    renderApp("/sessoes", { token: "t" });
 
     expect(await screen.findByText(DOCENTE.nome)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Administração" })).not.toBeInTheDocument();

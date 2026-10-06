@@ -19,7 +19,7 @@ export function AreaAdmin() {
     return (
       <div className="mx-auto flex max-w-2xl flex-col gap-4">
         <Alerta variante="info">Esta área é só para administradores.</Alerta>
-        <Link to="/" className="font-grotesca text-detalhe underline">
+        <Link to="/sessoes" className="font-grotesca text-detalhe underline">
           Voltar às sessões
         </Link>
       </div>

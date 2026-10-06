@@ -119,6 +119,6 @@ describe("Nova sessão — parâmetros", () => {
 
     await user.click(await screen.findByRole("link", { name: "Cancelar" }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/sessoes"));
   });
 });

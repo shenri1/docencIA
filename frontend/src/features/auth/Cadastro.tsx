@@ -93,6 +93,15 @@ export function Cadastro() {
             onChange={(e) => setLgpd(e.target.checked)}
             erro={tentou ? erros.lgpd : null}
           />
+          {/* Nova aba: abrir aqui perderia o que já foi digitado no formulário. */}
+          <Link
+            to="/privacidade"
+            target="_blank"
+            rel="noreferrer"
+            className="font-grotesca text-detalhe underline"
+          >
+            Ler a política de privacidade
+          </Link>
           <Botao type="submit" disabled={registrar.isPending}>
             {registrar.isPending ? "Criando conta…" : "Criar conta"}
           </Botao>

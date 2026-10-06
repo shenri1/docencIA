@@ -57,7 +57,7 @@ export function Painel({ pagina }: { pagina: number }) {
   const navigate = useNavigate();
   const sessoes = useSessoes(pagina);
   const irParaPagina = (nova: number) =>
-    void navigate({ to: "/", search: { pagina: nova === 1 ? undefined : nova } });
+    void navigate({ to: "/sessoes", search: { pagina: nova === 1 ? undefined : nova } });
 
   return (
     <div className="flex flex-col gap-6">

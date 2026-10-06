@@ -41,7 +41,7 @@ export function Entrega({ sessaoId }: { sessaoId: string }) {
         <Link to="/sessoes/$sessaoId/provas" params={{ sessaoId }} className="underline">
           Voltar às provas
         </Link>
-        <Link to="/" className="underline">
+        <Link to="/sessoes" className="underline">
           Voltar às sessões
         </Link>
       </div>

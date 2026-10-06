@@ -160,7 +160,7 @@ export function NovaSessao() {
         </fieldset>
 
         <div className="flex items-center justify-end gap-3">
-          <Link to="/" className="botao botao-fantasma">
+          <Link to="/sessoes" className="botao botao-fantasma">
             Cancelar
           </Link>
           <Botao type="submit" disabled={!somaFecha || criar.isPending}>

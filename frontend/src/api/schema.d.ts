@@ -426,7 +426,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Ler Provas
+         * @description O mesmo que o POST devolveu, recalculado. 404 PROVAS_NAO_MONTADAS sem
+         *     provas; o front só pergunta com o marco em M10 ou concluído.
+         */
+        get: operations["ler_provas_bancos__banco_id__provas_get"];
         put?: never;
         /** Montar */
         post: operations["montar_bancos__banco_id__provas_post"];
@@ -2624,6 +2629,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResumoAuditoriaResposta"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ler_provas_bancos__banco_id__provas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                banco_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProvasMontadasResposta"];
                 };
             };
             /** @description Validation Error */

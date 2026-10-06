@@ -23,3 +23,5 @@ export type PropostaSubstituicao = Schemas["PropostaSubstituicaoResposta"];
 export type ResumoAuditoria = Schemas["ResumoAuditoriaResposta"];
 export type Achado = Schemas["AchadoResposta"];
 export type RiscoAuditoria = Schemas["RiscoAuditoria"];
+export type Prova = Schemas["ProvaResposta"];
+export type ProvasMontadas = Schemas["ProvasMontadasResposta"];

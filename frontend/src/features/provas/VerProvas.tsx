@@ -1,10 +1,19 @@
+import { Link } from "@tanstack/react-router";
 import type { ProvasMontadas } from "../../api/tipos";
 import { Alerta } from "../../components/Alerta";
 import { ROTULO_FAIXA, ROTULO_TIPO_QUESTAO } from "../banco/rotulos";
 import { useProva, useProvasDoBanco } from "./api";
 
 /** M10: verificação e as duas provas lado a lado. */
-export function VerProvas({ bancoId, proxima }: { bancoId: number; proxima: string }) {
+export function VerProvas({
+  bancoId,
+  sessaoId,
+  proxima,
+}: {
+  bancoId: number;
+  sessaoId: string;
+  proxima: string;
+}) {
   const montadas = useProvasDoBanco(bancoId);
 
   if (montadas.isError) return <Alerta variante="erro">{montadas.error.message}</Alerta>;
@@ -25,7 +34,10 @@ export function VerProvas({ bancoId, proxima }: { bancoId: number; proxima: stri
         <ColunaProva provaId={dados.prova_b_id} outra="A" compartilhadas={compartilhadas} />
       </div>
       <Alerta>
-        Próxima ação: {proxima} — ainda não disponível nesta versão da interface.
+        Próxima ação:{" "}
+        <Link to="/sessoes/$sessaoId/entrega" params={{ sessaoId }} className="underline">
+          {proxima}
+        </Link>
       </Alerta>
     </>
   );

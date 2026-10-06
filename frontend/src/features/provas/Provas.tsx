@@ -39,7 +39,7 @@ export function Provas({ sessaoId }: { sessaoId: string }) {
       {marco.data &&
         marcoBanco &&
         (COM_PROVAS.has(marcoBanco.marco) ? (
-          <VerProvas bancoId={marcoBanco.banco_id} proxima={proximaAcao(marco.data)} />
+          <VerProvas bancoId={marcoBanco.banco_id} sessaoId={sessaoId} proxima={proximaAcao(marco.data)} />
         ) : marcoBanco.marco === "m6_provas" ? (
           <MontarProvas marcoBanco={marcoBanco} sessaoId={id} />
         ) : (

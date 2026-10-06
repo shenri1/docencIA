@@ -28,7 +28,10 @@ describe("Provas — ver (M10)", () => {
 
     expect(screen.getByText("Montadas sobre a revisão r0 do banco.")).toBeInTheDocument();
     expect(screen.getByText(/Verificação sem violações/)).toBeInTheDocument();
-    expect(screen.getByText(/Próxima ação: Exportar provas/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Exportar provas" })).toHaveAttribute(
+      "href",
+      "/sessoes/5/entrega",
+    );
   });
 
   it("compartilhadas aparecem marcadas nas duas colunas", async () => {

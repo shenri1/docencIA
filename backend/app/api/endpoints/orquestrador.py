@@ -1,10 +1,12 @@
 """Agente Orquestrador: marco da sessão e comando de vocabulário
 fechado. As rotas de cada passo continuam existindo; estas as encadeiam."""
 
+from collections.abc import Callable
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from backend.app.api.deps import get_current_docente, get_provedor
+from backend.app.api.deps import get_current_docente, get_provedor_sob_demanda
 from backend.app.core.db import get_db
 from backend.app.core.storage import ArmazenamentoArquivos, get_armazenamento
 from backend.app.models.identidade import Docente
@@ -41,7 +43,7 @@ def comando(
     armazenamento: ArmazenamentoArquivos = Depends(get_armazenamento),
     embeddings: Embeddings = Depends(get_embeddings),
     reranker: Reranker = Depends(get_reranker),
-    provedor: ProvedorLLMService = Depends(get_provedor),
+    obter_provedor: Callable[[], ProvedorLLMService] = Depends(get_provedor_sob_demanda),
 ) -> ResultadoComandoResposta:
     # Longa no M2 e no auditar, como as rotas de origem: a retomada delas é o
     # que torna um timeout de proxy não destrutivo.
@@ -54,7 +56,7 @@ def comando(
         armazenamento=armazenamento,
         embeddings=embeddings,
         reranker=reranker,
-        provedor=provedor,
+        obter_provedor=obter_provedor,
     )
     # Validado aqui por atributo: devolvido como dataclass, o FastAPI chamaria
     # dataclasses.asdict, que faz deepcopy dos objetos ORM do resultado.

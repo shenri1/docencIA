@@ -306,7 +306,9 @@ def _persistir(
     )
     if estado is EstadoQuestao.ATIVA:
         # Candidata não está no banco: n_atual conta só as ATIVA.
-        banco.n_atual += 1
+        # Incremento no SQL, sem lock do banco: `+= 1` em Python lê e grava, e
+        # duas gerações concorrentes perderiam uma contagem.
+        banco.n_atual = BancoQuestoes.n_atual + 1
     registrar_evento(
         db,
         TipoEventoAuditoria.QUESTAO_GERADA,

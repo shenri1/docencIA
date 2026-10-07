@@ -950,3 +950,43 @@ def test_retomada_com_apos_zero_retenta_so_as_lacunas(
 
     r = gerar_lote(*args, ProvedorLLMFake(roteiro(1)), limite=1)
     assert (r.geradas, r.ultimo_numero, r.restantes) == (1, 2, 0)
+
+
+def test_n_atual_nao_perde_incremento_de_outra_geracao(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho, engine
+):
+    """Duas gerações de números distintos: a outra grava a questão 2 e soma 1 a
+    `n_atual` enquanto esta ainda gera a 1. `+= 1` em Python regravaria o valor
+    lido antes (0 → 1) e o banco ficaria inconsistente."""
+    preparar(db_session, armazenamento, sessao_rascunho)
+
+    class ProvedorComOutraGeracao(ProvedorLLMFake):
+        def gerar(self, sessao_id, requisicao):
+            if self.chamadas == 0:
+                with _outra_sessao(engine) as outra:
+                    banco_da_outra = outra.scalar(select(BancoQuestoes))
+                    outra.add(
+                        Questao(
+                            banco_id=banco_da_outra.id,
+                            numero=2,
+                            tipo=TipoQuestao.OBJETIVA,
+                            enunciado="gravada pela outra geração",
+                            nivel_bloom=NivelBloom.APLICAR,
+                            faixa_dificuldade=FaixaDificuldade.MEDIA,
+                            tema="t",
+                            subtema="s",
+                            estado=EstadoQuestao.ATIVA,
+                        )
+                    )
+                    banco_da_outra.n_atual += 1
+                    outra.commit()
+            return super().gerar(sessao_id, requisicao)
+
+    gerar_banco(
+        db_session, embeddings_fake, reranker_fake,
+        ProvedorComOutraGeracao(roteiro(1)),
+        sessao_rascunho, n_objetivas=2, n_discursivas=0, versao="v1", limite=1,
+    )
+
+    db_session.expire_all()
+    assert db_session.scalar(select(BancoQuestoes.n_atual)) == 2

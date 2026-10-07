@@ -48,7 +48,7 @@ def executar(db_session, docente, armazenamento, embeddings_fake, reranker_fake)
             armazenamento=armazenamento,
             embeddings=embeddings_fake,
             reranker=reranker_fake,
-            provedor=provedor,
+            obter_provedor=lambda: provedor,
         )
 
     return _executar

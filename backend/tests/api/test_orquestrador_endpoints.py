@@ -1,4 +1,4 @@
-from backend.app.api.deps import get_provedor
+from backend.app.api.deps import get_provedor_sob_demanda
 from backend.app.main import app
 from backend.app.models.identidade import SessaoGeracao
 from backend.tests.conftest import _auth
@@ -112,7 +112,7 @@ def test_f1_a_f12_so_por_comando(client, db_session, armazenamento):
         assert resposta.status_code == 200, resposta.json()
         return resposta.json()
 
-    app.dependency_overrides[get_provedor] = lambda: ProvedorLLMFake(
+    app.dependency_overrides[get_provedor_sob_demanda] = lambda: lambda: ProvedorLLMFake(
         roteiro_com_subtemas(25)
     )
     try:
@@ -124,7 +124,7 @@ def test_f1_a_f12_so_por_comando(client, db_session, armazenamento):
             {"comando": "prosseguir", "versao": "v1", "n_objetivas": 25, "n_discursivas": 0}
         )
     finally:
-        app.dependency_overrides.pop(get_provedor, None)
+        app.dependency_overrides.pop(get_provedor_sob_demanda, None)
     assert m2["banco"]["geradas"] == 25
     assert comandos == 2  # as duas interações depois de sessão e material
     [banco] = m2["marco"]["bancos"]

@@ -47,3 +47,22 @@ def test_a_vaga_e_devolvida_mesmo_quando_a_requisicao_falha(uma_vaga):
     segunda = deps.get_provedor(db=None)
     assert next(segunda) is not None
     segunda.close()
+
+
+def test_sob_demanda_nao_toma_vaga_sem_chamada(uma_vaga):
+    ocioso = deps.get_provedor_sob_demanda(db=None)
+    next(ocioso)  # ramo determinístico: nunca chama `obter`
+    next(deps.get_provedor(db=None))  # a vaga ainda está livre
+
+    ocioso.close()
+
+
+def test_sob_demanda_toma_vaga_na_chamada_e_devolve(uma_vaga):
+    gen = deps.get_provedor_sob_demanda(db=None)
+    obter = next(gen)
+    obter()
+    with pytest.raises(ServidorOcupadoException):
+        next(deps.get_provedor(db=None))
+
+    gen.close()
+    next(deps.get_provedor(db=None))  # devolvida ao fim da requisição

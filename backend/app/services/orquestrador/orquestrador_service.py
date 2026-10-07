@@ -124,7 +124,7 @@ def executar_comando(
     armazenamento,
     embeddings,
     reranker,
-    provedor,
+    obter_provedor,
 ) -> ResultadoComando:
     tipo = ComandoOrquestrador(comando.comando)
     marco, motivo, banco = _alvo(db, sessao, comando.versao)
@@ -146,7 +146,7 @@ def executar_comando(
         )
     elif isinstance(comando, ComandoAuditar):
         resultado["auditoria"] = auditar_banco(
-            db, embeddings, reranker, provedor, docente, banco
+            db, embeddings, reranker, obter_provedor(), docente, banco
         )
     elif marco is Marco.M1_MATERIAIS:
         sessao = indexar_e_confirmar(
@@ -158,7 +158,7 @@ def executar_comando(
             db,
             embeddings,
             reranker,
-            provedor,
+            obter_provedor(),
             sessao,
             n_objetivas=comando.n_objetivas,
             n_discursivas=comando.n_discursivas,

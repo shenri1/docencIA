@@ -291,7 +291,7 @@ def _banco_ate(revisao: str):
     base_url = settings.database_url.rsplit("/", 1)[0]
     admin = create_engine(f"{base_url}/postgres", isolation_level="AUTOCOMMIT")
     with admin.connect() as conn:
-        conn.execute(text(f'DROP DATABASE IF EXISTS "{BANCO_SEMENTE}"'))
+        conn.execute(text(f'DROP DATABASE IF EXISTS "{BANCO_SEMENTE}" WITH (FORCE)'))
         conn.execute(text(f'CREATE DATABASE "{BANCO_SEMENTE}"'))
     admin.dispose()
 

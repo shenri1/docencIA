@@ -117,7 +117,7 @@ def _palavras(texto: str) -> list[str]:
     return _PALAVRA.findall(texto)
 
 
-# ponytail: palpite. A cópia medida no uso real era idêntica (razão 1,0).
+# Palpite. A cópia medida no uso real era idêntica (razão 1,0).
 # Baixar se reescritas leves passarem; subir se variações legítimas forem
 # recusadas.
 LIMIAR_ENUNCIADO_REPETIDO = 0.8

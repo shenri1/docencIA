@@ -55,7 +55,15 @@ def test_prova_nao_montada_e_problema(db_session, docente, sessao_rascunho):
 def test_violacao_de_verificacao_bloqueia(db_session, docente, sessao_rascunho):
     banco, montadas = provas_montadas(db_session, docente, sessao_rascunho)
     item = item_da_prova(db_session, montadas.prova_a_id, 1)
-    item.ordem_alternativas = list(reversed(item.ordem_alternativas))
+    # Troca a correta de lugar com a vizinha. Inverter a lista inteira deixava
+    # a correta quieta quando ela estava no meio, e o teste passava a depender
+    # da semente (que muda com o id da sessão).
+    ordem = list(item.ordem_alternativas)
+    correta = next(a.letra for a in item.questao.alternativas if a.correta)
+    i = ordem.index(correta)
+    j = (i + 1) % len(ordem)
+    ordem[i], ordem[j] = ordem[j], ordem[i]
+    item.ordem_alternativas = ordem
     db_session.commit()
     assert problemas_de(db_session, docente, banco)
 

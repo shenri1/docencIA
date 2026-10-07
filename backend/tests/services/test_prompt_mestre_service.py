@@ -112,6 +112,7 @@ def test_integridade_passa_quando_o_disco_bate_com_a_versao_ativa(db_session):
 def test_editar_o_prompt_do_critico_sem_versao_nova_e_divergencia(
     db_session, monkeypatch
 ):
+    prompt_mestre_service._hash_por_assinatura.cache_clear()
     registrar_versao(db_session, "1.0.0", "papel", PARAMS)
     ativar(db_session, "1.0.0")
     monkeypatch.setattr(
@@ -124,3 +125,31 @@ def test_editar_o_prompt_do_critico_sem_versao_nova_e_divergencia(
     )
     with pytest.raises(PromptDivergenteException):
         verificar_integridade(db_session)
+
+
+def test_hash_do_disco_so_e_recalculado_quando_um_modulo_muda(
+    db_session, monkeypatch, tmp_path
+):
+    registrar_versao(db_session, "1.0.0", "papel", PARAMS)
+    ativar(db_session, "1.0.0")
+    prompt_mestre_service._hash_por_assinatura.cache_clear()
+    chamadas = []
+    original = prompt_mestre_service.calcular_hash
+    monkeypatch.setattr(
+        prompt_mestre_service,
+        "calcular_hash",
+        lambda modulos: chamadas.append(1) or original(modulos),
+    )
+
+    verificar_integridade(db_session)
+    verificar_integridade(db_session)
+    assert len(chamadas) == 1
+
+    novo = montagem.DIRETORIO_MODULOS / "comum" / "zz_temporario.md"
+    novo.write_text("x", encoding="utf-8")
+    try:
+        with pytest.raises(PromptDivergenteException):
+            verificar_integridade(db_session)
+    finally:
+        novo.unlink()
+    assert len(chamadas) == 2

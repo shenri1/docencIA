@@ -7,6 +7,8 @@ dois atos é o que torna o rollback um ato deliberado.
 
 from __future__ import annotations
 
+from functools import lru_cache
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -19,6 +21,7 @@ from backend.app.exceptions import (
 )
 from backend.app.models.prompt_provedor import PromptMestre
 from backend.app.prompt.montagem import (
+    DIRETORIO_MODULOS,
     calcular_hash,
     carregar_modulos_versionados,
     montar_sistema,
@@ -89,11 +92,29 @@ def ativar(db: Session, versao: str) -> PromptMestre:
     return alvo
 
 
+@lru_cache(maxsize=1)
+def _hash_por_assinatura(assinatura: tuple) -> str:
+    return calcular_hash(carregar_modulos_versionados())
+
+
+def _hash_em_disco() -> str:
+    """O hash só é recalculado quando algum .md muda de mtime, tamanho ou
+    nome — cada geração, auditoria e substituição passa por aqui, e reler e
+    refazer o SHA de todos os módulos a cada uma era desperdício.
+    Edição que preserva mtime e tamanho passa despercebida até o
+    reinício do processo; troque a assinatura por hash de conteúdo se importar."""
+    assinatura = tuple(
+        (str(c), (st := c.stat()).st_mtime_ns, st.st_size)
+        for c in sorted(DIRETORIO_MODULOS.rglob("*.md"))
+    )
+    return _hash_por_assinatura(assinatura)
+
+
 def verificar_integridade(db: Session) -> None:
     """Os módulos em disco mudaram sem versão nova? Então `conteudo` descreve
     algo que não seria mais enviado, e a auditoria passa a mentir."""
     ativo = obter_ativo(db)
-    em_disco = calcular_hash(carregar_modulos_versionados())
+    em_disco = _hash_em_disco()
     if ativo.hash_modulos != em_disco:
         raise PromptDivergenteException(
             gravado=ativo.hash_modulos, em_disco=em_disco

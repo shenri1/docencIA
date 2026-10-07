@@ -185,9 +185,9 @@ function TabelaInsuficiencia({ extras }: { extras: Record<string, unknown> }) {
         <caption className="text-left font-semibold">Questões ativas no banco</caption>
         <thead>
           <tr>
-            <th className="pr-4 text-left">Tipo</th>
+            <th scope="col" className="pr-4 text-left">Tipo</th>
             {FAIXAS.map((f) => (
-              <th key={f} className="pr-4 text-left">
+              <th key={f} scope="col" className="pr-4 text-left">
                 {ROTULO_FAIXA[f]}
               </th>
             ))}
@@ -196,7 +196,9 @@ function TabelaInsuficiencia({ extras }: { extras: Record<string, unknown> }) {
         <tbody>
           {(["objetiva", "discursiva"] as const).map((tipo) => (
             <tr key={tipo}>
-              <td className="pr-4">{ROTULO_TIPO_QUESTAO[tipo]}</td>
+              <th scope="row" className="pr-4 text-left font-normal">
+                {ROTULO_TIPO_QUESTAO[tipo]}
+              </th>
               {FAIXAS.map((f) => (
                 <td key={f} className="pr-4">
                   {disponivel[`${tipo}/${f}`] ?? 0}

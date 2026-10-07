@@ -200,6 +200,7 @@ export function Materiais({ sessaoId }: { sessaoId: string }) {
                   <div className="flex flex-col gap-2">
                     <CampoSelecao
                       rotulo="Tipo didático"
+                      aria-label={`Tipo didático de ${item.arquivo.name}`}
                       value={item.tipo}
                       disabled={!editavel}
                       onChange={(e) =>

@@ -122,9 +122,9 @@ function TabelaSimples({ gabarito }: { gabarito: Gabarito }) {
       <caption className="sr-only">{`Respostas da Prova ${gabarito.versao}`}</caption>
       <thead>
         <tr className="border-b border-borda text-left">
-          <th className="py-2 pr-4 font-semibold">Posição</th>
-          <th className="py-2 pr-4 font-semibold">Questão</th>
-          <th className="py-2 font-semibold">Resposta</th>
+          <th scope="col" className="py-2 pr-4 font-semibold">Posição</th>
+          <th scope="col" className="py-2 pr-4 font-semibold">Questão</th>
+          <th scope="col" className="py-2 font-semibold">Resposta</th>
         </tr>
       </thead>
       <tbody>

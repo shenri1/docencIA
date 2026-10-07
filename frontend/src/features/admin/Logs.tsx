@@ -94,13 +94,14 @@ export function Logs() {
       {eventos.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse font-grotesca text-detalhe">
+            <caption className="sr-only">Eventos do log de auditoria</caption>
             <thead>
               <tr className="border-b border-borda text-left">
-                <th className="py-2 pr-4 font-semibold">Quando</th>
-                <th className="py-2 pr-4 font-semibold">Evento</th>
-                <th className="py-2 pr-4 font-semibold">Entidade</th>
-                <th className="py-2 pr-4 font-semibold">Ator</th>
-                <th className="py-2 font-semibold">Detalhes</th>
+                <th scope="col" className="py-2 pr-4 font-semibold">Quando</th>
+                <th scope="col" className="py-2 pr-4 font-semibold">Evento</th>
+                <th scope="col" className="py-2 pr-4 font-semibold">Entidade</th>
+                <th scope="col" className="py-2 pr-4 font-semibold">Ator</th>
+                <th scope="col" className="py-2 font-semibold">Detalhes</th>
               </tr>
             </thead>
             <tbody>

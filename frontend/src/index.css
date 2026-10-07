@@ -37,7 +37,7 @@
   }
   .folha {
     background: var(--color-folha);
-    border: 1px solid rgb(15 25 35 / 0.12);
+    border: 1px solid var(--color-borda-folha);
     border-radius: var(--radius-DEFAULT);
     box-shadow: var(--shadow-folha);
   }
@@ -124,7 +124,7 @@
   }
   .caixa:checked {
     background-color: var(--color-primaria);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23faf8f5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3.5 8.5 3 3 6-7'/%3E%3C/svg%3E");
+    background-image: var(--imagem-marca-caixa);
     background-position: center;
     background-repeat: no-repeat;
   }

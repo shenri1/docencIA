@@ -34,6 +34,7 @@
   --color-cartao: var(--color-pressed-ivory);
   --color-folha: var(--color-crisp-cotton);
   --color-borda: var(--color-archival-edge);
+  --color-borda-folha: rgb(15 25 35 / 0.12);
   --color-texto: var(--color-midnight-ink);
   --color-texto-suave: var(--color-graphite);
   --color-texto-placeholder: var(--color-graphite-soft);
@@ -89,6 +90,8 @@
   --radius-DEFAULT: 0.25rem;
 
   /* Elevação por empilhamento tonal (DESIGN.md > Elevation) */
+  /* Data URI não lê var(): o traço é #faf8f5, o mesmo de --color-pressed-ivory. */
+  --imagem-marca-caixa: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23faf8f5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3.5 8.5 3 3 6-7'/%3E%3C/svg%3E");
   --shadow-folha: 0 2px 8px -2px rgb(15 25 35 / 0.05), 0 1px 3px 0 rgb(15 25 35 / 0.03);
   --shadow-sobreposicao: 0 12px 32px -8px rgb(104 29 36 / 0.08), 0 4px 12px -2px rgb(15 25 35 / 0.04);
 

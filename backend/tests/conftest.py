@@ -163,6 +163,15 @@ def engine():
     Base.metadata.drop_all(bind=eng)
 
 
+@pytest.fixture(autouse=True)
+def _sem_cache_do_hash_do_prompt():
+    """O hash do disco é cacheado por mtime; testes que trocam o loader dos
+    módulos por um falso não mudam mtime e herdariam o hash do teste anterior."""
+    from backend.app.services import prompt_mestre_service
+
+    prompt_mestre_service._hash_por_assinatura.cache_clear()
+
+
 @pytest.fixture()
 def db_session(engine) -> Generator[Session]:
     # Mesma configuração do SessionLocal de produção (core/db.py): autoflush

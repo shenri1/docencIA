@@ -8,7 +8,7 @@ os problemas são acumulados: o docente vê a lista inteira de uma vez.
 from __future__ import annotations
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from backend.app.domain import (
     EstadoBanco,
@@ -117,6 +117,12 @@ def verificar_consistencia(db: Session, banco: BancoQuestoes) -> None:
         db.scalars(
             select(Questao)
             .where(Questao.banco_id == banco.id)
+            .options(
+                selectinload(Questao.alternativas),
+                selectinload(Questao.aspectos),
+                selectinload(Questao.fontes_internas),
+                selectinload(Questao.justificativa),
+            )
             .order_by(Questao.numero, Questao.id)
         )
     )

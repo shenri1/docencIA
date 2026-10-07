@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from backend.app.domain import (
     EstadoBanco,
@@ -145,6 +145,14 @@ def ler_banco(
             Questao.numero >= de,
             Questao.numero <= ate,
             Questao.estado.in_(estados),
+        )
+        .options(
+            selectinload(Questao.alternativas),
+            selectinload(Questao.fontes_internas).selectinload(FonteInterna.material),
+            selectinload(Questao.revisao),
+            selectinload(Questao.aspectos)
+            .selectinload(AspectoEsperado.fonte)
+            .selectinload(FonteInterna.material),
         )
         .order_by(Questao.numero, Questao.id)
     )

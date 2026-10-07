@@ -123,3 +123,21 @@ def test_listar_relatorios_em_ordem_de_revisao(db_session, docente, sessao_rascu
     db_session.commit()
     relatorios = listar_relatorios(db_session, docente, banco.id)
     assert [r.revisao for r in relatorios] == [1, 2]
+
+
+def test_leitura_nao_faz_uma_consulta_por_questao(db_session, docente, sessao_rascunho):
+    """N+1: o número de SELECTs não pode crescer com o número de questões."""
+    from backend.tests.contagem_queries import contar_queries
+
+    banco = criar_banco(db_session, sessao_rascunho, n_objetivas=12, n_discursivas=8)
+    for numero in range(1, 13):
+        criar_questao_objetiva(db_session, banco, numero=numero)
+    for numero in range(13, 21):
+        criar_questao_discursiva(db_session, banco, numero=numero)
+    db_session.commit()
+
+    with contar_queries(db_session) as consultas:
+        lido = ler_banco(db_session, docente, banco.id, 1, 20, True, False)
+
+    assert len(lido.questoes) == 20
+    assert len(consultas) <= 20, f"{len(consultas)} SELECTs para 20 questões"

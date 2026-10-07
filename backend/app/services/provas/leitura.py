@@ -15,13 +15,19 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from backend.app.domain import EstadoProva, FaixaDificuldade, TipoQuestao
-from backend.app.exceptions import ProvaNaoEncontradaException, ProvasNaoMontadasException
+from backend.app.exceptions import (
+    ProvaNaoEncontradaException,
+    ProvasNaoMontadasException,
+)
 from backend.app.models.banco import BancoQuestoes, Questao
 from backend.app.models.identidade import Docente
 from backend.app.models.provas import ItemProva, Prova
-from backend.app.services.provas.montagem_service import VERSAO_A, VERSAO_B, ProvasMontadas
+from backend.app.services.provas.montagem_service import (
+    VERSAO_A,
+    VERSAO_B,
+    ProvasMontadas,
+)
 from backend.app.services.provas.verificacao import verificar_provas
-
 
 _CARREGAR_ITENS = (
     selectinload(Prova.itens).selectinload(ItemProva.questao).selectinload(Questao.alternativas)

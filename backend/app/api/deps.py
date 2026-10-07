@@ -1,5 +1,5 @@
 import threading
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -53,3 +53,25 @@ def get_provedor(db: Session = Depends(get_db)) -> Generator[ProvedorLLMService]
         yield criar_provedor_service(db)
     finally:
         _vagas_llm.release()
+
+
+def get_provedor_sob_demanda(
+    db: Session = Depends(get_db),
+) -> Generator[Callable[[], ProvedorLLMService]]:
+    """Como `get_provedor`, mas a vaga só é tomada quando o service chama o
+    resultado. Para rotas em que só alguns ramos chamam LLM (`/comando`): os
+    determinísticos não podem tomar 503 por causa de geração alheia."""
+    tomou = False
+
+    def obter() -> ProvedorLLMService:
+        nonlocal tomou
+        if not _vagas_llm.acquire(blocking=False):
+            raise ServidorOcupadoException(_RETRY_AFTER_LLM_S)
+        tomou = True
+        return criar_provedor_service(db)
+
+    try:
+        yield obter
+    finally:
+        if tomou:
+            _vagas_llm.release()

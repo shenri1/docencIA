@@ -13,12 +13,14 @@ from backend.app.exceptions import (
 from backend.app.models.provas import ExportacaoDocx
 from backend.app.schemas.identidade import DocenteCriar
 from backend.app.services.auth_service import registrar_docente
+from backend.app.services.exportacao import exportacao_service
 from backend.app.services.exportacao.exportacao_service import (
     abrir_exportacao,
     exportar,
     listar_exportacoes,
 )
 from backend.tests.services.provas.test_gabarito import provas_montadas
+from backend.tests.travamento import espiar_lock
 
 
 def test_exporta_dois_arquivos_e_dois_registros(
@@ -124,3 +126,18 @@ def test_listar_exportacoes(db_session, docente, sessao_rascunho, armazenamento)
         (banco.revisao, "conteudo_puro"),
         (banco.revisao, "metadados"),
     ]
+
+
+def test_exportar_segura_o_lock_da_linha_do_banco(
+    db_session, docente, sessao_rascunho, armazenamento, engine, monkeypatch
+):
+    """Sem o lock, duas exportações concorrentes passam juntas pela checagem
+    "já existe" e a segunda estoura na unique (500)."""
+    banco, _ = provas_montadas(db_session, docente, sessao_rascunho)
+    achados = espiar_lock(
+        monkeypatch, exportacao_service, "verificar_exportavel", engine, banco.id
+    )
+
+    exportar(db_session, docente, armazenamento, banco)
+
+    assert achados == [False]

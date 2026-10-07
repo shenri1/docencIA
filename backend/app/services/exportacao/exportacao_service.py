@@ -27,7 +27,7 @@ from backend.app.exceptions import (
 from backend.app.models.banco import BancoQuestoes
 from backend.app.models.identidade import Docente
 from backend.app.models.provas import ExportacaoDocx
-from backend.app.services.controle_banco.estado import obter_banco
+from backend.app.services.controle_banco.estado import obter_banco, travar_banco
 from backend.app.services.critico.auditor_service import montar_resumo
 from backend.app.services.exportacao.consistencia import verificar_exportavel
 from backend.app.services.exportacao.renderizacao import (
@@ -70,6 +70,7 @@ def exportar(
     armazenamento: ArmazenamentoArquivos,
     banco: BancoQuestoes,
 ) -> list[ExportacaoDocx]:
+    travar_banco(db, banco)
     # Sempre primeiro, inclusive quando a exportação já existe: pular a checagem
     # num atalho faria "estado incoerente responde 409" depender de ter
     # exportado antes.

@@ -179,3 +179,34 @@ def test_montar_segura_o_lock_da_linha_do_banco(
     montar_provas(db_session, docente, banco, 10, 0, banco.revisao)
 
     assert achados == [False]
+
+
+def test_leitura_da_prova_nao_faz_uma_consulta_por_item(
+    db_session, docente, sessao_rascunho
+):
+    from backend.app.services.provas.leitura import ler_prova
+    from backend.tests.contagem_queries import contar_queries
+
+    banco = banco_congelado(db_session, docente, sessao_rascunho)
+    montadas = montar_provas(db_session, docente, banco, 10, 0, banco.revisao)
+
+    with contar_queries(db_session) as consultas:
+        prova = ler_prova(db_session, docente, montadas.prova_a_id)
+
+    assert len(prova.itens) == 10
+    assert len(consultas) <= 8, f"{len(consultas)} SELECTs para 10 itens"
+
+
+def test_provas_do_banco_nao_faz_uma_consulta_por_item(
+    db_session, docente, sessao_rascunho
+):
+    from backend.app.services.provas.leitura import provas_do_banco
+    from backend.tests.contagem_queries import contar_queries
+
+    banco = banco_congelado(db_session, docente, sessao_rascunho)
+    montar_provas(db_session, docente, banco, 10, 0, banco.revisao)
+
+    with contar_queries(db_session) as consultas:
+        provas_do_banco(db_session, banco)
+
+    assert len(consultas) <= 12, f"{len(consultas)} SELECTs para 20 itens"

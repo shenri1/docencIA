@@ -12,15 +12,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from backend.app.domain import EstadoProva, FaixaDificuldade, TipoQuestao
 from backend.app.exceptions import ProvaNaoEncontradaException, ProvasNaoMontadasException
-from backend.app.models.banco import BancoQuestoes
+from backend.app.models.banco import BancoQuestoes, Questao
 from backend.app.models.identidade import Docente
 from backend.app.models.provas import ItemProva, Prova
 from backend.app.services.provas.montagem_service import VERSAO_A, VERSAO_B, ProvasMontadas
 from backend.app.services.provas.verificacao import verificar_provas
+
+
+_CARREGAR_ITENS = (
+    selectinload(Prova.itens).selectinload(ItemProva.questao).selectinload(Questao.alternativas)
+)
 
 
 @dataclass(frozen=True)
@@ -60,7 +65,11 @@ class ProvaLida:
 def obter_prova(db: Session, docente: Docente, prova_id: int) -> Prova:
     """Prova de outro docente responde 404, não 403 — mesma regra de banco e
     sessão: não revela existência."""
-    prova = db.get(Prova, prova_id)
+    prova = db.get(
+        Prova,
+        prova_id,
+        options=[_CARREGAR_ITENS],
+    )
     if prova is None or prova.sessao.docente_id != docente.id:
         raise ProvaNaoEncontradaException(prova_id)
     return prova
@@ -134,7 +143,11 @@ def provas_do_banco(db: Session, banco: BancoQuestoes) -> ProvasMontadas:
     deixaria o front sem os ids das provas."""
     por_versao = {
         prova.versao: prova
-        for prova in db.scalars(select(Prova).where(Prova.banco_id == banco.id))
+        for prova in db.scalars(
+            select(Prova)
+            .where(Prova.banco_id == banco.id)
+            .options(_CARREGAR_ITENS)
+        )
     }
     prova_a, prova_b = por_versao.get(VERSAO_A), por_versao.get(VERSAO_B)
     if prova_a is None or prova_b is None:

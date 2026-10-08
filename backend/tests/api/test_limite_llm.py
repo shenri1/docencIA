@@ -66,3 +66,30 @@ def test_sob_demanda_toma_vaga_na_chamada_e_devolve(uma_vaga):
 
     gen.close()
     next(deps.get_provedor(db=None))  # devolvida ao fim da requisição
+
+
+def test_sob_demanda_chamado_duas_vezes_toma_uma_vaga_so(uma_vaga):
+    """Sem isso, a segunda chamada tomaria outra vaga (ou 503 contra si mesma) e
+    o `finally` devolveria só uma: a vaga vazaria até reiniciar o processo."""
+    gen = deps.get_provedor_sob_demanda(db=None)
+    obter = next(gen)
+
+    assert obter() is obter()
+
+    gen.close()
+    next(deps.get_provedor(db=None))  # a única vaga voltou
+
+
+def test_sob_demanda_devolve_a_vaga_se_criar_o_service_falha(monkeypatch, uma_vaga):
+    def falha(db):
+        raise RuntimeError("sem provedor ativo")
+
+    monkeypatch.setattr(deps, "criar_provedor_service", falha)
+    gen = deps.get_provedor_sob_demanda(db=None)
+    obter = next(gen)
+    with pytest.raises(RuntimeError):
+        obter()
+
+    gen.close()
+    monkeypatch.setattr(deps, "criar_provedor_service", lambda db: object())
+    next(deps.get_provedor(db=None))  # a vaga voltou

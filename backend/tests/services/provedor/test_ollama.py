@@ -1,3 +1,4 @@
+import dataclasses
 import json
 
 import httpx
@@ -210,3 +211,25 @@ def test_cliente_http_cacheia_por_url_e_timeout():
     # Mesma URL, timeout diferente: clientes distintos — o timeout não pode
     # ser herdado do primeiro.
     assert cliente_http(base, 1.0) is not cliente_http(base, 2.0)
+
+
+def test_resposta_cortada_diz_o_teto_e_as_variaveis_certas():
+    """A mensagem apontava LLM_MAX_TOKENS_PADRAO, que geração, crítico e
+    auditoria não usam (R-LLM-01)."""
+
+    def responder(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=resposta_ok(
+                {"enunciado": "x", "dificuldade": "facil"}, done_reason="length"
+            ),
+        )
+
+    req = dataclasses.replace(requisicao(), max_tokens=1024)
+    with pytest.raises(RespostaLLMInvalidaException) as erro:
+        cliente_com(responder).gerar(req)
+
+    mensagem = str(erro.value)
+    assert "1024" in mensagem
+    assert "AUDITORIA_MAX_TOKENS" in mensagem
+    assert "LLM_MAX_TOKENS_PADRAO" not in mensagem

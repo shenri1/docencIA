@@ -231,3 +231,82 @@ def test_sessao_sem_chunk_nao_chama_embeddings(
             candidatos=20,
         )
     assert spy.chamadas == 0
+
+
+def test_indice_hnsw_nao_esconde_os_trechos_da_sessao(
+    db_session,
+    armazenamento,
+    embeddings_fake,
+    reranker_fake,
+    docente,
+    sessao_rascunho,
+):
+    """O HNSW devolve só `hnsw.ef_search` (40) vizinhos e o filtro por sessão
+    vem DEPOIS: com outra sessão mais perto da consulta, a sessão buscada
+    sumia — falso "sessão não indexada". Em tabela pequena o planejador usa
+    seq scan; `enable_seqscan = off` reproduz o plano de uma tabela grande."""
+    from sqlalchemy import text
+
+    from backend.app.models.materiais import ChunkMaterial
+    from backend.app.schemas.sessao import SessaoCriar
+    from backend.app.services.sessao_service import criar_sessao
+
+    consulta = "pergunta sobre filas"
+    vetor_consulta = embeddings_fake.embutir_consulta(consulta)
+
+    alvo = criar_material(
+        db_session, armazenamento, sessao_rascunho, "P1", [("página 1", "x " * 200)]
+    )
+    db_session.add(
+        ChunkMaterial(
+            material_id=alvo.id,
+            ordem=0,
+            texto="trecho da sessão buscada",
+            localizacao="página 1",
+            vetor_embedding=embeddings_fake.embutir_consulta("outro assunto"),
+        )
+    )
+    sessao_rascunho.estado = EstadoSessao.MATERIAIS_CONFIRMADOS
+
+    outra = criar_sessao(
+        db_session,
+        docente,
+        SessaoCriar(
+            disciplina="Outra",
+            periodo="2026.2",
+            tema_escopo=None,
+            area_do_conhecimento=None,
+            k_alternativas=4,
+            p_f=30,
+            p_m=40,
+            p_d=30,
+        ),
+    )
+    vizinho = criar_material(
+        db_session, armazenamento, outra, "P9", [("página 1", "y " * 200)]
+    )
+    # Mais perto da consulta que o trecho da sessão buscada, e mais que ef_search.
+    for ordem in range(60):
+        db_session.add(
+            ChunkMaterial(
+                material_id=vizinho.id,
+                ordem=ordem,
+                texto=f"trecho de outra sessão {ordem}",
+                localizacao=f"página {ordem + 1}",
+                vetor_embedding=vetor_consulta,
+            )
+        )
+    db_session.commit()
+
+    db_session.execute(text("SET LOCAL enable_seqscan = off"))
+    trechos = buscar(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        consulta,
+        k=8,
+        candidatos=20,
+    )
+
+    assert [t.identificador_curto for t in trechos] == ["P1"]

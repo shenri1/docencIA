@@ -96,3 +96,34 @@ def test_json_schema_fecha_alvo_e_localizacao_por_enum():
     achado = next(iter(gerado["$defs"].values()))
     assert achado["properties"]["alvo"]["enum"] == ["A", "B", "C", "D"]
     assert achado["properties"]["localizacao"]["enum"] == LOCS
+
+
+# R-LLM-01: sem teto no schema, a saída da auditoria passava de 1024 tokens e
+# vinha cortada (502). Os tetos fazem o tamanho máximo caber por construção.
+
+
+def test_no_maximo_um_achado_por_alternativa_errada():
+    schema = montar_schema_auditoria(5, LOCS)
+    letras_erradas = ["B", "C", "D", "E"]
+    assert len(schema.model_validate(
+        {"achados": [_achado(alvo=letra) for letra in letras_erradas]}
+    ).achados) == 4
+    with pytest.raises(ValueError):
+        schema.model_validate({"achados": [_achado() for _ in range(5)]})
+
+
+@pytest.mark.parametrize("campo", ["trecho_fonte", "proposta_ajuste"])
+def test_textos_do_achado_tem_teto(campo):
+    schema = montar_schema_auditoria(5, LOCS)
+    schema.model_validate({"achados": [_achado(**{campo: "x" * 300})]})
+    with pytest.raises(ValueError):
+        schema.model_validate({"achados": [_achado(**{campo: "x" * 301})]})
+
+
+def test_tetos_chegam_ao_json_schema_enviado_ao_ollama():
+    """O Ollama só impõe o que está no JSON schema do `format`."""
+    js = montar_schema_auditoria(5, LOCS).model_json_schema()
+    assert js["properties"]["achados"]["maxItems"] == 4
+    achado = next(iter(js["$defs"].values()))
+    assert achado["properties"]["trecho_fonte"]["maxLength"] == 300
+    assert achado["properties"]["proposta_ajuste"]["maxLength"] == 300

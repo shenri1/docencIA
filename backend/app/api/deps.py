@@ -62,13 +62,19 @@ def get_provedor_sob_demanda(
     resultado. Para rotas em que só alguns ramos chamam LLM (`/comando`): os
     determinísticos não podem tomar 503 por causa de geração alheia."""
     tomou = False
+    criado: ProvedorLLMService | None = None
 
     def obter() -> ProvedorLLMService:
-        nonlocal tomou
-        if not _vagas_llm.acquire(blocking=False):
-            raise ServidorOcupadoException(_RETRY_AFTER_LLM_S)
-        tomou = True
-        return criar_provedor_service(db)
+        # Uma vaga por requisição: chamar de novo devolve o mesmo service, em
+        # vez de tomar outra vaga que o `finally` não devolveria.
+        nonlocal tomou, criado
+        if criado is None:
+            if not tomou:
+                if not _vagas_llm.acquire(blocking=False):
+                    raise ServidorOcupadoException(_RETRY_AFTER_LLM_S)
+                tomou = True
+            criado = criar_provedor_service(db)
+        return criado
 
     try:
         yield obter

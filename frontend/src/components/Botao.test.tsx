@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -25,6 +26,29 @@ describe("Botao", () => {
     render(<Botao onClick={aoClicar}>Ir</Botao>);
 
     await userEvent.dblClick(screen.getByRole("button", { name: "Ir" }));
+    expect(aoClicar).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Botao com renderização no meio", () => {
+  it("o handler que muda estado do pai não reabre a janela do duplo clique", async () => {
+    const aoClicar = vi.fn();
+    function Pai() {
+      const [, setCliques] = useState(0);
+      return (
+        <Botao
+          onClick={() => {
+            aoClicar();
+            setCliques((n) => n + 1); // re-renderiza o botão antes do segundo clique
+          }}
+        >
+          Ir
+        </Botao>
+      );
+    }
+    render(<Pai />);
+
+    await userEvent.dblClick(screen.getByRole("button"));
     expect(aoClicar).toHaveBeenCalledTimes(1);
   });
 });

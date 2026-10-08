@@ -13,10 +13,19 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, Field, create_model
 
 from backend.app.domain import RiscoAuditoria
 from backend.app.schemas.geracao import K_MAXIMO, K_MINIMO, LETRAS
+
+# R-LLM-01: sem teto, a saída passou de 1024 tokens
+# e veio cortada. Estimativa, não medida (~3 caracteres por token, ~40 de
+# estrutura por achado): cada achado no teto custa ~240 tokens, então K = 5
+# (4 achados) fica perto de 960, dentro de AUDITORIA_MAX_TOKENS (2048). Com
+# K ≥ 10 o pior caso passa do teto — só se o modelo encher todos os campos de
+# todas as alternativas. Trecho cortado no fim continua sendo pedaço do trecho
+# do material.
+MAX_CARACTERES_ACHADO = 300
 
 # O modelo emite só os dois riscos semânticos. `assimetria_forma` é medida pelo
 # código, e deixá-la no Literal permitiria ao modelo reivindicar um achado que
@@ -43,8 +52,12 @@ def montar_schema_auditoria(k: int, localizacoes: list[str]) -> type[BaseModel]:
         risco=(Literal[RISCOS_DO_MODELO], ...),
         alvo=(Literal[tuple(LETRAS[:k])], ...),
         localizacao=(Literal[unicas], ...),
-        trecho_fonte=(str, ...),
-        proposta_ajuste=(str, ...),
+        trecho_fonte=(str, Field(..., max_length=MAX_CARACTERES_ACHADO)),
+        proposta_ajuste=(str, Field(..., max_length=MAX_CARACTERES_ACHADO)),
     )
-    # Sem min_length: lista vazia é o caso comum e correto.
-    return create_model(f"ResultadoAuditoria{k}", achados=(list[achado], ...))
+    # Sem min_length: lista vazia é o caso comum e correto. No máximo um achado
+    # por alternativa errada, como o prompt já pede ("um achado por alternativa").
+    return create_model(
+        f"ResultadoAuditoria{k}",
+        achados=(list[achado], Field(..., max_length=k - 1)),
+    )

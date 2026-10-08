@@ -237,12 +237,15 @@ function ItemDaMesa({
               <PedirVariacao bancoId={banco.banco_id} sessaoId={sessaoId} numero={questao.numero} />
             )}
             {podeMarcar &&
+              // `key`: são duas ações, não o mesmo botão — sem ela o React
+              // reaproveita a instância, e a trava de duplo clique do Botao
+              // bloquearia o "Manter" logo depois do "Marcar".
               (marcada ? (
-                <Botao variante="manter" onClick={aoAlternar}>
+                <Botao key="manter" variante="manter" onClick={aoAlternar}>
                   Manter
                 </Botao>
               ) : (
-                <Botao variante="descartar" onClick={aoAlternar}>
+                <Botao key="marcar" variante="descartar" onClick={aoAlternar}>
                   Marcar para exclusão
                 </Botao>
               ))}

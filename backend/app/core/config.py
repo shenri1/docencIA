@@ -112,10 +112,10 @@ class Settings(BaseSettings):
 
     # --- Auditoria ---
     # Abaixo da temperatura do crítico (0,2): auditar pede o mínimo de invenção.
-    # Palpite, como o 0,4 do Gerador e o 0,2 do crítico.
-    auditoria_temperatura: float = 0.1
-    # A saída é uma lista curta de achados, não uma questão inteira.
-    auditoria_max_tokens: int = 1024
+    auditoria_temperatura: float = 0.2
+    # 1024 cortou a saída no uso. O schema
+    # agora limita achados e textos; 2048, o teto da geração, cobre o pior caso.
+    auditoria_max_tokens: int = 2048
 
     @model_validator(mode="after")
     def _recusar_chaves_default_em_producao(self) -> "Settings":

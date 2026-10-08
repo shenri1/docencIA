@@ -109,9 +109,11 @@ class ClienteOllama:
 
         dados = resposta.json()
         if dados.get("done_reason") == "length":
+            # Cada chamada tem o seu teto: o PADRAO só vale quando ela não diz.
             raise RespostaLLMInvalidaException(
-                "resposta cortada pelo limite de tokens de saída — "
-                "aumente LLM_MAX_TOKENS_PADRAO ou reduza o prompt"
+                f"resposta cortada pelo limite de {corpo['options']['num_predict']} "
+                "tokens de saída — aumente o teto da chamada (GERACAO_MAX_TOKENS, "
+                "CRITICO_MAX_TOKENS ou AUDITORIA_MAX_TOKENS) ou reduza o prompt"
             )
 
         conteudo_bruto = (dados.get("message") or {}).get("content")

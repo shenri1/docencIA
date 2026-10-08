@@ -118,7 +118,7 @@ class Settings(BaseSettings):
     auditoria_max_tokens: int = 2048
 
     @model_validator(mode="after")
-    def _recusar_chaves_default_em_producao(self) -> "Settings":
+    def _recusar_chaves_default_em_producao(self) -> Settings:
         if self.ambiente == "producao":
             usando_default = [
                 nome

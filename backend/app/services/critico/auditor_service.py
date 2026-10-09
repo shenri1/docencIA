@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from backend.app.core.config import settings
 from backend.app.domain import (
     EstadoQuestao,
+    FormatoItem,
     RegraQualidade,
     RiscoAuditoria,
     TipoEventoAuditoria,
@@ -106,6 +107,9 @@ def item_de_questao(questao: Questao, trechos: list[TrechoRecuperado]) -> ItemOb
         # Dos trechos RECUPERADOS, não das fontes gravadas: é contra eles que a
         # regra de menção de fonte compara.
         identificadores_fonte=sorted({t.identificador_curto for t in trechos}),
+        # Nos formatos montados as alternativas são texto do sistema, e
+        # `validar_objetiva` não mede tamanho nelas.
+        formato=questao.formato,
     )
 
 
@@ -140,6 +144,9 @@ class AuditoriaQuestao:
     modelo: str
     # As localizações enviadas, para o payload permitir conferir a citação.
     localizacoes: list[str]
+    # False nos formatos montados, onde a assimetria de forma não se
+    # aplica. O relatório diz isso em vez de omitir.
+    forma_aplicavel: bool = True
 
 
 def _montar_usuario(questao: Questao, trechos: list[TrechoRecuperado]) -> str:
@@ -191,7 +198,9 @@ def auditar_questao(
     resposta = provedor.gerar(
         sessao.id,
         RequisicaoLLM(
-            sistema=montar_sistema_auditor(parametros_da_sessao(sessao, distribuicao)),
+            sistema=montar_sistema_auditor(
+                parametros_da_sessao(sessao, distribuicao), questao.formato
+            ),
             usuario=_montar_usuario(questao, trechos),
             formato=montar_schema_auditoria(len(questao.alternativas), localizacoes),
             temperatura=settings.auditoria_temperatura,
@@ -215,6 +224,7 @@ def auditar_questao(
         # Deduplicada aqui também, para o payload dizer o mesmo que o schema
         # aceitou.
         localizacoes=list(dict.fromkeys(localizacoes)),
+        forma_aplicavel=questao.formato is FormatoItem.PROPOSICAO,
     )
 
 
@@ -242,6 +252,9 @@ class ResumoAuditoria:
     # Só as questões COM achado: relatório  lista item problemático.
     questoes: list[QuestaoAuditada]
     proporcao_com_achado: Decimal
+    # questões de formato montado, sem verificação de assimetria. Payload
+    # anterior à etapa, sem a chave, conta como aplicável.
+    sem_verificacao_de_forma: int = 0
 
 
 def _ativas_por_tipo(db: Session, banco: BancoQuestoes) -> tuple[list[Questao], int]:
@@ -337,6 +350,9 @@ def montar_resumo(
         # retomada, `auditadas` desta chamada pode ser 0 e a proporção continua
         # sendo a do banco.
         proporcao_com_achado=_proporcao(len(com_achado), auditadas),
+        sem_verificacao_de_forma=sum(
+            1 for p in payloads if p.get("forma_aplicavel") is False
+        ),
     )
 
 
@@ -404,6 +420,7 @@ def auditar_banco(
                 "hash_modulos": prompt.hash_modulos,
                 "localizacoes_enviadas": resultado.localizacoes,
                 "achados": [a.como_dict() for a in resultado.achados],
+                "forma_aplicavel": resultado.forma_aplicavel,
             },
         )
         # Commit por questão: ~19 s mais retrieval por item, e falha no item 20

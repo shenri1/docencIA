@@ -21,6 +21,7 @@ from backend.app.domain import (
     EstadoQuestao,
     EstadoSessao,
     FaixaDificuldade,
+    FormatoItem,
     NivelBloom,
     TipoEventoAuditoria,
     TipoQuestao,
@@ -58,6 +59,13 @@ from backend.app.services.geracao.agente_gerador_service import (
 )
 from backend.app.services.geracao.ancoras import selecionar_ancoras
 from backend.app.services.geracao.contexto import resolver_fontes
+from backend.app.services.geracao.formatos import (
+    atribuir_configuracao,
+    atribuir_formato,
+    atribuir_n_itens,
+    montar_discursiva,
+    montar_objetiva,
+)
 from backend.app.services.log_auditoria import registrar_evento
 from backend.app.services.prompt_mestre_service import verificar_integridade
 from backend.app.services.qualidade.validador_itens import (
@@ -116,6 +124,9 @@ class ItemPlano:
     tipo: TipoQuestao
     faixa: FaixaDificuldade
     distribuicao: DistribuicaoQuestoes
+    formato: FormatoItem = FormatoItem.PROPOSICAO
+    configuracao: tuple[bool, ...] | str | None = None
+    n_itens: int | None = None
 
 
 def _montar_plano(
@@ -123,8 +134,11 @@ def _montar_plano(
 ) -> list[ItemPlano]:
     """Objetivas primeiro, depois discursivas, cada tipo em fácil → média →
     difícil com o seu próprio maior resto. numero == índice da âncora + 1: a
-    seleção é determinística, então retomar é pular os que já existem."""
+    seleção é determinística, então retomar é pular os que já existem. Formato,
+    configuração e itens também são função pura da posição."""
     plano: list[ItemPlano] = []
+    k = sessao.k_alternativas
+    ordinais: dict[FormatoItem, int] = {}
     for tipo, n in (
         (TipoQuestao.OBJETIVA, n_objetivas),
         (TipoQuestao.DISCURSIVA, n_discursivas),
@@ -133,12 +147,32 @@ def _montar_plano(
             continue
         distribuicao = calcular_distribuicao(n, sessao.p_f, sessao.p_m, sessao.p_d)
         for faixa, quantidade in distribuicao.itens():
-            # `base` ligado ANTES do extend — ver o comentário.
-            base = len(plano)
-            plano.extend(
-                ItemPlano(base + i + 1, tipo, faixa, distribuicao)
-                for i in range(quantidade)
-            )
+            for posicao in range(quantidade):
+                numero = len(plano) + 1
+                if tipo is TipoQuestao.DISCURSIVA:
+                    plano.append(
+                        ItemPlano(
+                            numero,
+                            tipo,
+                            faixa,
+                            distribuicao,
+                            n_itens=atribuir_n_itens(faixa, posicao),
+                        )
+                    )
+                    continue
+                formato = atribuir_formato(faixa, posicao, k)
+                ordinal = ordinais.get(formato, 0)
+                ordinais[formato] = ordinal + 1
+                plano.append(
+                    ItemPlano(
+                        numero,
+                        tipo,
+                        faixa,
+                        distribuicao,
+                        formato,
+                        atribuir_configuracao(formato, ordinal, k),
+                    )
+                )
     return plano
 
 
@@ -185,10 +219,16 @@ def _obter_ou_criar_banco(
     return banco
 
 
-def _validar(tipo: TipoQuestao, questao, trechos) -> list[Violacao]:
+def _montar(tipo: TipoQuestao, saida, formato, configuracao, k, numero):
     if tipo is TipoQuestao.OBJETIVA:
-        return validar_objetiva(item_objetivo_de(questao, trechos))
-    return validar_discursiva(item_discursivo_de(questao, trechos))
+        return montar_objetiva(saida, formato, configuracao, k, numero)
+    return montar_discursiva(saida)
+
+
+def _validar(tipo: TipoQuestao, montada, trechos, faixa) -> list[Violacao]:
+    if tipo is TipoQuestao.OBJETIVA:
+        return validar_objetiva(item_objetivo_de(montada, trechos, faixa))
+    return validar_discursiva(item_discursivo_de(montada, trechos, faixa))
 
 
 def _persistir(
@@ -197,14 +237,15 @@ def _persistir(
     numero: int,
     tipo: TipoQuestao,
     faixa: FaixaDificuldade,
+    final,
+    formato_planejado: FormatoItem,
     resultado: ResultadoGeracao,
     revisao: ResultadoRevisao,
     violacoes_rascunho: list[Violacao],
     violacoes_final: list[Violacao],
     estado: EstadoQuestao,
 ) -> Questao:
-    final = revisao.questao
-    # Antes de qualquer db.add: fonte inválida levanta sem deixar objeto
+    # `final` é a forma montada da versão revisada. Antes de qualquer db.add: fonte inválida levanta sem deixar objeto
     # pendente na sessão. Só a versão revisada vira FonteInterna.
     if tipo is TipoQuestao.OBJETIVA:
         # Objetiva — como hoje: uma FonteInterna por item de `final.fontes`,
@@ -212,7 +253,7 @@ def _persistir(
         unicas = resolver_fontes(final.fontes, resultado.trechos)
     else:
         chaves_por_aspecto = resolver_fontes(
-            [a.fonte for a in final.aspectos_esperados], resultado.trechos
+            [a.fonte for a in final.aspectos], resultado.trechos
         )
         # Dois aspectos citando o mesmo trecho viram uma FonteInterna só.
         unicas = list(dict.fromkeys(chaves_por_aspecto))
@@ -221,6 +262,7 @@ def _persistir(
         banco_id=banco.id,
         numero=numero,
         tipo=tipo,
+        formato=final.formato if tipo is TipoQuestao.OBJETIVA else FormatoItem.PROPOSICAO,
         enunciado=final.enunciado,
         nivel_bloom=NivelBloom(final.nivel_bloom),
         faixa_dificuldade=faixa,
@@ -262,27 +304,28 @@ def _persistir(
                     e_gemeo_malvado=alternativa.e_gemeo_malvado,
                 )
             )
-        justificativa = final.justificativa
         db.add(
             JustificativaEstruturada(
                 questao_id=questao.id,
-                objetivo_cognitivo=justificativa.objetivo_cognitivo,
-                justificativa_correta=justificativa.justificativa_correta,
+                objetivo_cognitivo=final.objetivo_cognitivo,
+                justificativa_correta=final.justificativa_correta,
                 invalidacao_distratores=[
-                    i.model_dump() for i in justificativa.invalidacao_distratores
+                    {"letra": i.letra, "motivo": i.motivo} for i in final.invalidacoes
                 ],
-                verificacao_unicidade=justificativa.verificacao_unicidade,
-                texto_verificacao_unicidade=justificativa.texto_verificacao_unicidade,
+                verificacao_unicidade=final.verificacao_unicidade,
+                texto_verificacao_unicidade=final.texto_verificacao_unicidade,
+                estrutura_formato=final.estrutura_formato,
             )
         )
     else:
         for ordem, (aspecto, chave) in enumerate(
-            zip(final.aspectos_esperados, chaves_por_aspecto, strict=True), start=1
+            zip(final.aspectos, chaves_por_aspecto, strict=True), start=1
         ):
             db.add(
                 AspectoEsperado(
                     questao_id=questao.id,
                     ordem=ordem,
+                    item=aspecto.item,
                     texto=aspecto.texto,
                     fonte_interna_id=fontes_por_chave[chave].id,
                 )
@@ -291,6 +334,7 @@ def _persistir(
             JustificativaEstruturada(
                 questao_id=questao.id,
                 objetivo_cognitivo=final.objetivo_cognitivo,
+                estrutura_formato={"contexto": final.contexto},
             )
         )
 
@@ -318,6 +362,8 @@ def _persistir(
             "banco_id": banco.id,
             "numero": numero,
             "tipo": tipo.value,
+            "formato_planejado": formato_planejado.value,
+            "formato": questao.formato.value,
             "estado": estado.value,
             "modelo_geracao": resultado.modelo,
             "modelo_revisao": revisao.modelo,
@@ -342,11 +388,14 @@ def produzir_questao(
     distribuicao: DistribuicaoQuestoes,
     estado: EstadoQuestao = EstadoQuestao.ATIVA,
     evitar: str | None = None,
-    enunciado_original: str | None = None,
+    formato: FormatoItem = FormatoItem.PROPOSICAO,
+    configuracao=None,
+    n_itens: int | None = None,
+    pergunta_original: str | None = None,
 ) -> Produzida | Improdutiva:
-    """Uma questão, do rascunho ao commit: gerar, medir, revisar, medir,
-    persistir. `gerar_banco` chama em laço; `propor_substituicao` chama uma vez.
-    A sequência existe só aqui."""
+    """Uma questão, do rascunho ao commit: gerar, montar, medir, revisar, montar,
+    medir, persistir. `gerar_banco` chama em laço; `propor_substituicao` chama uma
+    vez. A sequência existe só aqui."""
     resultado = gerar_questao(
         db,
         embeddings,
@@ -359,15 +408,44 @@ def produzir_questao(
         distribuicao,
         tipo=tipo,
         evitar=evitar,
+        formato=formato,
+        configuracao=configuracao,
+        n_itens=n_itens,
     )
+    formato_planejado = formato
+    if (
+        resultado.questao is None
+        and tipo is TipoQuestao.OBJETIVA
+        and formato is not FormatoItem.PROPOSICAO
+    ):
+        # A âncora do número é fixa: insistir no mesmo formato falharia em toda
+        # retomada. Recua uma vez, com os mesmos trechos, sem novo rerank.
+        formato, configuracao = FormatoItem.PROPOSICAO, None
+        resultado = gerar_questao(
+            db,
+            embeddings,
+            reranker,
+            provedor,
+            sessao,
+            ancora,
+            faixa,
+            numero,
+            distribuicao,
+            tipo=tipo,
+            evitar=evitar,
+            formato=formato,
+            trechos=resultado.trechos,
+        )
     if resultado.questao is None:
         return Improdutiva(
             numero=numero,
             localizacao=resultado.localizacao_ancora,
             motivo=resultado.motivo_insuficiencia or "sem motivo declarado",
         )
-    if enunciado_original is not None and enunciado_repetido(
-        resultado.questao.enunciado, enunciado_original
+    k = sessao.k_alternativas
+    rascunho = _montar(tipo, resultado.questao, formato, configuracao, k, numero)
+    if pergunta_original is not None and enunciado_repetido(
+        rascunho.pergunta, pergunta_original
     ):
         # Medido no rascunho: revisar uma cópia gastaria o crítico à toa.
         return Improdutiva(
@@ -378,8 +456,8 @@ def produzir_questao(
         )
 
     # o determinístico mede, o semântico revisa com essa medida como
-    # feedback, e o determinístico mede de novo.
-    violacoes_rascunho = _validar(tipo, resultado.questao, resultado.trechos)
+    # feedback, e o determinístico mede de novo — sempre sobre a forma montada.
+    violacoes_rascunho = _validar(tipo, rascunho, resultado.trechos, faixa)
     revisao = revisar_questao(
         provedor,
         sessao,
@@ -389,6 +467,9 @@ def produzir_questao(
         faixa,
         distribuicao,
         tipo=tipo,
+        formato=formato,
+        configuracao=configuracao,
+        n_itens=n_itens,
     )
     if revisao.questao is None:
         # O crítico concluiu que o material não sustenta a questão: 
@@ -400,13 +481,16 @@ def produzir_questao(
             + (revisao.motivo_insuficiencia or "sem motivo declarado"),
         )
 
-    violacoes_final = _validar(tipo, revisao.questao, resultado.trechos)
+    final = _montar(tipo, revisao.questao, formato, configuracao, k, numero)
+    violacoes_final = _validar(tipo, final, resultado.trechos, faixa)
     questao = _persistir(
         db,
         banco,
         numero,
         tipo,
         faixa,
+        final,
+        formato_planejado,
         resultado,
         revisao,
         violacoes_rascunho,
@@ -473,6 +557,9 @@ def gerar_banco(
             item.faixa,
             ancoras[item.numero - 1],
             item.distribuicao,
+            formato=item.formato,
+            configuracao=item.configuracao,
+            n_itens=item.n_itens,
         )
         if isinstance(produzida, Improdutiva):
             improdutivas.append(produzida)

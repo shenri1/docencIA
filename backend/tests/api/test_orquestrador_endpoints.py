@@ -1,8 +1,11 @@
+from types import SimpleNamespace
+
 from backend.app.api.deps import get_provedor_sob_demanda
 from backend.app.main import app
 from backend.app.models.identidade import SessaoGeracao
 from backend.tests.conftest import _auth
-from backend.tests.services.geracao.duplos import ProvedorLLMFake, corpo_questao
+from backend.tests.services.geracao.duplos import ProvedorLLMFake
+from backend.tests.services.geracao.test_banco_service import roteiro_do_plano
 from backend.tests.services.orquestrador.test_orquestrador_service import (
     material_indexado,
 )
@@ -29,9 +32,16 @@ def sessao_com_material(client, db_session, armazenamento, credencial):
 
 
 def roteiro_com_subtemas(n: int) -> list[dict]:
-    """Duas respostas por questão, subtema distinto por questão: com subtema
-    igual em todas, a regra de sobreposição recusaria a montagem."""
-    return [corpo_questao(5, subtema=f"s{q}") for q in range(n) for _ in range(2)]
+    """Duas respostas por questão, no formato que o plano atribui ao número e com
+    subtema distinto por questão: com subtema igual em todas, a regra de
+    sobreposição recusaria a montagem."""
+    sessao = SimpleNamespace(
+        p_f=SESSAO["p_f"],
+        p_m=SESSAO["p_m"],
+        p_d=SESSAO["p_d"],
+        k_alternativas=SESSAO["k_alternativas"],
+    )
+    return roteiro_do_plano(sessao, n)
 
 
 def test_marco_sem_token_e_401(client):

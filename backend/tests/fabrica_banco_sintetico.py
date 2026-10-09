@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.domain import (
     FaixaDificuldade,
+    FormatoItem,
     NivelBloom,
     RiscoAuditoria,
     TipoQuestao,
@@ -217,6 +218,7 @@ def montar_banco_sintetico(db: Session, sessao: SessaoGeracao) -> BancoQuestoes:
             banco_id=banco.id,
             numero=numero,
             tipo=TipoQuestao.OBJETIVA,
+            formato=FormatoItem.PROPOSICAO,
             enunciado=enunciado,
             nivel_bloom=NivelBloom.ENTENDER,
             faixa_dificuldade=FaixaDificuldade.MEDIA,

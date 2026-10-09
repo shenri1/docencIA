@@ -9,6 +9,7 @@ from backend.app.services.critico.agente_critico_service import (
     revisar_questao,
 )
 from backend.app.services.geracao.contexto import parametros_da_sessao
+from backend.app.services.geracao.formatos import montar_discursiva, montar_proposicao
 from backend.app.services.qualidade.validador_itens import Violacao
 from backend.app.services.rag.retrieval_service import TrechoRecuperado
 from backend.tests.services.geracao.duplos import (
@@ -48,7 +49,7 @@ def test_mensagem_leva_trechos_rascunho_e_violacoes(sessao_rascunho):
     revisar(provedor, sessao_rascunho)
     usuario = provedor.requisicoes[0].usuario
     assert "[P1, página 12] A busca em largura usa uma fila." in usuario
-    assert '"enunciado"' in usuario
+    assert '"comando"' in usuario
     assert "tamanho_alternativa" in usuario
     assert "C tem 14 palavras; média das demais = 5,5" in usuario
     assert "media" in usuario
@@ -75,7 +76,7 @@ def test_usa_o_prompt_do_critico_e_os_parametros_do_critico(sessao_rascunho):
 def test_questao_revisada_volta(sessao_rascunho):
     provedor = ProvedorLLMFake([corpo_questao(5, enunciado="Versão revisada?")])
     resultado = revisar(provedor, sessao_rascunho)
-    assert resultado.questao.enunciado == "Versão revisada?"
+    assert resultado.questao.comando == "Versão revisada?"
     assert resultado.motivo_insuficiencia is None
     assert resultado.modelo == "fake"
 
@@ -88,7 +89,7 @@ def test_insuficiencia_declarada_pelo_critico(sessao_rascunho):
 
 
 def test_item_de_atribui_letra_por_posicao_e_correta_pela_letra():
-    item = item_objetivo_de(rascunho(letra_correta="C"), TRECHOS)
+    item = item_objetivo_de(montar_proposicao(rascunho(letra_correta="C")), TRECHOS)
     assert [a.letra for a in item.alternativas] == ["A", "B", "C", "D", "E"]
     assert [a.letra for a in item.alternativas if a.correta] == ["C"]
     assert [a.letra for a in item.alternativas if a.e_gemeo_malvado] == ["B"]
@@ -123,7 +124,7 @@ def test_revisao_discursiva_usa_sistema_e_pedido_proprios(sessao_rascunho):
 
 
 def test_item_discursivo_de_leva_o_trecho_de_cada_aspecto():
-    item = item_discursivo_de(rascunho_discursivo(), TRECHOS)
+    item = item_discursivo_de(montar_discursiva(rascunho_discursivo()), TRECHOS)
     assert item.enunciado.startswith("Explique")
     assert [a.trecho_base for a in item.aspectos] == [
         "A busca em largura usa uma fila."
@@ -137,7 +138,7 @@ def test_item_objetivo_de_leva_justificativa_e_invalidacoes():
     from backend.tests.services.geracao.duplos import corpo_questao
 
     questao = montar_schema_objetiva(5).model_validate(corpo_questao(5)).resultado
-    item = item_objetivo_de(questao, [])
+    item = item_objetivo_de(montar_proposicao(questao), [])
     assert item.justificativa_correta == "o trecho afirma o uso de fila"
     assert item.texto_verificacao_unicidade == "nenhuma errada é defensável"
     assert item.invalidacoes == [

@@ -8,6 +8,7 @@ from backend.app.domain import (
     EstadoQuestao,
     EventoBanco,
     FaixaDificuldade,
+    FormatoItem,
     TipoQuestao,
 )
 from backend.app.exceptions import (
@@ -33,15 +34,19 @@ from backend.app.services.controle_banco.substituicao_service import (
 from backend.app.services.geracao.banco_service import Improdutiva, gerar_banco
 from backend.tests.travamento import espiar_lock
 from backend.tests.services.geracao.duplos import (
+    CONTEXTO_MEDIA,
     ProvedorLLMFake,
+    corpo_afirmativas,
     corpo_discursiva,
     corpo_insuficiencia,
     corpo_questao,
 )
+from backend.app.services.geracao.banco_service import _montar_plano
 from backend.tests.services.geracao.test_banco_service import (
     VARIACAO,
     preparar,
     roteiro,
+    roteiro_do_plano,
     roteiro_variacao,
 )
 
@@ -450,3 +455,99 @@ def test_aceitar_segura_o_lock_da_linha_do_banco(
     aceitar_substituicao(db_session, docente, banco, 1, banco.revisao)
 
     assert achados == [False]
+
+
+# --- ---
+
+
+def test_substituicao_de_questao_anterior_a_etapa_18(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    banco = banco_gerado(
+        db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+    )
+    original = next(q for q in banco.questoes if q.numero == 1)
+    original.justificativa.estrutura_formato = None  # como antes da etapa
+    db_session.commit()
+    copia = corpo_questao(5, enunciado=original.enunciado)
+    provedor = ProvedorLLMFake([copia, *roteiro_variacao(1)])
+    produzida = propor_substituicao(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco, 1
+    )
+    assert produzida.questao.enunciado == VARIACAO
+    assert produzida.questao.formato is FormatoItem.PROPOSICAO
+
+
+def test_variacao_que_reusa_o_cenario_nao_e_copia(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    cenario = " ".join(["cenário"] * 40)
+    resumo = gerar_banco(
+        db_session, embeddings_fake, reranker_fake,
+        ProvedorLLMFake([corpo_questao(5, contexto=cenario)] * 2),
+        sessao_rascunho, n_objetivas=1, n_discursivas=0, versao="v1",
+    )
+    banco = db_session.get(BancoQuestoes, resumo.banco_id)
+    outra = corpo_questao(5, contexto=cenario, enunciado=VARIACAO)
+    provedor = ProvedorLLMFake([outra, outra])
+    produzida = propor_substituicao(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco, 1
+    )
+    assert provedor.chamadas == 2  # nenhuma recusa por cópia
+    assert produzida.questao.enunciado.endswith(VARIACAO)
+
+
+def _banco_com_afirmativas(db, armazenamento, emb, rer, sessao):
+    """Banco de 4 objetivas gerado pelo laço; devolve o número que o plano pôs
+    em AFIRMATIVAS e a configuração dele."""
+    preparar(db, armazenamento, sessao)
+    numero, cfg = next(
+        (i.numero, i.configuracao)
+        for i in _montar_plano(sessao, 4, 0)
+        if i.formato is FormatoItem.AFIRMATIVAS
+    )
+    resumo = gerar_banco(
+        db, emb, rer, ProvedorLLMFake(roteiro_do_plano(sessao, 4)), sessao,
+        n_objetivas=4, n_discursivas=0, versao="v1",
+    )
+    return db.get(BancoQuestoes, resumo.banco_id), numero, cfg
+
+
+def test_substituicao_mantem_formato_e_configuracao(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    banco, numero, cfg = _banco_com_afirmativas(
+        db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+    )
+    outras = ("A fila guarda os descobertos.", "A pilha guarda os descobertos.",
+              "A visita segue camadas de distância.")
+    provedor = ProvedorLLMFake([corpo_afirmativas(cfg, textos=outras)] * 2)
+    produzida = propor_substituicao(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco, numero
+    )
+    assert produzida.questao.formato is FormatoItem.AFIRMATIVAS
+    estrutura = produzida.questao.justificativa.estrutura_formato
+    assert tuple(a["verdadeira"] for a in estrutura["afirmativas"]) == cfg
+
+
+def test_substituicao_de_afirmativas_recua_para_proposicao(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    banco, numero, cfg = _banco_com_afirmativas(
+        db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+    )
+    variacao = corpo_questao(5, contexto=CONTEXTO_MEDIA, enunciado=VARIACAO)
+    provedor = ProvedorLLMFake([corpo_insuficiencia(), variacao, variacao])
+    produzida = propor_substituicao(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco, numero
+    )
+    assert "a afirmativa" in provedor.requisicoes[0].usuario  # tentou o formato da original
+    assert produzida.questao.formato is FormatoItem.PROPOSICAO
+    original = next(
+        q for q in banco.questoes if q.numero == numero and q.estado.value == "ativa"
+    )
+    assert original.formato is FormatoItem.AFIRMATIVAS
+    assert tuple(
+        a["verdadeira"] for a in original.justificativa.estrutura_formato["afirmativas"]
+    ) == cfg

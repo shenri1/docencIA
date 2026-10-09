@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from backend.app.domain import EstadoQuestao, TipoEventoAuditoria
+from backend.app.domain import EstadoQuestao, FormatoItem, TipoEventoAuditoria
 from backend.app.exceptions import (
     InconsistenciaDeEstadoException,
     PromptDivergenteException,
@@ -344,3 +344,49 @@ def test_registros_duplicados_do_mesmo_numero_contam_uma_vez(
 
     resumo = montar_resumo(db_session, banco)
     assert resumo.auditadas == 1
+
+
+def test_resumo_conta_as_questoes_sem_verificacao_de_forma(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    banco = banco_misto(
+        db_session, armazenamento, sessao_rascunho, objetivas=2, discursivas=0
+    )
+    next(q for q in banco.questoes if q.numero == 2).formato = FormatoItem.AFIRMATIVAS
+    db_session.commit()
+    provedor = ProvedorLLMFake([sem_achado(), sem_achado()])
+    resumo = _auditar(db_session, embeddings_fake, reranker_fake, provedor, docente, banco)
+    assert resumo.auditadas == 2
+    assert resumo.sem_verificacao_de_forma == 1
+    assert "<formato_afirmativas>" in provedor.requisicoes[1].sistema
+
+
+def test_payload_antigo_sem_forma_aplicavel_conta_como_aplicavel(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    """registros_auditoria é append-only: o registro antigo é inserido com o
+    payload de antes, sem a chave nova."""
+    banco = banco_misto(
+        db_session, armazenamento, sessao_rascunho, objetivas=1, discursivas=0
+    )
+    questao = banco.questoes[0]
+    registrar_evento(
+        db_session,
+        TipoEventoAuditoria.AUDITORIA_QUESTAO,
+        f"questoes:{questao.id}",
+        docente.id,
+        {
+            "banco_id": banco.id,
+            "numero": questao.numero,
+            "revisao_auditada": banco.revisao,
+            "modelo": "fake",
+            "versao_prompt": "1.0.0",
+            "hash_modulos": "x",
+            "localizacoes_enviadas": [],
+            "achados": [],
+        },
+    )
+    db_session.commit()
+    resumo = montar_resumo(db_session, banco)
+    assert resumo.auditadas == 1
+    assert resumo.sem_verificacao_de_forma == 0

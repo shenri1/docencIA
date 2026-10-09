@@ -1,6 +1,6 @@
 import pytest
 
-from backend.app.domain import FaixaDificuldade, TipoQuestao
+from backend.app.domain import FaixaDificuldade, FormatoItem, TipoQuestao
 from backend.app.exceptions import (
     BancoInsuficienteParaProvaException,
     SobreposicaoInevitavelException,
@@ -182,6 +182,7 @@ def test_zero_tentativas_falha_com_erro_claro_e_nao_com_typeerror(monkeypatch):
         Questao(
             numero=i,
             tipo=TipoQuestao.OBJETIVA,
+            formato=FormatoItem.PROPOSICAO,
             faixa_dificuldade=F,
             subtema="s",
         )

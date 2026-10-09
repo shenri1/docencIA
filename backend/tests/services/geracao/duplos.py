@@ -30,15 +30,34 @@ class ProvedorLLMFake:
         )
 
 
-def corpo_questao(k: int, identificador: str = "P1", **sobrescritas) -> dict:
+# 26 palavras: passa no mínimo da média (15) e é curto para a difícil (40).
+CONTEXTO_MEDIA = (
+    "Uma equipe de logística modela os bairros de uma cidade como vértices e as ruas "
+    "como arestas de mesmo peso para planejar as entregas do dia."
+)
+
+
+def corpo_questao(
+    k: int,
+    identificador: str = "P1",
+    contexto: str = "",
+    enunciado: str = "Qual estrutura a busca em largura utiliza?",
+    **sobrescritas,
+) -> dict:
+    """`enunciado` vira o `comando`. Com o contexto vazio, é também o enunciado
+    montado, e os testes anteriores à leem o mesmo texto de antes."""
     questao = {
         "tipo": "questao",
-        "enunciado": "Qual estrutura a busca em largura utiliza?",
+        "contexto": contexto,
+        "comando": enunciado,
         "nivel_bloom": "aplicar",
         "tema": "Grafos",
         "subtema": "Busca em largura",
+        # 5 palavras e maiúscula: não dispara ALTERNATIVA_ROTULO nem
+        # PONTUACAO_INCOERENTE contra o comando em pergunta.
         "alternativas": [
-            {"texto": f"opção {i}", "e_gemeo_malvado": i == 1} for i in range(k)
+            {"texto": f"Alternativa número {i} do teste", "e_gemeo_malvado": i == 1}
+            for i in range(k)
         ],
         "letra_correta": "A",
         "fontes": [
@@ -63,7 +82,12 @@ def corpo_questao(k: int, identificador: str = "P1", **sobrescritas) -> dict:
     return {"resultado": questao}
 
 
-def corpo_discursiva(identificador: str = "P1", **sobrescritas) -> dict:
+def corpo_discursiva(
+    identificador: str = "P1",
+    contexto: str = "",
+    enunciado: str = "Explique por que a busca em largura usa uma fila.",
+    **sobrescritas,
+) -> dict:
     """Dois aspectos citando a MESMA fonte, de propósito: é o caso comum do
     modelo, e a persistência deve deduplicar."""
     fonte = {
@@ -73,7 +97,8 @@ def corpo_discursiva(identificador: str = "P1", **sobrescritas) -> dict:
     }
     questao = {
         "tipo": "questao_discursiva",
-        "enunciado": "Explique por que a busca em largura usa uma fila.",
+        "contexto": contexto,
+        "comando": enunciado,
         "nivel_bloom": "entender",
         "tema": "Grafos",
         "subtema": "Busca em largura",
@@ -94,3 +119,85 @@ def corpo_insuficiencia(motivo: str = "não há trecho sobre o tema pedido") -> 
             "informacao_faltante": motivo,
         }
     }
+
+
+_FONTE = {
+    "identificador_material": "P1",
+    "localizacao": "página 12",
+    "trecho_base": "A busca em largura usa uma fila.",
+}
+_NOMES = ("afirmativa_i", "afirmativa_ii", "afirmativa_iii", "afirmativa_iv")
+
+
+def corpo_afirmativas(
+    configuracao: tuple[bool, ...], textos: tuple[str, ...] | None = None, **sobrescritas
+) -> dict:
+    textos = textos or tuple(
+        f"Afirmação número {i + 1} sobre a busca em largura."
+        for i in range(len(configuracao))
+    )
+    questao = {
+        "tipo": "questao",
+        "contexto": CONTEXTO_MEDIA,
+        "comando": "A partir da situação descrita, avalie as afirmações a seguir.",
+        **{
+            nome: {
+                "verdadeira": valor,
+                "texto": textos[i],
+                "justificativa": f"justificativa da afirmação {i + 1}",
+            }
+            for i, (nome, valor) in enumerate(zip(_NOMES, configuracao, strict=False))
+        },
+        "nivel_bloom": "analisar",
+        "tema": "Grafos",
+        "subtema": "Ordem de visita",
+        "objetivo_cognitivo": "julgar afirmações sobre a ordem de visita",
+        "fontes": [_FONTE],
+    }
+    questao.update(sobrescritas)
+    return {"resultado": questao}
+
+
+def corpo_assercao(**sobrescritas) -> dict:
+    questao = {
+        "tipo": "questao",
+        "contexto": CONTEXTO_MEDIA,
+        "assercao": "Os vértices descobertos esperam a vez numa estrutura própria.",
+        "justificativa_assercao": "o trecho diz que a busca guarda os descobertos",
+        "razao": "A ordem de saída dessa estrutura é a ordem de chegada.",
+        "justificativa_razao": "fila devolve primeiro o mais antigo",
+        "nivel_bloom": "avaliar",
+        "tema": "Grafos",
+        "subtema": "Fila na busca em largura",
+        "objetivo_cognitivo": "avaliar a relação entre fila e ordem de visita",
+        "fontes": [_FONTE],
+    }
+    questao.update(sobrescritas)
+    return {"resultado": questao}
+
+
+def corpo_discursiva_itens(n_itens: int, **sobrescritas) -> dict:
+    comandos = (
+        "Explique por que a busca em largura usa uma fila.",
+        "Compare a busca em largura com a busca em profundidade.",
+        "Avalie a busca em largura num grafo com pesos.",
+    )
+    questao = {
+        "tipo": "questao_discursiva",
+        "contexto": CONTEXTO_MEDIA,
+        "itens": [
+            {
+                "comando": comandos[i],
+                "aspectos_esperados": [
+                    {"texto": f"aspecto do item {i + 1}", "fonte": _FONTE}
+                ],
+            }
+            for i in range(n_itens)
+        ],
+        "nivel_bloom": "avaliar",
+        "tema": "Grafos",
+        "subtema": "Busca em largura",
+        "objetivo_cognitivo": "analisar um caso de rotas",
+    }
+    questao.update(sobrescritas)
+    return {"resultado": questao}

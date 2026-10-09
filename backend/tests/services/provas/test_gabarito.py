@@ -206,3 +206,15 @@ def test_gerar_gabarito_nao_escreve_nada(db_session, docente, sessao_rascunho):
     gerar_gabarito(db_session, docente, montadas.prova_a_id, COMENTADO)
     assert [db_session.query(m).count() for m in modelos] == antes
     assert not db_session.new and not db_session.dirty
+
+
+def test_gabarito_da_discursiva_com_itens_leva_o_item(db_session, docente, sessao_rascunho):
+    banco, montadas = provas_montadas(db_session, docente, sessao_rascunho, discursivas=3)
+    for questao in banco.questoes:
+        for aspecto in questao.aspectos:
+            aspecto.item = aspecto.ordem  # 2 aspectos: itens 1 e 2, um cada
+    db_session.commit()
+    comentado = gerar_gabarito(db_session, docente, montadas.prova_a_id, COMENTADO)
+    discursivos = [i for i in comentado.itens if i.aspectos]
+    assert discursivos
+    assert all([a.item for a in i.aspectos] == [1, 2] for i in discursivos)

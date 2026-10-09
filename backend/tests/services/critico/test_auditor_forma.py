@@ -1,8 +1,12 @@
-from backend.app.domain import RiscoAuditoria
+from backend.app.domain import FormatoItem, RiscoAuditoria
 from backend.app.models.banco import Alternativa
 from backend.app.services.critico.auditor_service import (
     achados_de_forma,
     item_de_questao,
+)
+from backend.app.services.qualidade.validador_itens import (
+    AlternativaAvaliavel,
+    ItemObjetivo,
 )
 from backend.app.services.rag.retrieval_service import TrechoRecuperado
 from backend.tests.fabrica_banco import criar_banco, criar_questao_objetiva
@@ -110,3 +114,21 @@ def test_regras_de_rf020_nao_entram_no_relatorio(db_session, sessao_rascunho):
         ],
     )
     assert achados_de_forma(item_de_questao(questao, TRECHOS)) == []
+
+
+def test_formato_montado_nao_tem_achado_de_forma():
+    """Afirmativas e asserção-razão: as alternativas são texto do sistema, e
+    assimetria de tamanho entre elas não diz nada sobre a questão."""
+    item = ItemObjetivo(
+        enunciado="x",
+        alternativas=[
+            AlternativaAvaliavel("A", "I, apenas.", True, False),
+            AlternativaAvaliavel(
+                "B", "I e II, apenas, com um texto bem mais longo que o outro", False, True
+            ),
+        ],
+        trechos_base=[],
+        identificadores_fonte=[],
+        formato=FormatoItem.AFIRMATIVAS,
+    )
+    assert achados_de_forma(item) == []

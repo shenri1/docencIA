@@ -1,3 +1,4 @@
+import dataclasses
 import hashlib
 import io
 import time
@@ -333,3 +334,55 @@ def test_metadados_e_reproduzivel():
         VERIFICACAO, auditoria(),
     )
     assert uma == outra
+
+
+def test_gabarito_com_itens_agrupa_os_aspectos_por_item():
+    item = item_objetivo(
+        posicao=2,
+        numero=9,
+        tipo=TipoQuestao.DISCURSIVA,
+        letra=None,
+        aspectos=[
+            AspectoGabarito(1, "camadas", FONTE, item=1),
+            AspectoGabarito(2, "pesos", FONTE, item=2),
+        ],
+        justificativa_correta=None,
+        invalidacoes=[],
+    )
+    textos = metadados([item])
+    assert (
+        textos.index("Item a)")
+        < textos.index("1. camadas")
+        < textos.index("Item b)")
+        < textos.index("2. pesos")
+    )
+
+
+def test_discursiva_sem_itens_nao_ganha_titulo_de_item():
+    item = item_objetivo(
+        tipo=TipoQuestao.DISCURSIVA, letra=None,
+        aspectos=[AspectoGabarito(1, "camadas", FONTE)],
+        justificativa_correta=None, invalidacoes=[],
+    )
+    assert "Item a)" not in metadados([item])
+
+
+def test_afirmativas_saem_em_linhas_separadas_no_conteudo_puro():
+    """O python-docx converte `\\n` do run em quebra de linha: as afirmativas I–III
+    saem uma por linha sem mudar o renderizador."""
+    enunciado = "Avalie as afirmações a seguir.\n\nI. Primeira.\nII. Segunda."
+    alternativas = ["I, apenas.", "II, apenas.", "I e II.", "I, II e III.", "III, apenas."]
+    textos = paragrafos(
+        renderizar_conteudo_puro(
+            CABECALHO,
+            prova("A", [objetiva(1, enunciado, alternativas)]),
+            prova("B", [objetiva(1, enunciado, alternativas)]),
+        )
+    )
+    assert any("I. Primeira.\nII. Segunda." in t for t in textos)
+
+
+def test_auditoria_diz_quantas_nao_tem_verificacao_de_forma():
+    resumo = dataclasses.replace(auditoria(auditadas=3), sem_verificacao_de_forma=2)
+    juntos = "\n".join(metadados([item_objetivo()], auditoria_=resumo))
+    assert "não se aplica a 2 questão(ões)" in juntos

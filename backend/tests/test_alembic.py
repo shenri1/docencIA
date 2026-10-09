@@ -445,3 +445,79 @@ def test_migracao_qwen35_ida_e_volta(monkeypatch):
         assert _cadeia(eng) == cadeia_nova
     finally:
         eng.dispose()
+
+
+BANCO_MIGRACAO_18 = "docencia_migracao_18_test"
+
+
+def test_migracao_18_preserva_questoes_e_ativa_o_prompt_2():
+    """Banco com questões gravadas antes passa no upgrade: elas
+    viram PROPOSICAO, que é o que são, e o default de servidor some."""
+    base_url = settings.database_url.rsplit("/", 1)[0]
+    admin = create_engine(f"{base_url}/postgres", isolation_level="AUTOCOMMIT")
+    with admin.connect() as conn:
+        conn.execute(text(f'DROP DATABASE IF EXISTS "{BANCO_MIGRACAO_18}"'))
+        conn.execute(text(f'CREATE DATABASE "{BANCO_MIGRACAO_18}"'))
+    admin.dispose()
+
+    url = f"{base_url}/{BANCO_MIGRACAO_18}"
+    cfg = Config(str(RAIZ / "alembic.ini"))
+    cfg.set_main_option("script_location", str(RAIZ / "backend" / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "a3f9c2e7d415")
+
+    eng = create_engine(url)
+    try:
+        with eng.begin() as conn:
+            docente_id = conn.execute(
+                text(
+                    "INSERT INTO docentes (nome, credencial_institucional, "
+                    "senha_hash, perfil) VALUES ('Ana', 'ana18', 'x', 'DOCENTE') "
+                    "RETURNING id"
+                )
+            ).scalar_one()
+            sessao_id = conn.execute(
+                text(
+                    "INSERT INTO sessoes_geracao (docente_id, disciplina, periodo, "
+                    "k_alternativas, p_f, p_m, p_d, estado) VALUES "
+                    "(:d, 'Algoritmos', '2026.2', 5, 30, 40, 30, "
+                    "'MATERIAIS_CONFIRMADOS') RETURNING id"
+                ),
+                {"d": docente_id},
+            ).scalar_one()
+            banco_id = conn.execute(
+                text(
+                    "INSERT INTO bancos_questoes (sessao_id, versao, estado, n_alvo, "
+                    "n_alvo_objetivas, n_alvo_discursivas, n_atual) VALUES "
+                    "(:s, 'v1', 'ABERTO', 7, 7, 0, 1) RETURNING id"
+                ),
+                {"s": sessao_id},
+            ).scalar_one()
+            conn.execute(
+                text(
+                    "INSERT INTO questoes (banco_id, numero, tipo, enunciado, "
+                    "nivel_bloom, faixa_dificuldade, estado) VALUES "
+                    "(:b, 1, 'OBJETIVA', 'Qual?', 'APLICAR', 'MEDIA', 'ATIVA')"
+                ),
+                {"b": banco_id},
+            )
+
+        command.upgrade(cfg, "head")
+
+        with eng.connect() as conn:
+            assert conn.execute(text("SELECT formato FROM questoes")).scalar_one() == (
+                "PROPOSICAO"
+            )
+            default = conn.execute(
+                text(
+                    "SELECT column_default FROM information_schema.columns "
+                    "WHERE table_name = 'questoes' AND column_name = 'formato'"
+                )
+            ).scalar_one()
+            assert default is None
+            ativos = conn.execute(
+                text("SELECT versao FROM prompts_mestres WHERE ativo")
+            ).scalars().all()
+            assert ativos == ["2.0.0"]
+    finally:
+        eng.dispose()

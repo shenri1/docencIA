@@ -1,9 +1,13 @@
 import pytest
 
-from backend.app.domain import EstadoQuestao, EventoBanco
+from backend.app.domain import EstadoQuestao, EventoBanco, FormatoItem
 from backend.app.exceptions import InconsistenciaDeEstadoException
 from backend.app.services.controle_banco.estado import registrar_relatorio
-from backend.app.services.controle_banco.leitura import ler_banco, listar_relatorios
+from backend.app.services.controle_banco.leitura import (
+    ler_banco,
+    listar_relatorios,
+    questao_lida,
+)
 from backend.tests.fabrica_banco import (
     criar_banco,
     criar_questao_discursiva,
@@ -141,3 +145,14 @@ def test_leitura_nao_faz_uma_consulta_por_questao(db_session, docente, sessao_ra
 
     assert len(lido.questoes) == 20
     assert len(consultas) <= 20, f"{len(consultas)} SELECTs para 20 questões"
+
+
+def test_leitura_traz_formato_e_item_do_aspecto(db_session, docente, sessao_rascunho):
+    banco = criar_banco(db_session, sessao_rascunho, n_discursivas=1)
+    questao = criar_questao_discursiva(db_session, banco, numero=1, aspectos=2)
+    for aspecto, item in zip(questao.aspectos, (1, 2), strict=True):
+        aspecto.item = item
+    db_session.commit()
+    lida = questao_lida(questao, com_gabarito=True)
+    assert lida.formato is FormatoItem.PROPOSICAO
+    assert [a.item for a in lida.aspectos_esperados] == [1, 2]

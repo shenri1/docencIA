@@ -226,3 +226,68 @@ def test_instrucao_de_letra_vai_para_gerador_e_critico_da_objetiva():
 def test_instrucao_de_letra_nao_vai_para_o_auditor():
     """A proposta_ajuste do auditor cita letra DE PROPÓSITO."""
     assert INSTRUCAO_LETRA not in montar_sistema_auditor(params()).lower()
+
+from backend.app.domain import FormatoItem  # noqa: E402
+
+MARCAS_FORMATO = {
+    FormatoItem.PROPOSICAO: "<formato_proposicao>",
+    FormatoItem.AFIRMATIVAS: "<formato_afirmativas>",
+    FormatoItem.ASSERCAO_RAZAO: "<formato_assercao_razao>",
+}
+
+
+@pytest.mark.parametrize("formato", list(FormatoItem))
+def test_gerador_leva_so_o_modulo_do_formato(formato):
+    texto = montar_sistema(OBJ, params(), formato)
+    for outro, marca in MARCAS_FORMATO.items():
+        assert (marca in texto) is (outro is formato)
+
+
+# Crítico e auditor recebem o módulo de qualidade do formato: na proposição é o
+# `02_qualidade_alternativas.md`; nos montados, o próprio `01_formato.md`.
+MARCAS_QUALIDADE = {
+    FormatoItem.PROPOSICAO: "<qualidade_alternativas>",
+    FormatoItem.AFIRMATIVAS: "<formato_afirmativas>",
+    FormatoItem.ASSERCAO_RAZAO: "<formato_assercao_razao>",
+}
+
+
+@pytest.mark.parametrize("formato", list(FormatoItem))
+def test_critico_e_auditor_levam_o_modulo_do_formato(formato):
+    assert MARCAS_QUALIDADE[formato] in montar_sistema_critico(OBJ, params(), formato)
+    assert MARCAS_QUALIDADE[formato] in montar_sistema_auditor(params(), formato)
+
+
+def test_sem_formato_monta_proposicao():
+    """A e1a4c8f02b77 chama registrar_versao com o código atual, sem formato."""
+    assert montar_sistema(OBJ, params()) == montar_sistema(
+        OBJ, params(), FormatoItem.PROPOSICAO
+    )
+
+
+def test_exemplos_do_formato_vao_so_para_o_gerador():
+    assert "<exemplo_afirmativas>" in montar_sistema(OBJ, params(), FormatoItem.AFIRMATIVAS)
+    assert "<exemplo_afirmativas>" not in montar_sistema_critico(
+        OBJ, params(), FormatoItem.AFIRMATIVAS
+    )
+
+
+@pytest.mark.parametrize("tipo", [OBJ, DISC])
+def test_contextualizacao_e_bloom_no_gerador_e_no_critico(tipo):
+    for texto in (montar_sistema(tipo, params()), montar_sistema_critico(tipo, params())):
+        assert "<contextualizacao>" in texto
+        assert "<nivel_bloom>" in texto
+
+
+def test_discursiva_nao_lista_discuta_como_verbo_de_comando():
+    texto = montar_sistema(DISC, params())
+    assert "<itens>" in texto
+    assert "discuta, relacione" not in texto
+
+
+def test_modulos_de_formato_entram_no_hash_de_versao():
+    """`carregar_modulos_versionados` usa rglob: editar um módulo de formato
+    muda o hash, e a geração para até haver versão nova."""
+    nomes = [n for n, _ in carregar_modulos_versionados()]
+    assert "objetiva/formatos/afirmativas/01_formato.md" in nomes
+    assert "objetiva/formatos/assercao_razao/01_formato.md" in nomes

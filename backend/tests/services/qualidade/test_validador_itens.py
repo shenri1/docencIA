@@ -410,3 +410,199 @@ def test_cita_letra_nao_confunde_conteudo():
     assert not cita_letra("uma letra de câmbio")
     assert not cita_letra("a alternativa a ser marcada")
     assert not cita_letra("B está errada")  # limitação declarada
+
+
+# --- ---
+
+from backend.app.domain import FaixaDificuldade, FormatoItem  # noqa: E402
+
+PROPOSICOES = [
+    "Usa uma fila de vértices descobertos.",
+    "Usa uma pilha de vértices descobertos.",
+    "Usa um heap de vértices descobertos.",
+    "Usa uma lista de vértices descobertos.",
+]
+CONTEXTO_15 = " ".join(["palavra"] * 15)
+CONTEXTO_40 = " ".join(["palavra"] * 40)
+
+
+def regras_de(item: ItemObjetivo) -> list[RegraQualidade]:
+    return regras(validar_objetiva(item))
+
+
+def com_comando(textos=PROPOSICOES, comando="Qual estrutura a busca usa?", **campos):
+    base = objetiva(textos)
+    return ItemObjetivo(
+        enunciado=base.enunciado,
+        alternativas=base.alternativas,
+        trechos_base=base.trechos_base,
+        identificadores_fonte=base.identificadores_fonte,
+        comando=comando,
+        **campos,
+    )
+
+
+def test_proposicao_completa_com_comando_nao_viola():
+    assert regras_de(com_comando()) == []
+
+
+def test_alternativa_rotulo_abaixo_de_quatro_palavras():
+    violacoes = validar_objetiva(com_comando(LIMPO))
+    assert regras(violacoes) == [RegraQualidade.ALTERNATIVA_ROTULO] * 4
+    assert violacoes[0].alvo == "A"
+
+
+def test_alternativa_rotulo_na_fronteira_exata():
+    quatro = ["Usa uma fila agora.", *PROPOSICOES[1:]]
+    tres = ["Usa uma fila.", *PROPOSICOES[1:]]
+    assert RegraQualidade.ALTERNATIVA_ROTULO not in regras_de(com_comando(quatro))
+    assert RegraQualidade.ALTERNATIVA_ROTULO in regras_de(com_comando(tres))
+
+
+def test_sem_comando_regras_novas_de_alternativa_nao_disparam():
+    """É o caso do auditor e dos itens anteriores à."""
+    assert regras_de(objetiva(LIMPO)) == []
+
+
+@pytest.mark.parametrize(
+    "texto",
+    ["Todas as anteriores estão certas.", "Nenhuma das opções acima se aplica."],
+)
+def test_alternativa_generica_com_e_sem_acento(texto):
+    textos = [*PROPOSICOES[:3], texto]
+    assert RegraQualidade.ALTERNATIVA_GENERICA in regras_de(com_comando(textos))
+
+
+def test_comando_negativo_no_comando():
+    item = com_comando(comando="Qual estrutura a busca NÃO usa?")
+    assert regras_de(item) == [RegraQualidade.COMANDO_NEGATIVO]
+
+
+def test_nao_do_contexto_nao_e_comando_negativo():
+    item = com_comando(contexto="O sistema não usa recursão.")
+    assert regras_de(item) == []
+
+
+def test_pergunta_com_alternativa_minuscula_viola_pontuacao():
+    textos = ["usa uma fila de vértices.", *PROPOSICOES[1:]]
+    violacoes = validar_objetiva(com_comando(textos))
+    assert regras(violacoes) == [RegraQualidade.PONTUACAO_INCOERENTE]
+    assert violacoes[0].alvo == "A"
+
+
+def test_frase_incompleta_com_alternativa_maiuscula_viola_pontuacao():
+    item = com_comando(comando="Para guardar os vértices, a busca usa")
+    assert regras_de(item) == [RegraQualidade.PONTUACAO_INCOERENTE] * 4
+
+
+@pytest.mark.parametrize(
+    "inicio", ["TCP como transporte da fila.", "12 vértices na fila agora.", r"\(n\) vértices na fila."]
+)
+def test_sigla_numero_e_formula_nao_contam_para_pontuacao(inicio):
+    textos = [inicio, *(t.lower() for t in PROPOSICOES[1:])]
+    item = com_comando(textos, comando="Para guardar os vértices, a busca usa")
+    assert RegraQualidade.PONTUACAO_INCOERENTE not in regras_de(item)
+
+
+@pytest.mark.parametrize(
+    ("faixa", "contexto", "viola"),
+    [
+        (FaixaDificuldade.FACIL, "", False),
+        (FaixaDificuldade.MEDIA, " ".join(["palavra"] * 14), True),
+        (FaixaDificuldade.MEDIA, CONTEXTO_15, False),
+        (FaixaDificuldade.DIFICIL, " ".join(["palavra"] * 39), True),
+        (FaixaDificuldade.DIFICIL, CONTEXTO_40, False),
+    ],
+)
+def test_contexto_curto_por_faixa_na_fronteira(faixa, contexto, viola):
+    item = com_comando(faixa=faixa, contexto=contexto)
+    assert (RegraQualidade.CONTEXTO_CURTO in regras_de(item)) is viola
+
+
+def test_formato_montado_nao_mede_regras_de_alternativa():
+    item = com_comando(LIMPO, formato=FormatoItem.AFIRMATIVAS)
+    assert regras_de(item) == []
+
+
+def test_afirmativas_mede_comando_negativo_e_assercao_nao():
+    negativo = "Avalie as afirmações a seguir, exceto a última."
+    assert regras_de(
+        com_comando(comando=negativo, formato=FormatoItem.AFIRMATIVAS)
+    ) == [RegraQualidade.COMANDO_NEGATIVO]
+    assert regras_de(
+        com_comando(comando=negativo, formato=FormatoItem.ASSERCAO_RAZAO)
+    ) == []
+
+
+def test_termo_absoluto_em_formato_montado_so_no_enunciado():
+    textos = ["Usa sempre uma fila.", *PROPOSICOES[1:]]
+    item = com_comando(textos, formato=FormatoItem.AFIRMATIVAS)
+    assert RegraQualidade.TERMO_ABSOLUTO not in regras_de(item)
+
+
+def test_assercao_que_copia_o_trecho_viola():
+    item = com_comando(
+        formato=FormatoItem.ASSERCAO_RAZAO,
+        assercoes=["A busca em largura usa uma fila.", "Ela visita por camadas."],
+    )
+    violacoes = validar_objetiva(item)
+    assert regras(violacoes) == [RegraQualidade.ASSERCAO_CITACAO]
+    assert violacoes[0].alvo == "assercao"
+
+
+def test_assercao_com_redacao_propria_nao_viola():
+    item = com_comando(
+        formato=FormatoItem.ASSERCAO_RAZAO,
+        assercoes=["Os vértices descobertos esperam numa fila.", "A ordem é de chegada."],
+    )
+    assert regras_de(item) == []
+
+
+def test_discursiva_discuta_sozinho_e_comando_ausente():
+    violacoes = validar_discursiva(discursiva(enunciado="Discuta a busca em largura."))
+    assert regras(violacoes) == [RegraQualidade.COMANDO_AUSENTE]
+
+
+def test_discursiva_calcule_e_comando():
+    assert validar_discursiva(discursiva(enunciado="Calcule o custo da busca.")) == []
+
+
+def test_discursiva_com_itens_mede_comando_e_opiniao_por_item():
+    item = ItemDiscursivo(
+        enunciado="contexto e itens",
+        aspectos=[AspectoAvaliavel("visita por camadas", "trecho")],
+        identificadores_fonte=["P1"],
+        comandos=[
+            ("item a", "Explique a busca."),
+            ("item b", "Dê a sua opinião sobre a busca."),
+        ],
+    )
+    violacoes = validar_discursiva(item)
+    assert [(v.regra, v.alvo) for v in violacoes] == [
+        (RegraQualidade.COMANDO_AUSENTE, "item b"),
+        (RegraQualidade.OPINIAO_PESSOAL, "item b"),
+    ]
+
+
+def test_aspectos_repetidos_entre_itens():
+    item = ItemDiscursivo(
+        enunciado="x",
+        aspectos=[
+            AspectoAvaliavel("visita por camadas", "t"),
+            AspectoAvaliavel("Visita por camadas.", "t"),
+        ],
+        identificadores_fonte=["P1"],
+        comandos=[("item a", "Explique a busca."), ("item b", "Compare as buscas.")],
+    )
+    assert regras(validar_discursiva(item)) == [RegraQualidade.ASPECTOS_REPETIDOS]
+
+
+def test_contexto_curto_na_discursiva():
+    item = ItemDiscursivo(
+        enunciado="Explique a busca.",
+        aspectos=[AspectoAvaliavel("a", "t"), AspectoAvaliavel("b", "t")],
+        identificadores_fonte=["P1"],
+        faixa=FaixaDificuldade.DIFICIL,
+        contexto=CONTEXTO_15,
+    )
+    assert regras(validar_discursiva(item)) == [RegraQualidade.CONTEXTO_CURTO]

@@ -20,7 +20,8 @@ def corpo_questao(
     return {
         "resultado": {
             "tipo": "questao",
-            "enunciado": "Qual estrutura a busca em largura utiliza?",
+            "contexto": "",
+            "comando": "Qual estrutura a busca em largura utiliza?",
             "nivel_bloom": "aplicar",
             "tema": "Grafos",
             "subtema": "Busca em largura",
@@ -169,7 +170,8 @@ def corpo_discursiva(aspectos: int = 2, nivel_bloom: str = "criar") -> dict:
     return {
         "resultado": {
             "tipo": "questao_discursiva",
-            "enunciado": "Proponha uma variação da busca em largura para grafos ponderados.",
+            "contexto": "",
+            "comando": "Proponha uma variação da busca em largura para grafos ponderados.",
             "nivel_bloom": nivel_bloom,
             "tema": "Grafos",
             "subtema": "Busca em largura",
@@ -280,3 +282,72 @@ def test_json_schema_fecha_a_letra_da_invalidacao_por_enum():
     gerado = montar_schema_objetiva(4).model_json_schema()
     invalidacao = gerado["$defs"]["InvalidacaoGerada4"]
     assert invalidacao["properties"]["letra"]["enum"] == ["A", "B", "C", "D"]
+
+
+def test_objetiva_tem_contexto_antes_do_comando_e_nao_tem_enunciado():
+    questao = _questao_objetiva(montar_schema_objetiva(5).model_json_schema())
+    campos = list(questao["properties"])
+    assert "enunciado" not in campos
+    assert campos.index("contexto") < campos.index("comando") < campos.index("alternativas")
+
+
+def test_discursiva_tem_contexto_antes_do_comando():
+    questao = _questao_discursiva(montar_schema_discursiva().model_json_schema())
+    campos = list(questao["properties"])
+    assert "enunciado" not in campos
+    assert campos.index("contexto") < campos.index("comando")
+
+
+from backend.app.domain import FormatoItem  # noqa: E402
+from backend.tests.services.geracao.duplos import (  # noqa: E402
+    corpo_afirmativas,
+    corpo_assercao,
+    corpo_discursiva_itens,
+)
+
+
+def _questao_de(esquema):
+    return next(
+        d for nome, d in esquema["$defs"].items() if nome.startswith("Questao")
+    )
+
+
+def test_afirmativas_fixam_o_valor_por_posicao():
+    cfg = (True, False, True)
+    esquema = montar_schema(TipoQuestao.OBJETIVA, 5, FormatoItem.AFIRMATIVAS, cfg)
+    js = esquema.model_json_schema()
+    campos = list(_questao_de(js)["properties"])
+    assert campos[:5] == ["tipo", "contexto", "comando", "afirmativa_i", "afirmativa_ii"]
+    assert "afirmativa_iv" not in campos
+    assert "alternativas" not in campos and "letra_correta" not in campos
+    esquema.model_validate(corpo_afirmativas(cfg))
+    with pytest.raises(ValidationError):
+        esquema.model_validate(corpo_afirmativas((True, True, True)))
+
+
+def test_afirmativas_com_k_grande_tem_quatro():
+    cfg = (True, False, True, False)
+    esquema = montar_schema(TipoQuestao.OBJETIVA, 9, FormatoItem.AFIRMATIVAS, cfg)
+    assert "afirmativa_iv" in _questao_de(esquema.model_json_schema())["properties"]
+
+
+def test_afirmativas_recusa_configuracao_do_tamanho_errado():
+    with pytest.raises(ValueError):
+        montar_schema(TipoQuestao.OBJETIVA, 9, FormatoItem.AFIRMATIVAS, (True, False, True))
+
+
+def test_assercao_nao_tem_comando_nem_alternativas():
+    esquema = montar_schema(TipoQuestao.OBJETIVA, 5, FormatoItem.ASSERCAO_RAZAO, "vf")
+    campos = list(_questao_de(esquema.model_json_schema())["properties"])
+    assert campos[:3] == ["tipo", "contexto", "assercao"]
+    assert "comando" not in campos and "alternativas" not in campos
+    esquema.model_validate(corpo_assercao())
+
+
+def test_discursiva_com_itens_fixa_o_numero_de_itens():
+    esquema = montar_schema(TipoQuestao.DISCURSIVA, 5, n_itens=3)
+    campos = list(_questao_de(esquema.model_json_schema())["properties"])
+    assert campos.index("contexto") < campos.index("itens")
+    esquema.model_validate(corpo_discursiva_itens(3))
+    with pytest.raises(ValidationError):
+        esquema.model_validate(corpo_discursiva_itens(2))

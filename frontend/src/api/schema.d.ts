@@ -655,6 +655,11 @@ export interface components {
             /** Texto */
             texto: string;
             fonte: components["schemas"]["FonteResposta"];
+            /**
+             * Item
+             * @description Item (1, 2 ou 3) na discursiva com itens; null sem itens.
+             */
+            item?: number | null;
         };
         /** AspectoGabaritoResposta */
         AspectoGabaritoResposta: {
@@ -663,6 +668,11 @@ export interface components {
             /** Texto */
             texto: string;
             fonte: components["schemas"]["FonteGabaritoResposta"];
+            /**
+             * Item
+             * @description Item (1, 2 ou 3) na discursiva com itens.
+             */
+            item?: number | null;
         };
         /** BancoCriar */
         BancoCriar: {
@@ -957,6 +967,13 @@ export interface components {
          * @enum {string}
          */
         FormatoArquivo: "pdf" | "pptx" | "docx" | "txt";
+        /**
+         * FormatoItem
+         * @description. Atribuído pelo plano do banco, nunca escolhido pelo modelo. O
+         *     valor é também o nome da pasta do formato em `prompt/objetiva/formatos/`.
+         * @enum {string}
+         */
+        FormatoItem: "proposicao" | "afirmativas" | "assercao_razao";
         /** GabaritoResposta */
         GabaritoResposta: {
             /** Prova Id */
@@ -1401,6 +1418,8 @@ export interface components {
              * @description Só com com_gabarito=true — é o gabarito da discursiva.
              */
             aspectos_esperados: components["schemas"]["AspectoEsperadoResposta"][];
+            /** @description Formato de item. A discursiva grava proposicao. */
+            formato: components["schemas"]["FormatoItem"];
         };
         /**
          * RegistroAuditoriaResposta
@@ -1434,7 +1453,7 @@ export interface components {
          * @description Regras de forma, e, medidas sem LLM.
          * @enum {string}
          */
-        RegraQualidade: "tamanho_alternativa" | "correta_longa" | "termo_absoluto" | "mencao_fonte" | "gemeos_insuficientes" | "gemeo_na_correta" | "comando_ausente" | "aspectos_repetidos" | "invalidacao_letra_invalida" | "letra_citada_em_texto";
+        RegraQualidade: "tamanho_alternativa" | "correta_longa" | "termo_absoluto" | "mencao_fonte" | "gemeos_insuficientes" | "gemeo_na_correta" | "comando_ausente" | "aspectos_repetidos" | "invalidacao_letra_invalida" | "letra_citada_em_texto" | "contexto_curto" | "alternativa_rotulo" | "alternativa_generica" | "comando_negativo" | "pontuacao_incoerente" | "assercao_citacao" | "opiniao_pessoal";
         /** RejeicaoResposta */
         RejeicaoResposta: {
             /** Numero */
@@ -1536,6 +1555,11 @@ export interface components {
              * @description Percentual de questões auditadas com ao menos um achado. É observação, nunca ação — o docente decide se para.
              */
             proporcao_com_achado: string;
+            /**
+             * Sem Verificacao De Forma
+             * @description Questões de afirmativas ou asserção-razão: as alternativas são montadas pelo sistema, e a assimetria de forma não se aplica.
+             */
+            sem_verificacao_de_forma: number;
         };
         /**
          * ResumoBancoResposta

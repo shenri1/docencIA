@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import type { Questao } from "../../api/tipos";
 import { Alerta } from "../../components/Alerta";
 import { IconeAviso, IconeErro, IconeInfo, IconeOk } from "../../components/Icones";
-import { ROTULO_BLOOM, ROTULO_FAIXA, ROTULO_TIPO_QUESTAO } from "./rotulos";
+import { ListaAspectos } from "./ListaAspectos";
+import { ROTULO_BLOOM, ROTULO_FAIXA, ROTULO_FORMATO, ROTULO_TIPO_QUESTAO } from "./rotulos";
 
 type FonteQuestao = Questao["fontes"][number];
 
@@ -44,6 +45,9 @@ export function CartaoQuestao({ questao, marcada = false, acoes, apontadas }: Pr
       <header className="flex flex-wrap items-center gap-2 font-grotesca text-detalhe">
         <span className="tabular font-serifa text-subtitulo">{questao.numero}</span>
         <span className="chip">{ROTULO_TIPO_QUESTAO[questao.tipo]}</span>
+        {ROTULO_FORMATO[questao.formato] && (
+          <span className="chip">{ROTULO_FORMATO[questao.formato]}</span>
+        )}
         <span className="chip">{ROTULO_FAIXA[questao.faixa_dificuldade]}</span>
         <span className="chip">{ROTULO_BLOOM[questao.nivel_bloom]}</span>
         {questao.tema && <span className="text-texto-suave">{questao.tema}</span>}
@@ -85,16 +89,10 @@ export function CartaoQuestao({ questao, marcada = false, acoes, apontadas }: Pr
       ) : (
         <div className="flex flex-col gap-2">
           <h3 className="font-grotesca text-detalhe font-semibold">Aspectos esperados</h3>
-          <ol className="flex flex-col gap-3">
-            {questao.aspectos_esperados.map((aspecto) => (
-              <li key={aspecto.ordem} className="flex flex-col gap-1">
-                <span className="font-serifa">
-                  {aspecto.ordem}. {aspecto.texto}
-                </span>
-                <TrechoFonte fonte={aspecto.fonte} />
-              </li>
-            ))}
-          </ol>
+          <ListaAspectos
+            aspectos={questao.aspectos_esperados}
+            fonte={(aspecto) => <TrechoFonte fonte={aspecto.fonte} />}
+          />
         </div>
       )}
 

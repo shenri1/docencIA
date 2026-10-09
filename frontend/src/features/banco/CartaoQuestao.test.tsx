@@ -69,4 +69,14 @@ describe("CartaoQuestao", () => {
       screen.getByRole("article", { name: "Variação proposta para a questão 1" }),
     ).toBeInTheDocument();
   });
+
+  it("mostra o rótulo dos formatos montados e nenhum na proposição", () => {
+    const { rerender } = render(<CartaoQuestao questao={umaQuestao({ formato: "afirmativas" })} />);
+    expect(screen.getByText("Afirmativas")).toBeInTheDocument();
+    rerender(<CartaoQuestao questao={umaQuestao({ formato: "assercao_razao" })} />);
+    expect(screen.getByText("Asserção-razão")).toBeInTheDocument();
+    rerender(<CartaoQuestao questao={umaQuestao({ formato: "proposicao" })} />);
+    expect(screen.queryByText("Afirmativas")).not.toBeInTheDocument();
+    expect(screen.queryByText("Asserção-razão")).not.toBeInTheDocument();
+  });
 });

@@ -20,3 +20,10 @@ export const ROTULO_BLOOM: Record<Questao["nivel_bloom"], string> = {
   avaliar: "Avaliar",
   criar: "Criar",
 };
+
+// Só os formatos montados ganham rótulo: proposição é o padrão.
+export const ROTULO_FORMATO: Record<Questao["formato"], string | null> = {
+  proposicao: null,
+  afirmativas: "Afirmativas",
+  assercao_razao: "Asserção-razão",
+};

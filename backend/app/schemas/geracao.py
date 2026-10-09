@@ -10,10 +10,15 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, create_model
 
-from backend.app.domain import NivelBloom, TipoQuestao
+from backend.app.domain import FormatoItem, NivelBloom, TipoQuestao
 
 K_MINIMO = 2
 K_MAXIMO = 11
+
+
+def n_afirmativas(k: int) -> int:
+    """3 afirmativas dão 7 combinações não vazias; acima de K = 7, 4 dão 15."""
+    return 3 if k <= 7 else 4
 
 # Letra é posição, atribuída pelo código. Com `letra` e `correta` na mão do
 # modelo, nada impedia letra duplicada (que quebra a unique constraint no meio
@@ -47,11 +52,24 @@ class InsuficienciaFonte(BaseModel):
     informacao_faltante: str
 
 
+CAMPOS_AFIRMATIVA = ("afirmativa_i", "afirmativa_ii", "afirmativa_iii", "afirmativa_iv")
+
+
+def _validar_k(k: int) -> None:
+    if not K_MINIMO <= k <= K_MAXIMO:
+        raise ValueError(f"k deve estar entre {K_MINIMO} e {K_MAXIMO}, recebido {k}")
+
+
+def _resultado(nome: str, questao: type[BaseModel]) -> type[BaseModel]:
+    return create_model(
+        nome, resultado=(questao | InsuficienciaFonte, Field(discriminator="tipo"))
+    )
+
+
 def montar_schema_objetiva(k: int) -> type[BaseModel]:
     """Devolve um modelo com um único campo `resultado`, união discriminada
     entre questão gerada e insuficiência de fonte."""
-    if not K_MINIMO <= k <= K_MAXIMO:
-        raise ValueError(f"k deve estar entre {K_MINIMO} e {K_MAXIMO}, recebido {k}")
+    _validar_k(k)
 
     # cada motivo diz a qual alternativa se refere. Fechada por enum
     # como `letra_correta` — o que a decodificação restrita pode impor não deve
@@ -77,7 +95,11 @@ def montar_schema_objetiva(k: int) -> type[BaseModel]:
     questao = create_model(
         f"QuestaoGerada{k}",
         tipo=(Literal["questao"], ...),
-        enunciado=(str, ...),
+        # Contexto primeiro: com decodificação restrita, o modelo escreve o
+        # cenário antes da pergunta. Obrigatório e possivelmente vazio
+        # na fácil — campo opcional em saída restrita é campo que o modelo omite.
+        contexto=(str, ...),
+        comando=(str, ...),
         nivel_bloom=(Literal[BLOOM_OBJETIVA], ...),
         tema=(str, ...),
         # a regra de sobreposição temática entre Provas A e B compara
@@ -103,6 +125,63 @@ def montar_schema_objetiva(k: int) -> type[BaseModel]:
     )
 
 
+def montar_schema_afirmativas(k: int, configuracao: tuple[bool, ...]) -> type[BaseModel]:
+    """Campos nomeados, não lista: fixar o valor por posição numa lista
+    exigiria `prefixItems`, que não foi medido no Ollama. `verdadeira` vem
+    antes do texto: o modelo escreve a afirmativa já sabendo o que ela deve ser."""
+    _validar_k(k)
+    if len(configuracao) != n_afirmativas(k):
+        raise ValueError(
+            f"K={k} pede {n_afirmativas(k)} afirmativas, configuração tem {len(configuracao)}"
+        )
+    rotulo = "".join("V" if v else "F" for v in configuracao)
+    afirmativas = {
+        nome: (
+            create_model(
+                f"Afirmativa{nome[11:].upper()}{rotulo}",
+                verdadeira=(Literal[valor], ...),
+                texto=(str, ...),
+                justificativa=(str, ...),
+            ),
+            ...,
+        )
+        for nome, valor in zip(CAMPOS_AFIRMATIVA, configuracao, strict=False)
+    }
+    questao = create_model(
+        f"QuestaoAfirmativas{rotulo}",
+        tipo=(Literal["questao"], ...),
+        contexto=(str, ...),
+        comando=(str, ...),
+        **afirmativas,
+        nivel_bloom=(Literal[BLOOM_OBJETIVA], ...),
+        tema=(str, ...),
+        subtema=(str, ...),
+        objetivo_cognitivo=(str, ...),
+        fontes=(list[FonteGerada], Field(min_length=1)),
+    )
+    return _resultado(f"ResultadoAfirmativas{rotulo}", questao)
+
+
+def montar_schema_assercao_razao() -> type[BaseModel]:
+    """O comando e as alternativas são texto fixo do sistema. A configuração
+    vai no pedido: verdadeiro ou falso de uma proposição não é campo da saída."""
+    questao = create_model(
+        "QuestaoAssercaoRazao",
+        tipo=(Literal["questao"], ...),
+        contexto=(str, ...),
+        assercao=(str, ...),
+        justificativa_assercao=(str, ...),
+        razao=(str, ...),
+        justificativa_razao=(str, ...),
+        nivel_bloom=(Literal[BLOOM_OBJETIVA], ...),
+        tema=(str, ...),
+        subtema=(str, ...),
+        objetivo_cognitivo=(str, ...),
+        fontes=(list[FonteGerada], Field(min_length=1)),
+    )
+    return _resultado("ResultadoAssercaoRazao", questao)
+
+
 class AspectoGerado(BaseModel):
     """A fonte vive dentro do aspecto: pedir ao modelo um índice para
     outra lista é a referência cruzada que modelo pequeno erra, e assim
@@ -114,7 +193,8 @@ class AspectoGerado(BaseModel):
 
 class QuestaoDiscursivaGerada(BaseModel):
     tipo: Literal["questao_discursiva"]
-    enunciado: str
+    contexto: str
+    comando: str
     nivel_bloom: NivelBloom
     tema: str
     subtema: str
@@ -128,13 +208,41 @@ class ResultadoGeracaoDiscursiva(BaseModel):
     )
 
 
-def montar_schema_discursiva() -> type[BaseModel]:
-    """Sem K: a discursiva não tem alternativas. Fixo, mas exposto como função
-    para ter a mesma forma de uso que a objetiva."""
-    return ResultadoGeracaoDiscursiva
+class ItemDiscursivoGerado(BaseModel):
+    comando: str
+    aspectos_esperados: list[AspectoGerado] = Field(min_length=1, max_length=3)
 
 
-def montar_schema(tipo: TipoQuestao, k: int) -> type[BaseModel]:
-    if tipo is TipoQuestao.OBJETIVA:
-        return montar_schema_objetiva(k)
-    return montar_schema_discursiva()
+def montar_schema_discursiva(n_itens: int | None = None) -> type[BaseModel]:
+    if n_itens is None:
+        return ResultadoGeracaoDiscursiva
+    questao = create_model(
+        f"QuestaoDiscursiva{n_itens}Itens",
+        tipo=(Literal["questao_discursiva"], ...),
+        contexto=(str, ...),
+        itens=(
+            list[ItemDiscursivoGerado],
+            Field(min_length=n_itens, max_length=n_itens),
+        ),
+        nivel_bloom=(NivelBloom, ...),
+        tema=(str, ...),
+        subtema=(str, ...),
+        objetivo_cognitivo=(str, ...),
+    )
+    return _resultado(f"ResultadoDiscursiva{n_itens}Itens", questao)
+
+
+def montar_schema(
+    tipo: TipoQuestao,
+    k: int,
+    formato: FormatoItem = FormatoItem.PROPOSICAO,
+    configuracao: tuple[bool, ...] | str | None = None,
+    n_itens: int | None = None,
+) -> type[BaseModel]:
+    if tipo is TipoQuestao.DISCURSIVA:
+        return montar_schema_discursiva(n_itens)
+    if formato is FormatoItem.AFIRMATIVAS:
+        return montar_schema_afirmativas(k, configuracao)
+    if formato is FormatoItem.ASSERCAO_RAZAO:
+        return montar_schema_assercao_razao()
+    return montar_schema_objetiva(k)

@@ -11,7 +11,7 @@ import hashlib
 import re
 from pathlib import Path
 
-from backend.app.domain import TipoQuestao
+from backend.app.domain import FormatoItem, TipoQuestao
 from backend.app.exceptions import PlaceholderNaoResolvidoException
 from backend.app.prompt.parametros import ParametrosGeracao
 
@@ -34,18 +34,23 @@ _PASTA_POR_TIPO = {
     TipoQuestao.OBJETIVA: "objetiva",
     TipoQuestao.DISCURSIVA: "discursiva",
 }
-# O crítico de cada tipo recebe o próprio módulo de revisão e as regras de
-# qualidade do tipo, que têm uma única fonte de verdade: o módulo do Gerador.
-_CRITICO_POR_TIPO = {
-    TipoQuestao.OBJETIVA: (
-        "critico/02_objetiva.md",
-        "objetiva/02_qualidade_alternativas.md",
-    ),
-    TipoQuestao.DISCURSIVA: (
-        "critico/03_discursiva.md",
-        "discursiva/01_formato.md",
-    ),
+_REVISAO_POR_TIPO = {
+    TipoQuestao.OBJETIVA: "critico/02_objetiva.md",
+    TipoQuestao.DISCURSIVA: "critico/03_discursiva.md",
 }
+# As regras de qualidade de cada formato têm uma única fonte de verdade: o
+# módulo que o Gerador recebe. O crítico e o auditor leem o mesmo arquivo.
+_QUALIDADE_POR_FORMATO = {
+    FormatoItem.PROPOSICAO: "objetiva/formatos/proposicao/02_qualidade_alternativas.md",
+    FormatoItem.AFIRMATIVAS: "objetiva/formatos/afirmativas/01_formato.md",
+    FormatoItem.ASSERCAO_RAZAO: "objetiva/formatos/assercao_razao/01_formato.md",
+}
+
+
+def _qualidade(tipo: TipoQuestao, formato: FormatoItem) -> str:
+    if tipo is TipoQuestao.DISCURSIVA:
+        return "discursiva/01_formato.md"
+    return _QUALIDADE_POR_FORMATO[formato]
 
 
 def _relativo(caminho: Path) -> str:
@@ -82,30 +87,44 @@ def _injetar(texto: str, params: ParametrosGeracao) -> str:
     return montado
 
 
-def montar_sistema(tipo: TipoQuestao, params: ParametrosGeracao) -> str:
+def montar_sistema(
+    tipo: TipoQuestao,
+    params: ParametrosGeracao,
+    formato: FormatoItem = FormatoItem.PROPOSICAO,
+) -> str:
+    """O default existe para a e1a4c8f02b77, que chama registrar_versao sem formato.
+    `carregar_modulos` não é recursivo: `objetiva/formatos/` não vaza."""
     modulos = carregar_modulos("comum") + carregar_modulos(_PASTA_POR_TIPO[tipo])
+    if tipo is TipoQuestao.OBJETIVA:
+        modulos += carregar_modulos(f"objetiva/formatos/{formato.value}")
     return _injetar("\n\n".join(conteudo for _, conteudo in modulos), params)
 
 
-def montar_sistema_critico(tipo: TipoQuestao, params: ParametrosGeracao) -> str:
-    """Revisor + revisão do tipo + qualidade do tipo + política de fontes.
+def montar_sistema_critico(
+    tipo: TipoQuestao,
+    params: ParametrosGeracao,
+    formato: FormatoItem = FormatoItem.PROPOSICAO,
+) -> str:
+    """Revisor + revisão do tipo + qualidade do formato + política de fontes.
     Persona do gerador e few-shot ficam de fora: o crítico já recebe o
     rascunho, que é o exemplo relevante."""
     todos = dict(carregar_modulos_versionados())
-    revisao, qualidade = _CRITICO_POR_TIPO[tipo]
     nomes = [
         "critico/01_revisor.md",
-        revisao,
-        qualidade,
+        _REVISAO_POR_TIPO[tipo],
+        _qualidade(tipo, formato),
         "comum/02_politica_fontes.md",
-        # O crítico reemite a questão inteira, logo reemite `subtema`.
+        # O crítico reemite a questão inteira, logo reemite `subtema` e o contexto.
         "comum/03_classificacao.md",
+        "comum/04_contextualizacao.md",
     ]
     return _injetar("\n\n".join(todos[nome] for nome in nomes), params)
 
 
-def montar_sistema_auditor(params: ParametrosGeracao) -> str:
-    """Auditor + regras de qualidade da objetiva + política de fontes.
+def montar_sistema_auditor(
+    params: ParametrosGeracao, formato: FormatoItem = FormatoItem.PROPOSICAO
+) -> str:
+    """Auditor + regras do formato da questão + política de fontes.
 
     A persona do gerador e os few-shot ficam de fora, mesmo critério do
     crítico: o auditor recebe a questão pronta, que é o exemplo relevante, e o
@@ -117,7 +136,7 @@ def montar_sistema_auditor(params: ParametrosGeracao) -> str:
     todos = dict(carregar_modulos_versionados())
     nomes = [
         "auditor/01_auditor.md",
-        "objetiva/02_qualidade_alternativas.md",
+        _QUALIDADE_POR_FORMATO[formato],
         "comum/02_politica_fontes.md",
     ]
     return _injetar("\n\n".join(todos[nome] for nome in nomes), params)

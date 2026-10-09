@@ -29,6 +29,7 @@ from backend.app.domain import (
     EstadoQuestao,
     EventoBanco,
     FaixaDificuldade,
+    FormatoItem,
     NivelBloom,
     TipoQuestao,
 )
@@ -113,6 +114,11 @@ class Questao(Base):
     tipo: Mapped[TipoQuestao] = mapped_column(
         SAEnum(TipoQuestao, name="tipo_questao"),
         index=True,
+    )
+    # Sem default de propósito: quem diz o formato é o plano do banco.
+    # A discursiva grava PROPOSICAO, e o campo não tem leitura para ela.
+    formato: Mapped[FormatoItem] = mapped_column(
+        SAEnum(FormatoItem, name="formato_item")
     )
 
     enunciado: Mapped[str] = mapped_column(Text)
@@ -202,6 +208,9 @@ class JustificativaEstruturada(Base):
     )
     verificacao_unicidade: Mapped[bool | None] = mapped_column(Boolean)
     texto_verificacao_unicidade: Mapped[str | None] = mapped_column(Text)
+    # {"contexto": …} em toda questão nova, mais a estrutura do formato
+    # montado (afirmativas; asserção e razão). NULL nas anteriores à etapa.
+    estrutura_formato: Mapped[dict | None] = mapped_column(JSONB)
 
     questao: Mapped[Questao] = relationship(back_populates="justificativa")
 
@@ -241,6 +250,8 @@ class AspectoEsperado(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     questao_id: Mapped[int] = mapped_column(ForeignKey("questoes.id"), index=True)
     ordem: Mapped[int] = mapped_column(Integer)
+    # 1, 2 ou 3 na discursiva difícil com itens; NULL sem itens.
+    item: Mapped[int | None] = mapped_column(Integer)
     texto: Mapped[str] = mapped_column(Text)
     fonte_interna_id: Mapped[int] = mapped_column(ForeignKey("fontes_internas.id"))
 

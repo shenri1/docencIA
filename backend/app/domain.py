@@ -111,6 +111,15 @@ class TipoQuestao(str, Enum):
     DISCURSIVA = "discursiva"
 
 
+class FormatoItem(str, Enum):
+    """Atribuído pelo plano do banco, nunca escolhido pelo modelo. O
+    valor é também o nome da pasta do formato em `prompt/objetiva/formatos/`."""
+
+    PROPOSICAO = "proposicao"
+    AFIRMATIVAS = "afirmativas"
+    ASSERCAO_RAZAO = "assercao_razao"
+
+
 class EstadoProva(str, Enum):
     RASCUNHO = "rascunho"
     MONTADA = "montada"
@@ -140,6 +149,14 @@ class RegraQualidade(str, Enum):
     ASPECTOS_REPETIDOS = "aspectos_repetidos"
     INVALIDACAO_LETRA_INVALIDA = "invalidacao_letra_invalida"
     LETRA_CITADA_EM_TEXTO = "letra_citada_em_texto"
+    #.
+    CONTEXTO_CURTO = "contexto_curto"
+    ALTERNATIVA_ROTULO = "alternativa_rotulo"
+    ALTERNATIVA_GENERICA = "alternativa_generica"
+    COMANDO_NEGATIVO = "comando_negativo"
+    PONTUACAO_INCOERENTE = "pontuacao_incoerente"
+    ASSERCAO_CITACAO = "assercao_citacao"
+    OPINIAO_PESSOAL = "opiniao_pessoal"
 
 
 class RiscoAuditoria(str, Enum):

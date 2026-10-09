@@ -10,6 +10,7 @@ from backend.app.domain import (
     EstadoQuestao,
     EventoBanco,
     FaixaDificuldade,
+    FormatoItem,
     NivelBloom,
     RegraQualidade,
     RiscoAuditoria,
@@ -175,6 +176,10 @@ class AspectoEsperadoResposta(BaseModel):
     ordem: int
     texto: str
     fonte: FonteResposta
+    item: int | None = Field(
+        None,
+        description="Item (1, 2 ou 3) na discursiva com itens; null sem itens.",
+    )
 
 
 class QuestaoResposta(BaseModel):
@@ -202,6 +207,9 @@ class QuestaoResposta(BaseModel):
     )
     aspectos_esperados: list[AspectoEsperadoResposta] = Field(
         ..., description="Só com com_gabarito=true — é o gabarito da discursiva."
+    )
+    formato: FormatoItem = Field(
+        ..., description="Formato de item. A discursiva grava proposicao."
     )
 
 
@@ -291,6 +299,11 @@ class ResumoAuditoriaResposta(BaseModel):
         ...,
         description="Percentual de questões auditadas com ao menos um achado. "
         "É observação, nunca ação — o docente decide se para.",
+    )
+    sem_verificacao_de_forma: int = Field(
+        ...,
+        description="Questões de afirmativas ou asserção-razão: as alternativas são "
+        "montadas pelo sistema, e a assimetria de forma não se aplica.",
     )
 
 

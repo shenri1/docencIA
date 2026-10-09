@@ -123,6 +123,9 @@ class AspectoGabaritoResposta(BaseModel):
     ordem: int
     texto: str
     fonte: FonteGabaritoResposta
+    item: int | None = Field(
+        None, description="Item (1, 2 ou 3) na discursiva com itens."
+    )
 
 
 class ItemGabaritoResposta(BaseModel):

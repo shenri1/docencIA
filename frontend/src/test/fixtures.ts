@@ -146,6 +146,7 @@ export function umaQuestao(sobrescrever: Partial<Questao> = {}): Questao {
       { letra: "C", texto: "Mesclar duas metades ordenadas" },
     ],
     letra_correta: "B",
+    formato: "proposicao",
     aspectos_esperados: [],
     ...sobrescrever,
   };
@@ -175,6 +176,7 @@ export function umResumoAuditoria(
     discursivas_ignoradas: 0,
     questoes: [],
     proporcao_com_achado: "0.00",
+    sem_verificacao_de_forma: 0,
     ...sobrescrever,
   };
 }

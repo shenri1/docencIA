@@ -148,6 +148,7 @@ export function questaoFalsa(numero: number, tipo: Questao["tipo"] = "objetiva")
     estado: "ativa",
     faixa_dificuldade: FAIXAS[numero % 3] ?? "media",
     nivel_bloom: "entender",
+    formato: "proposicao",
     tema: "Ordenação",
     enunciado: `Enunciado da questão ${numero}.`,
     fontes: [fonte],
@@ -259,6 +260,7 @@ function gabaritoFalso(
           ordem: a.ordem,
           texto: a.texto,
           fonte: fonte(a.fonte),
+          item: a.item ?? null,
         })),
         justificativa_correta:
           comentado && objetiva ? `Justificativa da correta da questão ${q.numero}.` : null,
@@ -350,6 +352,8 @@ function resumoDaAuditoria(banco: BancoFalso, jaAntes: number | null): ResumoAud
     questoes,
     proporcao_com_achado:
       feitas.length === 0 ? "0.00" : ((100 * questoes.length) / feitas.length).toFixed(2),
+    // O falso só tem proposição: a assimetria de forma sempre se aplica.
+    sem_verificacao_de_forma: 0,
   };
 }
 

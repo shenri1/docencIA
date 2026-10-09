@@ -2148,6 +2148,18 @@
           },
           "fonte": {
             "$ref": "#/components/schemas/FonteResposta"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item",
+            "description": "Item (1, 2 ou 3) na discursiva com itens; null sem itens."
           }
         },
         "type": "object",
@@ -2170,6 +2182,18 @@
           },
           "fonte": {
             "$ref": "#/components/schemas/FonteGabaritoResposta"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item",
+            "description": "Item (1, 2 ou 3) na discursiva com itens."
           }
         },
         "type": "object",
@@ -2774,6 +2798,16 @@
         ],
         "title": "FormatoArquivo",
         "description": "Formato físico do arquivo enviado — detectado pelo sistema, diferente\nde TipoMaterial, que é a classificação didática informada pelo docente."
+      },
+      "FormatoItem": {
+        "type": "string",
+        "enum": [
+          "proposicao",
+          "afirmativas",
+          "assercao_razao"
+        ],
+        "title": "FormatoItem",
+        "description": ". Atribuído pelo plano do banco, nunca escolhido pelo modelo. O\nvalor é também o nome da pasta do formato em `prompt/objetiva/formatos/`."
       },
       "GabaritoResposta": {
         "properties": {
@@ -3739,6 +3773,10 @@
             "type": "array",
             "title": "Aspectos Esperados",
             "description": "Só com com_gabarito=true — é o gabarito da discursiva."
+          },
+          "formato": {
+            "$ref": "#/components/schemas/FormatoItem",
+            "description": "Formato de item. A discursiva grava proposicao."
           }
         },
         "type": "object",
@@ -3754,7 +3792,8 @@
           "violacoes",
           "alternativas",
           "letra_correta",
-          "aspectos_esperados"
+          "aspectos_esperados",
+          "formato"
         ],
         "title": "QuestaoResposta",
         "description": "Sem justificativa e sem rascunho, de propósito: eles nunca\naparecem no corpo da questão."
@@ -3820,7 +3859,14 @@
           "comando_ausente",
           "aspectos_repetidos",
           "invalidacao_letra_invalida",
-          "letra_citada_em_texto"
+          "letra_citada_em_texto",
+          "contexto_curto",
+          "alternativa_rotulo",
+          "alternativa_generica",
+          "comando_negativo",
+          "pontuacao_incoerente",
+          "assercao_citacao",
+          "opiniao_pessoal"
         ],
         "title": "RegraQualidade",
         "description": "Regras de forma, e, medidas sem LLM."
@@ -4060,6 +4106,11 @@
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Proporcao Com Achado",
             "description": "Percentual de questões auditadas com ao menos um achado. É observação, nunca ação — o docente decide se para."
+          },
+          "sem_verificacao_de_forma": {
+            "type": "integer",
+            "title": "Sem Verificacao De Forma",
+            "description": "Questões de afirmativas ou asserção-razão: as alternativas são montadas pelo sistema, e a assimetria de forma não se aplica."
           }
         },
         "type": "object",
@@ -4070,7 +4121,8 @@
           "ja_auditadas",
           "discursivas_ignoradas",
           "questoes",
-          "proporcao_com_achado"
+          "proporcao_com_achado",
+          "sem_verificacao_de_forma"
         ],
         "title": "ResumoAuditoriaResposta"
       },

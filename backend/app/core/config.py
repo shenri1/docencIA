@@ -105,14 +105,16 @@ class Settings(BaseSettings):
     geracao_max_tokens: int = 2048
 
     # --- Crítico ---
-    # Abaixo da temperatura do Gerador: revisar pede conservadorismo. A saída
-    # tem o mesmo schema da geração, então o teto de tokens é o mesmo.
-    critico_temperatura: float = 0.2
+    # Abaixo da temperatura do Gerador (0,4): revisar pede conservadorismo. A
+    # saída tem o mesmo schema da geração, então o teto de tokens é o mesmo.
+    # Baixado de 0,2 para 0,1 em 2026-10-09 (o mesmo mínimo do auditor).
+    critico_temperatura: float = 0.1
     critico_max_tokens: int = 2048
 
     # --- Auditoria ---
-    # Abaixo da temperatura do crítico (0,2): auditar pede o mínimo de invenção.
-    auditoria_temperatura: float = 0.2
+    # O mínimo da cadeia, junto com o crítico (0,1): auditar pede o mínimo de
+    # invenção. sempre disse 0,1; o código estava 0,2 até 2026-10-09.
+    auditoria_temperatura: float = 0.1
     # 1024 cortou a saída no uso. O schema
     # agora limita achados e textos; 2048, o teto da geração, cobre o pior caso.
     auditoria_max_tokens: int = 2048

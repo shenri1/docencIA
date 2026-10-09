@@ -18,6 +18,7 @@ from backend.app.domain import (
     EstadoBanco,
     EstadoQuestao,
     FaixaDificuldade,
+    FormatoItem,
     NivelBloom,
     TipoQuestao,
 )
@@ -54,6 +55,7 @@ class AspectoLido:
     ordem: int
     texto: str
     fonte: FonteLida
+    item: int | None = None
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,7 @@ class QuestaoLida:
     alternativas: list[AlternativaLida]
     letra_correta: str | None
     aspectos_esperados: list[AspectoLido]
+    formato: FormatoItem
 
 
 @dataclass(frozen=True)
@@ -99,7 +102,10 @@ def _fonte_lida(fonte: FonteInterna) -> FonteLida:
 
 def _aspecto_lido(aspecto: AspectoEsperado) -> AspectoLido:
     return AspectoLido(
-        ordem=aspecto.ordem, texto=aspecto.texto, fonte=_fonte_lida(aspecto.fonte)
+        ordem=aspecto.ordem,
+        texto=aspecto.texto,
+        fonte=_fonte_lida(aspecto.fonte),
+        item=aspecto.item,
     )
 
 
@@ -122,6 +128,7 @@ def questao_lida(questao: Questao, com_gabarito: bool) -> QuestaoLida:
         # regra.
         letra_correta=correta if com_gabarito else None,
         aspectos_esperados=[_aspecto_lido(a) for a in aspectos] if com_gabarito else [],
+        formato=questao.formato,
     )
 
 

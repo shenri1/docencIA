@@ -72,7 +72,22 @@ def _problemas_discursiva(questao: Questao, rotulo: str) -> list[str]:
             f"{rotulo}: discursiva com {len(questao.alternativas)} alternativas"
         )
     aspectos = sorted(questao.aspectos, key=lambda a: a.ordem)
-    if not 2 <= len(aspectos) <= 5:
+    itens = [a.item for a in aspectos]
+    if any(i is not None for i in itens):
+        # discursiva difícil com 2 ou 3 itens, de 1 a 3 aspectos cada.
+        if None in itens:
+            problemas.append(f"{rotulo}: aspectos com e sem item na mesma questão")
+        else:
+            distintos = sorted(set(itens))
+            if distintos not in ([1, 2], [1, 2, 3]):
+                problemas.append(f"{rotulo}: itens {distintos}, esperado 1..2 ou 1..3")
+            for item in distintos:
+                n = itens.count(item)
+                if not 1 <= n <= 3:
+                    problemas.append(
+                        f"{rotulo}: item {item} com {n} aspectos, esperado de 1 a 3"
+                    )
+    elif not 2 <= len(aspectos) <= 5:
         problemas.append(
             f"{rotulo}: {len(aspectos)} aspectos esperados, esperado de 2 a 5"
         )

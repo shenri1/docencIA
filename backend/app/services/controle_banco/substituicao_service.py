@@ -16,6 +16,7 @@ from backend.app.domain import (
     DecisaoSubstituicao,
     EstadoQuestao,
     EventoBanco,
+    FormatoItem,
     TipoEventoAuditoria,
     TipoQuestao,
 )
@@ -85,6 +86,30 @@ _AVISO_REPETICAO = (
 )
 
 
+def _pergunta(questao: Questao) -> str:
+    """O enunciado sem o contexto. Variação que reaproveita o cenário
+    e pergunta outra coisa não é cópia. Questão anterior à etapa, sem contexto
+    gravado, compara o enunciado inteiro."""
+    estrutura = questao.justificativa.estrutura_formato if questao.justificativa else None
+    contexto = (estrutura or {}).get("contexto") or ""
+    if contexto.strip():
+        return questao.enunciado.removeprefix(f"{contexto}\n\n")
+    return questao.enunciado
+
+
+def _formato_da_original(questao: Questao):
+    """(formato, configuração, n_itens) da original. Questão anterior à 
+    é proposição sem itens."""
+    estrutura = (questao.justificativa.estrutura_formato if questao.justificativa else None) or {}
+    configuracao = None
+    if questao.formato is FormatoItem.AFIRMATIVAS:
+        configuracao = tuple(a["verdadeira"] for a in estrutura["afirmativas"])
+    elif questao.formato is FormatoItem.ASSERCAO_RAZAO:
+        configuracao = estrutura["configuracao"]
+    itens = {a.item for a in questao.aspectos if a.item is not None}
+    return questao.formato, configuracao, (len(itens) or None)
+
+
 def propor_substituicao(
     db: Session,
     embeddings,
@@ -125,6 +150,7 @@ def propor_substituicao(
     # enunciado mesmo instruído a não repetir (medido no qwen3:4b). A cópia é
     # medida no rascunho e ganha UMA nova tentativa, com o aviso explícito.
     evitar = _texto_a_evitar(original)
+    formato, configuracao, n_itens = _formato_da_original(original)
     for tentativa in range(2):
         resultado = produzir_questao(
             db,
@@ -140,7 +166,10 @@ def propor_substituicao(
             distribuicao,
             estado=EstadoQuestao.CANDIDATA,
             evitar=evitar if tentativa == 0 else f"{evitar}\n\n{_AVISO_REPETICAO}",
-            enunciado_original=original.enunciado,
+            formato=formato,
+            configuracao=configuracao,
+            n_itens=n_itens,
+            pergunta_original=_pergunta(original),
         )
         if not (isinstance(resultado, Improdutiva) and resultado.repetida):
             return resultado

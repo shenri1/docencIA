@@ -102,12 +102,12 @@ TERMOS_OPINIAO = (
     "seu ponto de vista",
     "na sua visao",
 )
-# Palpite. Abaixo disso a alternativa é rótulo ("Usa fila."). revisita:
+# Abaixo disso a alternativa é rótulo ("Usa fila."). revisita:
 # "12 m/s" é alternativa legítima de cálculo.
 MINIMO_PALAVRAS_ALTERNATIVA = 4
-# Palpite. A fácil não tem mínimo: pergunta direta é permitida.
+# A fácil não tem mínimo: pergunta direta é permitida.
 MINIMO_PALAVRAS_CONTEXTO = {FaixaDificuldade.MEDIA: 15, FaixaDificuldade.DIFICIL: 40}
-# Palpite, mesma medida do LIMIAR_ENUNCIADO_REPETIDO.
+# Limiar próprio da asserção: mais baixo que o LIMIAR_ENUNCIADO_REPETIDO (0,9).
 LIMIAR_ASSERCAO_CITACAO = 0.8
 
 
@@ -180,10 +180,10 @@ def _palavras(texto: str) -> list[str]:
     return _PALAVRA.findall(texto)
 
 
-# Palpite. A cópia medida no uso real era idêntica (razão 1,0).
-# Baixar se reescritas leves passarem; subir se variações legítimas forem
-# recusadas.
-LIMIAR_ENUNCIADO_REPETIDO = 0.8
+# A cópia medida no uso real era idêntica (razão 1,0). Subido de 0,8
+# para 0,9 (2026-10-09): o 0,8 recusava variação legítima; a cópia literal
+# ainda é pega com folga.
+LIMIAR_ENUNCIADO_REPETIDO = 0.9
 
 
 def _semelhanca(a: str, b: str) -> float:

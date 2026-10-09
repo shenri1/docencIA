@@ -23,6 +23,7 @@ import docx
 from docx.enum.text import WD_BREAK
 
 from backend.app.services.critico.auditor_service import ResumoAuditoria
+from backend.app.services.geracao.formatos import LETRAS_ITEM
 from backend.app.services.provas.gabarito import FonteGabarito, Gabarito, ItemGabarito
 from backend.app.services.provas.leitura import ItemLido, ProvaLida
 from backend.app.services.provas.verificacao import Verificacao
@@ -140,7 +141,11 @@ def _item_do_gabarito(documento, item: ItemGabarito) -> None:
     for invalidacao in item.invalidacoes:
         rotulo = f"{invalidacao.letra}) " if invalidacao.letra else "— "
         _paragrafo(documento, rotulo, invalidacao.motivo)
+    item_atual = None
     for aspecto in item.aspectos:
+        if aspecto.item is not None and aspecto.item != item_atual:
+            item_atual = aspecto.item
+            _paragrafo(documento, f"Item {LETRAS_ITEM[aspecto.item - 1]})")
         _paragrafo(documento, f"{aspecto.ordem}. ", aspecto.texto)
         _paragrafo(documento, "Fonte: ", _fonte_texto(aspecto.fonte))
         if aspecto.fonte.trecho_base is not None:
@@ -178,6 +183,13 @@ def _auditoria(documento, auditoria: ResumoAuditoria) -> None:
         f"Revisão auditada: {auditoria.revisao_auditada}; questões auditadas: "
         f"{auditoria.auditadas}; com achado: {auditoria.proporcao_com_achado}%",
     )
+    if auditoria.sem_verificacao_de_forma:
+        _paragrafo(
+            documento,
+            "Assimetria de forma: não se aplica a "
+            f"{auditoria.sem_verificacao_de_forma} questão(ões) de afirmativas ou "
+            "asserção-razão, cujas alternativas o sistema monta.",
+        )
     for questao in auditoria.questoes:
         _paragrafo(documento, f"Questão {questao.numero}")
         for achado in questao.achados:

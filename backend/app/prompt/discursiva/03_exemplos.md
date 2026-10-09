@@ -39,4 +39,26 @@ Aspectos: "a largura usa fila" (P1, página 13); "a profundidade usa pilha ou re
 (P1, página 15); "a fila produz visita por camadas de distância" (P1, página 12).
 </exemplo_2_violacao_corrigida>
 
+<exemplo_3_estudo_de_caso_com_itens>
+Trechos fornecidos: os mesmos do exemplo 1, e (P1, página 15): "Em grafos ponderados,
+o algoritmo de Dijkstra encontra o caminho de menor custo total."
+
+Contexto: Uma empresa de entregas modela os pontos de uma cidade como vértices e as
+ruas como arestas. Hoje cada rua conta como uma ligação, e a equipe usa busca em
+largura para planejar as rotas. A empresa quer passar a considerar o tempo de percurso
+de cada rua, que varia de rua para rua.
+
+a) Explique por que a busca em largura encontra hoje a rota com menos ruas.
+   Aspectos: a visita é por camadas de distância (P1, página 12); a garantia vale
+   porque todas as arestas têm o mesmo peso (P1, página 12).
+b) Avalie se a busca em largura continua adequada quando cada rua tiver o seu tempo de
+   percurso, e justifique.
+   Aspectos: com pesos diferentes, menos arestas deixa de significar menor custo (P1,
+   página 12); o caminho de menor custo total é o do algoritmo de Dijkstra (P1,
+   página 15).
+
+Por que é adequada: um contexto para os dois itens, cada item com um verbo e uma
+operação diferente, e o b) pode ser respondido mesmo por quem errou o a).
+</exemplo_3_estudo_de_caso_com_itens>
+
 </exemplos>

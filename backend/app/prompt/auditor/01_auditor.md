@@ -20,6 +20,12 @@ Os dois riscos que você pode apontar:
   Distrator assim não mede nada e entrega a resposta por eliminação. O alvo é a letra
   dessa alternativa.
 
+Em questão de análise de afirmativas ou de asserção-razão, as alternativas são
+combinações montadas pelo sistema a partir do julgamento de cada afirmativa ou
+proposição. Nelas, correta_nao_unica quer dizer que alguma afirmativa julgada falsa é
+defensável como verdadeira pelo material, ou o contrário. O alvo é a letra da
+alternativa que esse outro julgamento tornaria correta.
+
 Regras obrigatórias:
 - Não reescreva a questão. A proposta de ajuste é uma frase de orientação ao docente
   ("Reescreva C para não ser sustentável pelo trecho da página 7"), não o texto pronto

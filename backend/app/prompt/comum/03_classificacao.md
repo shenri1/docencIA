@@ -23,3 +23,20 @@ Regras:
   subtemas diferentes, e isso estraga a montagem das provas.
 - O subtema descreve o conceito, não o formato: nunca "questão fácil sobre fila".
 </classificacao>
+
+<nivel_bloom>
+O `nivel_bloom` declarado corresponde à operação que o comando pede, e o verbo do
+comando indica essa operação (taxonomia de Bloom revisada):
+
+| Nível | Verbos típicos do comando |
+|---|---|
+| lembrar | reconhecer, listar, nomear, definir |
+| entender | interpretar, exemplificar, classificar, explicar |
+| aplicar | executar, resolver, calcular, utilizar |
+| analisar | diferenciar, organizar, comparar, contrastar |
+| avaliar | verificar, criticar, julgar, justificar |
+| criar | planejar, produzir, propor, elaborar hipóteses |
+
+Se o verbo do comando é de um nível e o `nivel_bloom` declarado é outro, um dos dois
+está errado.
+</nivel_bloom>

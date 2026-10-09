@@ -13,7 +13,7 @@ import unicodedata
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 
-from backend.app.domain import RegraQualidade
+from backend.app.domain import FaixaDificuldade, FormatoItem, RegraQualidade
 
 # Listas fechadas em código de propósito: elas definem o que a métrica da
 # mede, e mudá-las é mudança revisada, não configuração.
@@ -29,6 +29,8 @@ TERMOS_FONTE = frozenset(
 # Comando operacional da discursiva. Lista fechada em código, como as
 # anteriores: define o que a métrica mede. Um falso positivo ("Qual a relação
 # entre…?") vira violação registrada, não questão descartada.
+# "discuta", "comente" e "discorra" ficam fora: verbo vago não diz o que fazer
+#.
 VERBOS_COMANDO = frozenset(
     {
         "explique",
@@ -37,7 +39,6 @@ VERBOS_COMANDO = frozenset(
         "descreva",
         "analise",
         "avalie",
-        "discuta",
         "relacione",
         "diferencie",
         "demonstre",
@@ -45,6 +46,24 @@ VERBOS_COMANDO = frozenset(
         "proponha",
         "elabore",
         "construa",
+        "interprete",
+        "exemplifique",
+        "classifique",
+        "resuma",
+        "infira",
+        "caracterize",
+        "resolva",
+        "calcule",
+        "determine",
+        "aplique",
+        "examine",
+        "organize",
+        "contraste",
+        "critique",
+        "julgue",
+        "recomende",
+        "planeje",
+        "formule",
     }
 )
 
@@ -58,6 +77,38 @@ _PALAVRA = re.compile(r"\w+")
 _CITACAO_LETRA = re.compile(
     r"(?i:\balternativa|\bletra|\bop[çc][ãa]o)\s+\(?[A-K]\)?(?!\w)"
 )
+
+
+# regras dos guias de elaboração. Listas fechadas em código, como as
+# anteriores, comparadas sem acento e sem caixa, por sequência de palavras.
+TERMOS_ALTERNATIVA_GENERICA = (
+    "todas as anteriores",
+    "nenhuma das anteriores",
+    "todas as alternativas",
+    "nenhuma das alternativas",
+    "todas estao corretas",
+    "nenhuma esta correta",
+    "todas as opcoes",
+    "nenhuma das opcoes",
+)
+TERMOS_NEGATIVOS = frozenset(
+    {"incorreta", "incorreto", "incorretas", "incorretos", "exceto", "nao"}
+)
+TERMOS_OPINIAO = (
+    "sua opiniao",
+    "voce acha",
+    "voce concorda",
+    "voce pensa",
+    "seu ponto de vista",
+    "na sua visao",
+)
+# Palpite. Abaixo disso a alternativa é rótulo ("Usa fila."). revisita:
+# "12 m/s" é alternativa legítima de cálculo.
+MINIMO_PALAVRAS_ALTERNATIVA = 4
+# Palpite. A fácil não tem mínimo: pergunta direta é permitida.
+MINIMO_PALAVRAS_CONTEXTO = {FaixaDificuldade.MEDIA: 15, FaixaDificuldade.DIFICIL: 40}
+# Palpite, mesma medida do LIMIAR_ENUNCIADO_REPETIDO.
+LIMIAR_ASSERCAO_CITACAO = 0.8
 
 
 @dataclass(frozen=True)
@@ -82,6 +133,14 @@ class ItemObjetivo:
     texto_verificacao_unicidade: str | None = None
     # (letra original, motivo).
     invalidacoes: list[tuple[str, str]] | None = None
+    # Defaults desligam as regras novas para quem não os preenche — o
+    # auditor monta o item de uma Questao persistida, que só tem o enunciado.
+    formato: FormatoItem = FormatoItem.PROPOSICAO
+    faixa: FaixaDificuldade | None = None
+    contexto: str | None = None
+    comando: str | None = None
+    # Asserção e razão, só em ASSERCAO_RAZAO.
+    assercoes: list[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -105,6 +164,10 @@ class ItemDiscursivo:
     enunciado: str
     aspectos: list[AspectoAvaliavel]
     identificadores_fonte: list[str]
+    faixa: FaixaDificuldade | None = None
+    contexto: str | None = None
+    # (alvo, comando) por item: ("item a", …). None = sem itens: mede o enunciado.
+    comandos: list[tuple[str, str]] | None = None
 
 
 def _normalizar(texto: str) -> str:
@@ -123,13 +186,23 @@ def _palavras(texto: str) -> list[str]:
 LIMIAR_ENUNCIADO_REPETIDO = 0.8
 
 
+def _semelhanca(a: str, b: str) -> float:
+    pa = [_normalizar(p) for p in _palavras(a)]
+    pb = [_normalizar(p) for p in _palavras(b)]
+    return SequenceMatcher(None, pa, pb).ratio()
+
+
 def enunciado_repetido(candidato: str, original: str) -> bool:
     """Substituição: o rascunho repete o enunciado da original?
     Compara a sequência de palavras normalizadas, então caixa, acento e
     pontuação não disfarçam a cópia."""
-    a = [_normalizar(p) for p in _palavras(candidato)]
-    b = [_normalizar(p) for p in _palavras(original)]
-    return SequenceMatcher(None, a, b).ratio() >= LIMIAR_ENUNCIADO_REPETIDO
+    return _semelhanca(candidato, original) >= LIMIAR_ENUNCIADO_REPETIDO
+
+
+def _frases(texto: str, termos: tuple[str, ...]) -> list[str]:
+    """Termos de várias palavras, por palavra inteira e sem acento."""
+    normalizado = " " + " ".join(_normalizar(p) for p in _palavras(texto)) + " "
+    return [t for t in termos if f" {t} " in normalizado]
 
 
 def _termos(texto: str) -> set[str]:
@@ -142,9 +215,11 @@ def _decimal(valor: float) -> str:
 
 
 def _textos(item: ItemObjetivo) -> list[tuple[str, str]]:
-    return [("enunciado", item.enunciado)] + [
-        (a.letra, a.texto) for a in item.alternativas
-    ]
+    textos = [("enunciado", item.enunciado)]
+    if item.formato is FormatoItem.PROPOSICAO:
+        # Nos formatos montados, as alternativas são texto do sistema.
+        textos += [(a.letra, a.texto) for a in item.alternativas]
+    return textos
 
 
 def _tamanho_alternativa(item: ItemObjetivo) -> list[Violacao]:
@@ -280,18 +355,141 @@ def _letra_citada_em_texto(item: ItemObjetivo) -> list[Violacao]:
     ]
 
 
+def _proposicao_com_comando(item: ItemObjetivo) -> bool:
+    return item.formato is FormatoItem.PROPOSICAO and item.comando is not None
+
+
+def _alternativa_rotulo(item: ItemObjetivo) -> list[Violacao]:
+    if not _proposicao_com_comando(item):
+        return []
+    violacoes = []
+    for alternativa in item.alternativas:
+        n = len(_palavras(alternativa.texto))
+        if n < MINIMO_PALAVRAS_ALTERNATIVA:
+            violacoes.append(
+                Violacao(
+                    RegraQualidade.ALTERNATIVA_ROTULO,
+                    alternativa.letra,
+                    f"{alternativa.letra} tem {n} palavras; alternativa é afirmação "
+                    f"completa, com ao menos {MINIMO_PALAVRAS_ALTERNATIVA}",
+                )
+            )
+    return violacoes
+
+
+def _alternativa_generica(item: ItemObjetivo) -> list[Violacao]:
+    if not _proposicao_com_comando(item):
+        return []
+    return [
+        Violacao(
+            RegraQualidade.ALTERNATIVA_GENERICA,
+            alternativa.letra,
+            f"usa “{termos[0]}”; a permutação das provas muda o que ela indica",
+        )
+        for alternativa in item.alternativas
+        if (termos := _frases(alternativa.texto, TERMOS_ALTERNATIVA_GENERICA))
+    ]
+
+
+def _inicial(texto: str) -> str | None:
+    """'maiuscula', 'minuscula' ou None — sigla (TCP), número e símbolo, como o
+    `\\(`, não dizem nada sobre a pontuação do comando."""
+    palavras = texto.split()
+    if not palavras or not palavras[0][0].isalpha():
+        return None
+    letras = [c for c in palavras[0] if c.isalpha()]
+    if len(letras) >= 2 and all(c.isupper() for c in letras):
+        return None
+    return "maiuscula" if palavras[0][0].isupper() else "minuscula"
+
+
+def _pontuacao_incoerente(item: ItemObjetivo) -> list[Violacao]:
+    if not _proposicao_com_comando(item):
+        return []
+    fim = item.comando.rstrip()[-1:]
+    if fim == "?":
+        proibida, detalhe = "minuscula", "o comando é pergunta, e a alternativa começa com minúscula"
+    elif fim in (".", ":", "!"):
+        return []
+    else:
+        proibida, detalhe = "maiuscula", "o comando é frase incompleta, e a alternativa começa com maiúscula"
+    return [
+        Violacao(RegraQualidade.PONTUACAO_INCOERENTE, a.letra, detalhe)
+        for a in item.alternativas
+        if _inicial(a.texto) == proibida
+    ]
+
+
+def _comando_negativo(item: ItemObjetivo) -> list[Violacao]:
+    # Só o comando: no contexto, "não" é conteúdo. Asserção-razão tem comando fixo.
+    if item.comando is None or item.formato is FormatoItem.ASSERCAO_RAZAO:
+        return []
+    encontrados = sorted(TERMOS_NEGATIVOS & _termos(item.comando))
+    if not encontrados:
+        return []
+    return [
+        Violacao(
+            RegraQualidade.COMANDO_NEGATIVO,
+            "comando",
+            f"comando negativo ({', '.join(encontrados)}); use só para enfatizar o "
+            "que não se deve fazer",
+        )
+    ]
+
+
+def _contexto_curto_em(
+    contexto: str | None, faixa: FaixaDificuldade | None
+) -> list[Violacao]:
+    if contexto is None or faixa is None:
+        return []
+    minimo = MINIMO_PALAVRAS_CONTEXTO.get(faixa)
+    n = len(_palavras(contexto))
+    if minimo is None or n >= minimo:
+        return []
+    return [
+        Violacao(
+            RegraQualidade.CONTEXTO_CURTO,
+            "contexto",
+            f"contexto com {n} palavras; a faixa {faixa.value} pede ao menos {minimo}",
+        )
+    ]
+
+
+def _assercao_citacao(item: ItemObjetivo) -> list[Violacao]:
+    if item.formato is not FormatoItem.ASSERCAO_RAZAO or item.assercoes is None:
+        return []
+    return [
+        Violacao(
+            RegraQualidade.ASSERCAO_CITACAO,
+            alvo,
+            "copia o trecho-base; o trecho sustenta, mas a redação é própria",
+        )
+        for alvo, texto in zip(("assercao", "razao"), item.assercoes, strict=False)
+        if any(_semelhanca(texto, t) >= LIMIAR_ASSERCAO_CITACAO for t in item.trechos_base)
+    ]
+
+
 def validar_objetiva(item: ItemObjetivo) -> list[Violacao]:
     """Ordem determinística: a da tabela de regras, e dentro de cada
-    regra, enunciado antes das alternativas, em ordem de letra."""
+    regra, enunciado antes das alternativas, em ordem de letra. Nos formatos
+    montados, as regras de alternativa não se aplicam: as
+    alternativas são texto do sistema."""
+    proposicao = item.formato is FormatoItem.PROPOSICAO
     return [
-        *_tamanho_alternativa(item),
-        *_correta_longa(item),
+        *(_tamanho_alternativa(item) if proposicao else []),
+        *(_correta_longa(item) if proposicao else []),
         *_termo_absoluto(item),
         *_mencao_fonte(item),
-        *_gemeos_insuficientes(item),
-        *_gemeo_na_correta(item),
-        *_invalidacao_letra_invalida(item),
+        *(_gemeos_insuficientes(item) if proposicao else []),
+        *(_gemeo_na_correta(item) if proposicao else []),
+        *(_invalidacao_letra_invalida(item) if proposicao else []),
         *_letra_citada_em_texto(item),
+        *_alternativa_rotulo(item),
+        *_alternativa_generica(item),
+        *_pontuacao_incoerente(item),
+        *_contexto_curto_em(item.contexto, item.faixa),
+        *_comando_negativo(item),
+        *_assercao_citacao(item),
     ]
 
 
@@ -330,15 +528,31 @@ def _mencao_fonte_em(
     ]
 
 
+def _comandos(item: ItemDiscursivo) -> list[tuple[str, str]]:
+    return item.comandos if item.comandos is not None else [("enunciado", item.enunciado)]
+
+
 def _comando_ausente(item: ItemDiscursivo) -> list[Violacao]:
-    if VERBOS_COMANDO & _termos(item.enunciado):
-        return []
     return [
         Violacao(
             RegraQualidade.COMANDO_AUSENTE,
-            "enunciado",
+            alvo,
             "nenhum verbo de comando operacional (explique, compare, justifique…)",
         )
+        for alvo, comando in _comandos(item)
+        if not VERBOS_COMANDO & _termos(comando)
+    ]
+
+
+def _opiniao_pessoal(item: ItemDiscursivo) -> list[Violacao]:
+    return [
+        Violacao(
+            RegraQualidade.OPINIAO_PESSOAL,
+            alvo,
+            f"pede opinião pessoal ({', '.join(termos)}); os aspectos esperados não a sustentam",
+        )
+        for alvo, comando in _comandos(item)
+        if (termos := _frases(comando, TERMOS_OPINIAO))
     ]
 
 
@@ -372,4 +586,6 @@ def validar_discursiva(item: ItemDiscursivo) -> list[Violacao]:
         *_mencao_fonte_em("enunciado", item.enunciado, item.identificadores_fonte),
         *_comando_ausente(item),
         *_aspectos_repetidos(item),
+        *_opiniao_pessoal(item),
+        *_contexto_curto_em(item.contexto, item.faixa),
     ]

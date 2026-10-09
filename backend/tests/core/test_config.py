@@ -61,7 +61,7 @@ def test_defaults_da_geracao():
 
 def test_defaults_do_critico():
     # Revisar pede conservadorismo, não variedade: abaixo dos 0.4 do Gerador.
-    assert settings.critico_temperatura == 0.2
+    assert settings.critico_temperatura == 0.1
     # A saída tem o mesmo schema da geração: mesmo teto.
     assert settings.critico_max_tokens == 2048
 

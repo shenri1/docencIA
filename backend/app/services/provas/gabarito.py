@@ -43,6 +43,7 @@ class AspectoGabarito:
     ordem: int
     texto: str
     fonte: FonteGabarito
+    item: int | None = None
 
 
 @dataclass(frozen=True)
@@ -113,7 +114,7 @@ def _item(item: ItemProva, comentado: bool) -> ItemGabarito:
             letra=None,
             fontes=fontes,
             aspectos=[
-                AspectoGabarito(a.ordem, a.texto, _fonte(a.fonte, comentado))
+                AspectoGabarito(a.ordem, a.texto, _fonte(a.fonte, comentado), a.item)
                 for a in sorted(questao.aspectos, key=lambda a: a.ordem)
             ],
             justificativa_correta=None,

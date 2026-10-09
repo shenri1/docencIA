@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { Gabarito, ItemGabarito, ProvasMontadas } from "../../api/tipos";
 import { Alerta } from "../../components/Alerta";
 import { Botao } from "../../components/Botao";
+import { letraDoItem } from "../../lib/aspectos";
+import { ListaAspectos } from "../banco/ListaAspectos";
 import { type Modalidade, useGabarito } from "./api";
 
 type Versao = "A" | "B";
@@ -136,7 +138,10 @@ function TabelaSimples({ gabarito }: { gabarito: Gabarito }) {
               {item.letra ?? (
                 <ul>
                   {item.aspectos.map((aspecto) => (
-                    <li key={aspecto.ordem}>{aspecto.texto}</li>
+                    <li key={aspecto.ordem}>
+                      {aspecto.item ? `${letraDoItem(aspecto.item)}) ` : ""}
+                      {aspecto.texto}
+                    </li>
                   ))}
                 </ul>
               )}
@@ -208,16 +213,10 @@ function ItemComentado({ item, versao }: { item: ItemGabarito; versao: string })
         {item.aspectos.length > 0 && (
           <div className="flex flex-col gap-1">
             <h3 className="font-grotesca text-detalhe font-semibold">Aspectos esperados</h3>
-            <ol className="flex flex-col gap-2">
-              {item.aspectos.map((aspecto) => (
-                <li key={aspecto.ordem} className="flex flex-col gap-1">
-                  <span className="font-serifa">
-                    {aspecto.ordem}. {aspecto.texto}
-                  </span>
-                  <Fonte fonte={aspecto.fonte} />
-                </li>
-              ))}
-            </ol>
+            <ListaAspectos
+              aspectos={item.aspectos}
+              fonte={(aspecto) => <Fonte fonte={aspecto.fonte} />}
+            />
           </div>
         )}
 

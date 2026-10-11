@@ -15,11 +15,12 @@ from backend.app.domain import (
 )
 from backend.app.exceptions import (
     BancoCongeladoException,
-    FonteInvalidaException,
+    FalhaProvedorLLMException,
     GeracaoEmAndamentoException,
     MaterialInsuficienteParaBancoException,
     ParametrosBancoDivergentesException,
     PromptDivergenteException,
+    RespostaLLMInvalidaException,
 )
 from backend.app.models.banco import (
     Alternativa,
@@ -493,17 +494,64 @@ def test_fonte_persistida_vem_da_revisao_mesmo_com_rascunho_invalido(
     assert fonte.trecho_base == "Trecho citado pela revisão."
 
 
-def test_fonte_inventada_na_revisao_e_rejeitada_sem_persistir(
+def test_fonte_inventada_na_revisao_vira_improdutiva_sem_persistir(
     db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
     provedor = ProvedorLLMFake([corpo_questao(5), corpo_questao(5, identificador="P9")])
-    with pytest.raises(FonteInvalidaException):
-        gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
-    assert not db_session.new
-    db_session.rollback()
+    resumo = gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
+    assert resumo.geradas == 0
+    assert [i.numero for i in resumo.improdutivas] == [1]
+    assert "P9" in resumo.improdutivas[0].motivo
     assert db_session.query(Questao).count() == 0
     assert db_session.query(RevisaoQuestao).count() == 0
+
+
+def test_falha_de_conteudo_no_meio_nao_pára_o_banco(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    roteiro_ = [
+        *roteiro(1),
+        corpo_questao(5),
+        corpo_questao(5, identificador="P9"),  # Q2: fonte inventada
+        RespostaLLMInvalidaException("cortada"),  # Q3
+        *roteiro(1),  # Q4
+    ]
+    provedor = ProvedorLLMFake(roteiro_)
+    resumo = gerar(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor, n_alvo=4
+    )
+    assert resumo.geradas == 2
+    assert [i.numero for i in resumo.improdutivas] == [2, 3]
+    assert resumo.restantes == 0
+    assert sorted(q.numero for q in db_session.query(Questao)) == [1, 4]
+
+
+def test_retomada_tenta_so_as_lacunas_da_falha(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    gerar(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
+        ProvedorLLMFake([*roteiro(1), RespostaLLMInvalidaException("cortada"), *roteiro(1)]),
+        n_alvo=3,
+    )
+    provedor = ProvedorLLMFake(roteiro(1))
+    resumo = gerar(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor, n_alvo=3
+    )
+    assert resumo.geradas == 1
+    assert provedor.chamadas == 2
+
+
+def test_cadeia_de_provedores_fora_do_ar_continua_interrompendo(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    provedor = ProvedorLLMFake([FalhaProvedorLLMException([("ollama", "HTTP 500")])])
+    with pytest.raises(FalhaProvedorLLMException):
+        gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
 
 
 def test_insuficiencia_declarada_pelo_critico_vira_improdutiva(
@@ -657,16 +705,15 @@ def test_discursiva_pode_ser_criar(
     assert db_session.query(Questao).one().nivel_bloom is NivelBloom.CRIAR
 
 
-def test_aspecto_com_fonte_inventada_e_rejeitado(
+def test_aspecto_com_fonte_inventada_vira_improdutiva(
     db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
     provedor = ProvedorLLMFake([corpo_discursiva(), corpo_discursiva(identificador="P9")])
-    with pytest.raises(FonteInvalidaException):
-        gerar_misto(
-            db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor, 0, 1
-        )
-    db_session.rollback()
+    resumo = gerar_misto(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor, 0, 1
+    )
+    assert [i.numero for i in resumo.improdutivas] == [1]
     assert db_session.query(AspectoEsperado).count() == 0
 
 

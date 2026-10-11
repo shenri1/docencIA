@@ -28,8 +28,10 @@ from backend.app.domain import (
 )
 from backend.app.exceptions import (
     BancoCongeladoException,
+    FonteInvalidaException,
     GeracaoEmAndamentoException,
     ParametrosBancoDivergentesException,
+    RespostaLLMInvalidaException,
 )
 from backend.app.models.banco import (
     Alternativa,
@@ -374,7 +376,7 @@ def _persistir(
     return questao
 
 
-def produzir_questao(
+def _produzir_questao(
     db: Session,
     embeddings,
     reranker,
@@ -498,6 +500,37 @@ def produzir_questao(
         estado,
     )
     return Produzida(questao=questao, violacoes_final=violacoes_final)
+
+
+def produzir_questao(
+    db: Session,
+    embeddings,
+    reranker,
+    provedor,
+    sessao: SessaoGeracao,
+    banco: BancoQuestoes,
+    numero: int,
+    tipo: TipoQuestao,
+    faixa: FaixaDificuldade,
+    ancora: ChunkMaterial,
+    distribuicao: DistribuicaoQuestoes,
+    **resto,
+) -> Produzida | Improdutiva:
+    """Falha do CONTEÚDO de uma questão não pára o banco: fonte que o modelo
+    inventou ou resposta fora do formato viram lacuna daquele número, e o laço
+    segue. As duas acontecem antes de qualquer gravação, então nada fica pela
+    metade. Falha de infraestrutura (cadeia de provedores fora do ar, servidor
+    ocupado, prompt divergente) continua subindo: seguir só faria todos os
+    números seguintes falharem igual."""
+    try:
+        return _produzir_questao(
+            db, embeddings, reranker, provedor, sessao, banco, numero, tipo,
+            faixa, ancora, distribuicao, **resto,
+        )
+    except (FonteInvalidaException, RespostaLLMInvalidaException) as exc:
+        return Improdutiva(
+            numero=numero, localizacao=ancora.localizacao, motivo=str(exc)
+        )
 
 
 def gerar_banco(

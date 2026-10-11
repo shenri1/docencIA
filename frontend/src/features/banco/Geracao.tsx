@@ -215,10 +215,11 @@ function Resumo({ acumulado }: { acumulado: Acumulado }) {
         {geradas} {geradas === 1 ? "questão gerada" : "questões geradas"} nesta rodada.
       </p>
       {improdutivas.length > 0 && (
-        <Alerta variante="aviso" titulo="Sem sustentação no material">
+        <Alerta variante="aviso" titulo="Números que ficaram sem questão">
           <p>
-            Estes números ficaram sem questão, porque o material enviado não sustentou
-            uma. Eles continuam como lacunas, e esta lista não é guardada.
+            O material não sustentou uma questão ou a resposta do modelo veio
+            inválida. A geração seguiu para os outros números. Estes continuam como
+            lacunas, e esta lista não é guardada.
           </p>
           <ul className="mt-2 list-disc pl-5">
             {improdutivas.map((i) => (

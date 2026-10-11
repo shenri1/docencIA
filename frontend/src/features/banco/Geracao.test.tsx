@@ -148,6 +148,8 @@ describe("Geração do banco", () => {
     expect(corpos[0]).toMatchObject({ versao: "v1", n_objetivas: 3, n_discursivas: 0 });
     // Improdutiva mostrada uma vez, com número e motivo.
     expect(screen.getByText(/Questão 2 \(página 3\): o trecho não define o termo/)).toBeInTheDocument();
+    // O aviso cobre também resposta inválida do modelo, não só falta de fonte.
+    expect(screen.getByText("Números que ficaram sem questão")).toBeInTheDocument();
     // O marco, relido, diz que ficou uma lacuna.
     expect(await screen.findByText("Falta 1 questão no banco v1.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continuar geração" })).toBeInTheDocument();

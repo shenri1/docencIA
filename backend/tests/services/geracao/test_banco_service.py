@@ -34,6 +34,7 @@ from backend.app.models.banco import (
 from backend.app.models.materiais import ChunkMaterial
 from backend.app.prompt.parametros import ParametrosGeracao
 from backend.app.services.geracao.banco_service import (
+    Improdutiva,
     _montar_plano,
     _obter_ou_criar_banco,
     gerar_banco,
@@ -281,14 +282,16 @@ def test_retomada_nao_regenera_o_que_ja_existe(
     """Primeira chamada interrompida (roteiro acaba na questão 3), segunda
     continua com as MESMAS contagens e só gera o que falta."""
     preparar(db_session, armazenamento, sessao_rascunho)
-    interrompido = ProvedorLLMFake(roteiro(2) + [RuntimeError("queda do Ollama")])
+    # O plano de 4 objetivas inclui formatos montados: o roteiro segue o plano.
+    completo = roteiro_do_plano(sessao_rascunho, 4)
+    interrompido = ProvedorLLMFake(completo[:4] + [RuntimeError("queda do Ollama")])
     with pytest.raises(RuntimeError):
         gerar_banco(
             db_session, embeddings_fake, reranker_fake, interrompido,
             sessao_rascunho, n_objetivas=4, n_discursivas=0, versao="v1",
         )
 
-    segundo = ProvedorLLMFake(roteiro(2))
+    segundo = ProvedorLLMFake(completo[4:])
     resumo = gerar_banco(
         db_session, embeddings_fake, reranker_fake, segundo,
         sessao_rascunho, n_objetivas=4, n_discursivas=0, versao="v1",
@@ -382,14 +385,14 @@ def test_n_atual_reflete_o_que_foi_persistido(
     assert (banco.n_alvo_objetivas, banco.n_alvo_discursivas) == (3, 0)
 
 
-LONGA = "opção com texto muito mais longo que todas as outras juntas somadas"
+LONGA = "Opção com texto muito mais longo que todas as outras juntas somadas"
 
 
 def alternativas(textos: list[str], gemeo: int = 1) -> list[dict]:
     return [{"texto": t, "e_gemeo_malvado": i == gemeo} for i, t in enumerate(textos)]
 
 
-CURTAS = [f"opção curta número {i}" for i in range(5)]
+CURTAS = [f"Opção curta número {i}" for i in range(5)]
 COM_LONGA = [CURTAS[0], CURTAS[1], LONGA, CURTAS[3], CURTAS[4]]
 
 

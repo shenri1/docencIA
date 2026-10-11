@@ -206,10 +206,10 @@ def test_migracao_11_preserva_bancos_e_questoes_existentes():
             # 'CANDIDATA' existe e é usável: é o que o autocommit_block garante.
             conn.execute(
                 text(
-                    "INSERT INTO questoes (banco_id, numero, tipo, enunciado, "
-                    "nivel_bloom, faixa_dificuldade, estado) VALUES "
-                    "(:b, 1, 'OBJETIVA', 'Candidata?', 'APLICAR', 'MEDIA', "
-                    "'CANDIDATA')"
+                    "INSERT INTO questoes (banco_id, numero, tipo, formato, "
+                    "enunciado, nivel_bloom, faixa_dificuldade, estado) VALUES "
+                    "(:b, 1, 'OBJETIVA', 'PROPOSICAO', 'Candidata?', 'APLICAR', "
+                    "'MEDIA', 'CANDIDATA')"
                 ),
                 {"b": banco_id},
             )
@@ -325,11 +325,13 @@ def test_semente_cria_admin_do_env_e_ativa_prompt(monkeypatch):
                 text("SELECT nome, perfil, senha_hash FROM docentes")
             ).all()
             prompts = conn.execute(
-                text("SELECT versao, ativo FROM prompts_mestres")
+                text("SELECT versao, ativo FROM prompts_mestres ORDER BY versao")
             ).all()
         assert (nome, perfil) == ("Admin", "ADMINISTRADOR")
         assert verificar_senha("senhaforte123", senha_hash)
-        assert [tuple(p) for p in prompts] == [("1.0.0", True)]
+        # A 1.0.0 é semeada pela e1a4c8f02b77 e a 2.0.0 a substitui
+        # como ativa; rodar de novo não duplica nenhuma das duas.
+        assert [tuple(p) for p in prompts] == [("1.0.0", False), ("2.0.0", True)]
     finally:
         eng.dispose()
 

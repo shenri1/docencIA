@@ -294,6 +294,168 @@
         }
       }
     },
+    "/sessoes/{sessao_id}/orientacoes": {
+      "get": {
+        "tags": [
+          "Orientações do Docente"
+        ],
+        "summary": "Listar Orientacoes",
+        "operationId": "listar_orientacoes_sessoes__sessao_id__orientacoes_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessao_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sessao Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrientacaoResposta"
+                  },
+                  "title": "Response Listar Orientacoes Sessoes  Sessao Id  Orientacoes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Orientações do Docente"
+        ],
+        "summary": "Acrescentar",
+        "operationId": "acrescentar_sessoes__sessao_id__orientacoes_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessao_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sessao Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrientacaoCriar"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrientacaoResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessoes/{sessao_id}/orientacoes/{orientacao_id}/desativar": {
+      "post": {
+        "tags": [
+          "Orientações do Docente"
+        ],
+        "summary": "Desativar Orientacao",
+        "operationId": "desativar_orientacao_sessoes__sessao_id__orientacoes__orientacao_id__desativar_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessao_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Sessao Id"
+            }
+          },
+          {
+            "name": "orientacao_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Orientacao Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrientacaoResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sessoes/{sessao_id}/materiais": {
       "post": {
         "tags": [
@@ -1120,6 +1282,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DirecaoVariacao"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Direcao"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Successful Response",
@@ -2552,6 +2731,45 @@
         ],
         "title": "ComandoRevisao"
       },
+      "DirecaoVariacao": {
+        "properties": {
+          "cruzar_com": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cruzar Com",
+            "description": "Um assunto do material a articular."
+          },
+          "o_que_mudar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "O Que Mudar",
+            "description": "O que mudar na questão, em texto livre."
+          },
+          "acumular": {
+            "type": "boolean",
+            "title": "Acumular",
+            "description": "Aplicar também às próximas gerações desta sessão.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "DirecaoVariacao",
+        "description": "Corpo opcional da substituição. Os dois textos vão para o\npedido sem interpretação: `cruzar_com` também vira consulta ao RAG."
+      },
       "DocenteCriar": {
         "properties": {
           "nome": {
@@ -2620,6 +2838,16 @@
           "congelado"
         ],
         "title": "EstadoBanco"
+      },
+      "EstadoOrientacao": {
+        "type": "string",
+        "enum": [
+          "ativa",
+          "inativa",
+          "pontual"
+        ],
+        "title": "EstadoOrientacao",
+        "description": ". A única transição é ATIVA → INATIVA. PONTUAL vale para a chamada\nque a criou e nunca entra em outra geração."
       },
       "EstadoProva": {
         "type": "string",
@@ -3348,6 +3576,108 @@
         ],
         "title": "NivelBloom"
       },
+      "OrientacaoCriar": {
+        "properties": {
+          "o_que_mudar": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "O Que Mudar",
+            "description": "Orientação de estilo para as próximas gerações da sessão."
+          }
+        },
+        "type": "object",
+        "required": [
+          "o_que_mudar"
+        ],
+        "title": "OrientacaoCriar"
+      },
+      "OrientacaoResposta": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "origem": {
+            "$ref": "#/components/schemas/OrigemOrientacao"
+          },
+          "estado": {
+            "$ref": "#/components/schemas/EstadoOrientacao"
+          },
+          "o_que_mudar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "O Que Mudar"
+          },
+          "cruzar_com": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cruzar Com"
+          },
+          "banco_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banco Id",
+            "description": "Só na origem questao."
+          },
+          "numero_origem": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero Origem",
+            "description": "Só na origem questao."
+          },
+          "criada_em": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Criada Em"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "origem",
+          "estado",
+          "o_que_mudar",
+          "cruzar_com",
+          "banco_id",
+          "numero_origem",
+          "criada_em"
+        ],
+        "title": "OrientacaoResposta"
+      },
+      "OrigemOrientacao": {
+        "type": "string",
+        "enum": [
+          "sessao",
+          "questao"
+        ],
+        "title": "OrigemOrientacao",
+        "description": "onde o docente deu a orientação — na sessão, antes de gerar, ou\nnuma questão, ao pedir uma variação guiada."
+      },
       "OrigemTexto": {
         "type": "string",
         "enum": [
@@ -3777,6 +4107,14 @@
           "formato": {
             "$ref": "#/components/schemas/FormatoItem",
             "description": "Formato de item. A discursiva grava proposicao."
+          },
+          "orientacoes_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Orientacoes Ids",
+            "description": "Orientações vigentes na geração. Vazio antes."
           }
         },
         "type": "object",
@@ -3793,7 +4131,8 @@
           "alternativas",
           "letra_correta",
           "aspectos_esperados",
-          "formato"
+          "formato",
+          "orientacoes_ids"
         ],
         "title": "QuestaoResposta",
         "description": "Sem justificativa e sem rascunho, de propósito: eles nunca\naparecem no corpo da questão."
@@ -4284,6 +4623,17 @@
             "minimum": 0.0,
             "title": "P D",
             "description": "Percentual de questões difíceis."
+          },
+          "orientacoes": {
+            "items": {
+              "type": "string",
+              "maxLength": 500,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Orientacoes",
+            "description": "Orientações de estilo para todas as questões da sessão."
           }
         },
         "type": "object",
@@ -4385,7 +4735,9 @@
           "auditoria_questao",
           "login_falho",
           "token_suspeito",
-          "acesso_negado"
+          "acesso_negado",
+          "orientacao_criada",
+          "orientacao_desativada"
         ],
         "title": "TipoEventoAuditoria",
         "description": ". `registros_auditoria.tipo_evento` é String(100): este enum é o\nvocabulário, não um tipo do banco — acrescentar membro não pede migração."

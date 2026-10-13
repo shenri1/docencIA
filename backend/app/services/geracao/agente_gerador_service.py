@@ -6,6 +6,7 @@ aqui não há iteração, persistência nem transação.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
@@ -17,7 +18,11 @@ from backend.app.models.materiais import ChunkMaterial
 from backend.app.prompt.montagem import montar_sistema
 from backend.app.schemas.geracao import InsuficienciaFonte, montar_schema
 from backend.app.services.calculo_distribuicao_service import DistribuicaoQuestoes
-from backend.app.services.geracao.contexto import formatar_trechos, parametros_da_sessao
+from backend.app.services.geracao.contexto import (
+    formatar_orientacoes,
+    formatar_trechos,
+    parametros_da_sessao,
+)
 from backend.app.services.geracao.formatos import (
     texto_contextualizacao,
     texto_pedido_formato,
@@ -49,6 +54,8 @@ def _montar_usuario(
     formato: FormatoItem = FormatoItem.PROPOSICAO,
     configuracao=None,
     n_itens: int | None = None,
+    orientacoes: Sequence = (),
+    partida: bool = False,
 ) -> str:
     if tipo is TipoQuestao.DISCURSIVA:
         if n_itens is None:
@@ -68,7 +75,17 @@ def _montar_usuario(
             f"acima. {texto_pedido_formato(formato, configuracao, k)}"
         )
     partes = ["Trechos disponíveis:\n" + formatar_trechos(trechos)]
-    if evitar is not None:
+    bloco = formatar_orientacoes(orientacoes)
+    if bloco is not None:
+        partes.append(bloco)
+    if evitar is not None and partida:
+        # Variação guiada: a original é ponto de partida, não coisa a
+        # evitar. A cópia continua medida no rascunho pela pergunta.
+        partes.append(
+            "Questão de partida: mantenha o que funciona nela e aplique a "
+            "orientação.\n" + evitar
+        )
+    elif evitar is not None:
         # A substituição reusa a MESMA âncora: sem esta instrução, a mesma
         # temperatura tenderia a devolver quase a mesma questão.
         partes.append(
@@ -97,6 +114,8 @@ def gerar_questao(
     configuracao=None,
     n_itens: int | None = None,
     trechos: list[TrechoRecuperado] | None = None,
+    orientacoes: Sequence = (),
+    partida: bool = False,
 ) -> ResultadoGeracao:
     # O texto da âncora É a consulta: ela já decidiu o assunto, e o RAG só
     # traz o contexto vizinho.
@@ -128,6 +147,8 @@ def gerar_questao(
                 formato,
                 configuracao,
                 n_itens,
+                orientacoes,
+                partida,
             ),
             formato=montar_schema(
                 tipo, sessao.k_alternativas, formato, configuracao, n_itens

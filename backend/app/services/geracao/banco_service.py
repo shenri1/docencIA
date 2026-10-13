@@ -10,6 +10,7 @@ chamada, cada tipo com o seu plano e a sua persistência.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -44,6 +45,7 @@ from backend.app.models.banco import (
 )
 from backend.app.models.identidade import SessaoGeracao
 from backend.app.models.materiais import ChunkMaterial
+from backend.app.models.orientacoes import OrientacaoDocente
 from backend.app.schemas.geracao import LETRAS
 from backend.app.services.calculo_distribuicao_service import (
     DistribuicaoQuestoes,
@@ -60,6 +62,7 @@ from backend.app.services.geracao.agente_gerador_service import (
     gerar_questao,
 )
 from backend.app.services.geracao.ancoras import selecionar_ancoras
+from backend.app.services.geracao.busca_orientada import trechos_com_orientacoes
 from backend.app.services.geracao.contexto import resolver_fontes
 from backend.app.services.geracao.formatos import (
     atribuir_configuracao,
@@ -69,6 +72,7 @@ from backend.app.services.geracao.formatos import (
     montar_objetiva,
 )
 from backend.app.services.log_auditoria import registrar_evento
+from backend.app.services.orientacoes.orientacao_service import vigentes
 from backend.app.services.prompt_mestre_service import verificar_integridade
 from backend.app.services.qualidade.validador_itens import (
     Violacao,
@@ -246,6 +250,7 @@ def _persistir(
     violacoes_rascunho: list[Violacao],
     violacoes_final: list[Violacao],
     estado: EstadoQuestao,
+    orientacoes: Sequence[OrientacaoDocente] = (),
 ) -> Questao:
     # `final` é a forma montada da versão revisada. Antes de qualquer db.add: fonte inválida levanta sem deixar objeto
     # pendente na sessão. Só a versão revisada vira FonteInterna.
@@ -272,6 +277,8 @@ def _persistir(
         subtema=final.subtema,
         estado=estado,
     )
+    # as orientações vigentes nesta geração, na mesma transação.
+    questao.orientacoes = list(orientacoes)
     db.add(questao)
     versao = banco.versao  # lido antes: o rollback expira `banco`
     try:
@@ -370,6 +377,9 @@ def _persistir(
             "modelo_geracao": resultado.modelo,
             "modelo_revisao": revisao.modelo,
             "n_violacoes_final": len(violacoes_final),
+            "n_orientacoes": len(orientacoes),
+            "com_cruzamento": any(o.cruzar_com for o in orientacoes),
+            "orientacoes_ids": [o.id for o in orientacoes],
         },
     )
     db.commit()
@@ -394,10 +404,17 @@ def _produzir_questao(
     configuracao=None,
     n_itens: int | None = None,
     pergunta_original: str | None = None,
+    orientacoes: Sequence[OrientacaoDocente] = (),
+    partida: bool = False,
 ) -> Produzida | Improdutiva:
     """Uma questão, do rascunho ao commit: gerar, montar, medir, revisar, montar,
     medir, persistir. `gerar_banco` chama em laço; `propor_substituicao` chama uma
     vez. A sequência existe só aqui."""
+    # A busca combinada sai daqui, uma vez: o recuo para proposição e o crítico
+    # recebem os mesmos trechos.
+    trechos = trechos_com_orientacoes(
+        db, embeddings, reranker, sessao, ancora, orientacoes
+    )
     resultado = gerar_questao(
         db,
         embeddings,
@@ -413,6 +430,9 @@ def _produzir_questao(
         formato=formato,
         configuracao=configuracao,
         n_itens=n_itens,
+        trechos=trechos,
+        orientacoes=orientacoes,
+        partida=partida,
     )
     formato_planejado = formato
     if (
@@ -437,6 +457,8 @@ def _produzir_questao(
             evitar=evitar,
             formato=formato,
             trechos=resultado.trechos,
+            orientacoes=orientacoes,
+            partida=partida,
         )
     if resultado.questao is None:
         return Improdutiva(
@@ -472,6 +494,7 @@ def _produzir_questao(
         formato=formato,
         configuracao=configuracao,
         n_itens=n_itens,
+        orientacoes=orientacoes,
     )
     if revisao.questao is None:
         # O crítico concluiu que o material não sustenta a questão: 
@@ -498,6 +521,7 @@ def _produzir_questao(
         violacoes_rascunho,
         violacoes_final,
         estado,
+        orientacoes,
     )
     return Produzida(questao=questao, violacoes_final=violacoes_final)
 
@@ -554,6 +578,8 @@ def gerar_banco(
     # 7 desperdiçaria minutos de GPU.
     verificar_integridade(db)
     exigir_indice_confirmado(sessao)
+    # Lidas uma vez por pedido: duas questões do mesmo lote recebem as mesmas.
+    orientacoes = vigentes(db, sessao)
     banco = _obter_ou_criar_banco(db, sessao, versao, n_objetivas, n_discursivas)
     ancoras = selecionar_ancoras(db, sessao, n_alvo)
 
@@ -593,6 +619,7 @@ def gerar_banco(
             formato=item.formato,
             configuracao=item.configuracao,
             n_itens=item.n_itens,
+            orientacoes=orientacoes,
         )
         if isinstance(produzida, Improdutiva):
             improdutivas.append(produzida)

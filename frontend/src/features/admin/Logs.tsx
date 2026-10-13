@@ -7,6 +7,8 @@ import { type FiltrosLog, TAMANHO_PAGINA_LOGS, useLogs } from "./api";
 
 // Record fecha a lista: um tipo novo no contrato quebra a compilação aqui.
 const ROTULO_EVENTO: Record<TipoEventoAuditoria, string> = {
+  orientacao_criada: "Orientação criada",
+  orientacao_desativada: "Orientação desativada",
   questao_gerada: "Questão gerada",
   exclusao: "Exclusão",
   congelamento: "Congelamento",

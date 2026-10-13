@@ -26,6 +26,7 @@ from backend.app.schemas.banco import (
     ResumoAuditoriaResposta,
 )
 from backend.app.schemas.exportacao import ExportacaoResposta
+from backend.app.schemas.orientacao import DirecaoVariacao
 from backend.app.schemas.prova import ProvasCriar, ProvasMontadasResposta
 from backend.app.services.controle_banco.catalogo import ItemCatalogo, catalogar
 from backend.app.services.controle_banco.estado import obter_banco
@@ -132,6 +133,7 @@ def propor(
     banco_id: int,
     numero: int,
     resposta: Response,
+    direcao: DirecaoVariacao | None = None,
     db: Session = Depends(get_db),
     docente: Docente = Depends(get_current_docente),
     embeddings: Embeddings = Depends(get_embeddings),
@@ -139,10 +141,10 @@ def propor(
     provedor: ProvedorLLMService = Depends(get_provedor),
 ) -> PropostaSubstituicaoResposta:
     # Chamada longa: ~38 s (geração + revisão). Nada muda no banco até o docente
-    # aceitar.
+    # aceitar. Com corpo, é a variação guiada.
     banco = obter_banco(db, docente, banco_id)
     produzida = propor_substituicao(
-        db, embeddings, reranker, provedor, docente, banco, numero
+        db, embeddings, reranker, provedor, docente, banco, numero, direcao
     )
     if isinstance(produzida, Produzida):
         return PropostaSubstituicaoResposta(

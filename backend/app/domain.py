@@ -88,6 +88,23 @@ class DecisaoSubstituicao(str, Enum):
     REJEITADA = "rejeitada"
 
 
+class OrigemOrientacao(str, Enum):
+    """onde o docente deu a orientação — na sessão, antes de gerar, ou
+    numa questão, ao pedir uma variação guiada."""
+
+    SESSAO = "sessao"
+    QUESTAO = "questao"
+
+
+class EstadoOrientacao(str, Enum):
+    """A única transição é ATIVA → INATIVA. PONTUAL vale para a chamada
+    que a criou e nunca entra em outra geração."""
+
+    ATIVA = "ativa"
+    INATIVA = "inativa"
+    PONTUAL = "pontual"
+
+
 class NivelBloom(str, Enum):
     LEMBRAR = "lembrar"
     ENTENDER = "entender"
@@ -206,3 +223,5 @@ class TipoEventoAuditoria(str, Enum):
     LOGIN_FALHO = "login_falho"
     TOKEN_SUSPEITO = "token_suspeito"
     ACESSO_NEGADO = "acesso_negado"
+    ORIENTACAO_CRIADA = "orientacao_criada"
+    ORIENTACAO_DESATIVADA = "orientacao_desativada"

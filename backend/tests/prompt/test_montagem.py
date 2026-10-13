@@ -291,3 +291,19 @@ def test_modulos_de_formato_entram_no_hash_de_versao():
     nomes = [n for n, _ in carregar_modulos_versionados()]
     assert "objetiva/formatos/afirmativas/01_formato.md" in nomes
     assert "objetiva/formatos/assercao_razao/01_formato.md" in nomes
+
+
+@pytest.mark.parametrize("tipo", [OBJ, DISC])
+def test_orientacoes_no_gerador_e_no_critico(tipo):
+    for texto in (montar_sistema(tipo, params()), montar_sistema_critico(tipo, params())):
+        assert "<orientacoes_docente>" in texto
+
+
+def test_orientacoes_nao_vao_para_o_auditor():
+    """O Auditor verifica correção, não estilo."""
+    assert "<orientacoes_docente>" not in montar_sistema_auditor(params())
+
+
+def test_modulo_de_orientacoes_entra_no_hash_de_versao():
+    nomes = [nome for nome, _ in carregar_modulos_versionados()]
+    assert "comum/05_orientacoes.md" in nomes

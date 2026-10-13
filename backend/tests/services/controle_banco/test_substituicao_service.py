@@ -31,8 +31,11 @@ from backend.app.services.controle_banco.substituicao_service import (
     propor_substituicao,
     rejeitar_substituicao,
 )
-from backend.app.services.geracao.banco_service import Improdutiva, gerar_banco
-from backend.tests.travamento import espiar_lock
+from backend.app.services.geracao.banco_service import (
+    Improdutiva,
+    _montar_plano,
+    gerar_banco,
+)
 from backend.tests.services.geracao.duplos import (
     CONTEXTO_MEDIA,
     ProvedorLLMFake,
@@ -41,7 +44,6 @@ from backend.tests.services.geracao.duplos import (
     corpo_insuficiencia,
     corpo_questao,
 )
-from backend.app.services.geracao.banco_service import _montar_plano
 from backend.tests.services.geracao.test_banco_service import (
     VARIACAO,
     preparar,
@@ -49,6 +51,7 @@ from backend.tests.services.geracao.test_banco_service import (
     roteiro_do_plano,
     roteiro_variacao,
 )
+from backend.tests.travamento import espiar_lock
 
 
 def banco_gerado(db, armazenamento, embeddings, reranker, sessao, n=3):
@@ -551,3 +554,168 @@ def test_substituicao_de_afirmativas_recua_para_proposicao(
     assert tuple(
         a["verdadeira"] for a in original.justificativa.estrutura_formato["afirmativas"]
     ) == cfg
+
+
+from backend.app.domain import EstadoOrientacao, OrigemOrientacao
+from backend.app.exceptions import LimiteOrientacoesException
+from backend.app.models.orientacoes import OrientacaoDocente
+from backend.app.schemas.orientacao import DirecaoVariacao
+from backend.app.services.orientacoes.orientacao_service import (
+    criar_orientacao_sessao,
+    vigentes,
+)
+
+
+def _guiada(db, emb, rer, docente, banco, numero, direcao, roteiro_):
+    provedor = ProvedorLLMFake(roteiro_)
+    produzida = propor_substituicao(
+        db, emb, rer, provedor, docente, banco, numero, direcao
+    )
+    return provedor, produzida
+
+
+def test_variacao_guiada_grava_pontual_e_liga_a_candidata(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    banco = banco_gerado(
+        db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+    )
+    provedor, produzida = _guiada(
+        db_session, embeddings_fake, reranker_fake, docente, banco, 1,
+        DirecaoVariacao(o_que_mudar="use um exemplo de rede"), roteiro_variacao(1),
+    )
+
+    [orientacao] = produzida.questao.orientacoes
+    assert orientacao.estado is EstadoOrientacao.PONTUAL
+    assert orientacao.origem is OrigemOrientacao.QUESTAO
+    assert (orientacao.banco_id, orientacao.numero_origem) == (banco.id, 1)
+    usuario = provedor.requisicoes[0].usuario
+    assert "Orientações do docente:\n1. Mudar: use um exemplo de rede" in usuario
+    assert "Questão de partida" in usuario
+    assert "não a repita" not in usuario
+    # A pontual não entra em outra geração.
+    assert vigentes(db_session, sessao_rascunho) == []
+
+
+def test_variacao_acumulada_vira_vigente(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    banco = banco_gerado(
+        db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+    )
+    _, produzida = _guiada(
+        db_session, embeddings_fake, reranker_fake, docente, banco, 1,
+        DirecaoVariacao(cruzar_com="busca em profundidade", acumular=True),
+        roteiro_variacao(1),
+    )
+
+    [orientacao] = produzida.questao.orientacoes
+    assert orientacao.estado is EstadoOrientacao.ATIVA
+    assert [o.id for o in vigentes(db_session, sessao_rascunho)] == [orientacao.id]
+
+
+def test_vigentes_vem_antes_da_orientacao_da_variacao(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    banco = banco_gerado(
+        db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+    )
+    criar_orientacao_sessao(db_session, docente, sessao_rascunho, "enunciados curtos")
+    provedor, _ = _guiada(
+        db_session, embeddings_fake, reranker_fake, docente, banco, 1,
+        DirecaoVariacao(o_que_mudar="use um exemplo de rede"), roteiro_variacao(1),
+    )
+    assert (
+        "1. Mudar: enunciados curtos\n2. Mudar: use um exemplo de rede"
+        in provedor.requisicoes[0].usuario
+    )
+
+
+def test_sem_direcao_manda_as_vigentes_e_o_nao_repita(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    banco = banco_gerado(
+        db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+    )
+    criar_orientacao_sessao(db_session, docente, sessao_rascunho, "enunciados curtos")
+    provedor = ProvedorLLMFake(roteiro_variacao(1))
+    propor_substituicao(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco, 1
+    )
+    usuario = provedor.requisicoes[0].usuario
+    assert "1. Mudar: enunciados curtos" in usuario
+    assert "não a repita" in usuario
+
+
+def test_insuficiencia_mantem_a_orientacao_gravada(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    banco = banco_gerado(
+        db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+    )
+    _, produzida = _guiada(
+        db_session, embeddings_fake, reranker_fake, docente, banco, 1,
+        DirecaoVariacao(cruzar_com="redes de computadores"),
+        # Duas: se a original não for proposição, o recuo pede de novo.
+        [corpo_insuficiencia("o material não sustenta a relação com redes de computadores")]
+        * 2,
+    )
+
+    assert isinstance(produzida, Improdutiva)
+    assert "redes de computadores" in produzida.motivo
+    orientacao = db_session.scalars(select(OrientacaoDocente)).one()
+    assert orientacao.cruzar_com == "redes de computadores"
+    assert not db_session.scalars(
+        select(Questao).where(Questao.estado == EstadoQuestao.CANDIDATA)
+    ).all()
+
+
+def test_teto_estourado_nao_chama_o_provedor(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    banco = banco_gerado(
+        db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+    )
+    for i in range(5):
+        criar_orientacao_sessao(db_session, docente, sessao_rascunho, f"orientação {i}")
+    provedor = ProvedorLLMFake([])
+
+    with pytest.raises(LimiteOrientacoesException):
+        propor_substituicao(
+            db_session, embeddings_fake, reranker_fake, provedor, docente, banco, 1,
+            DirecaoVariacao(o_que_mudar="mais uma", acumular=True),
+        )
+    assert provedor.chamadas == 0
+
+
+def test_variacao_guiada_mantem_formato_da_original(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    banco = banco_gerado(
+        db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+    )
+    original = next(q for q in banco.questoes if q.numero == 1)
+    _, produzida = _guiada(
+        db_session, embeddings_fake, reranker_fake, docente, banco, 1,
+        DirecaoVariacao(o_que_mudar="enunciado mais curto"), roteiro_variacao(1),
+    )
+    assert produzida.questao.formato is original.formato
+    assert produzida.questao.faixa_dificuldade is original.faixa_dificuldade
+
+
+def test_copia_na_variacao_guiada_ganha_nova_tentativa(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    """A detecção de cópia continua valendo com a questão de partida."""
+    banco = banco_gerado(
+        db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+    )
+    provedor, produzida = _guiada(
+        db_session, embeddings_fake, reranker_fake, docente, banco, 1,
+        DirecaoVariacao(o_que_mudar="enunciado mais curto"),
+        [corpo_questao(5)] + roteiro_variacao(1),
+    )
+    assert produzida.questao is not None
+    segunda = provedor.requisicoes[1].usuario
+    assert "Questão de partida" in segunda
+    assert substituicao_service._AVISO_REPETICAO in segunda

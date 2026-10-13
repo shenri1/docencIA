@@ -30,3 +30,30 @@ def test_fonte_inventada_e_rejeitada():
         resolver_fontes(fontes, TRECHOS)
     assert capturado.value.corpo()["identificador"] == "P9"
     assert capturado.value.corpo()["disponiveis"] == ["P1", "S2"]
+
+
+def test_formatar_orientacoes_numera_e_combina():
+    from types import SimpleNamespace
+
+    from backend.app.services.geracao.contexto import formatar_orientacoes
+
+    texto = formatar_orientacoes(
+        [
+            SimpleNamespace(o_que_mudar="exemplos práticos", cruzar_com=None),
+            SimpleNamespace(o_que_mudar=None, cruzar_com="arquitetura de computadores"),
+            SimpleNamespace(o_que_mudar="enunciado curto", cruzar_com="memória cache"),
+        ]
+    )
+    assert texto == (
+        "Orientações do docente:\n"
+        "1. Mudar: exemplos práticos\n"
+        "2. Articular com: arquitetura de computadores\n"
+        "3. Articular com: memória cache. Mudar: enunciado curto"
+    )
+
+
+def test_formatar_orientacoes_vazio_e_none():
+    from backend.app.services.geracao.contexto import formatar_orientacoes
+
+    assert formatar_orientacoes([]) is None
+    assert formatar_orientacoes(()) is None

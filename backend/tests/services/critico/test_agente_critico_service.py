@@ -147,3 +147,78 @@ def test_item_objetivo_de_leva_justificativa_e_invalidacoes():
         ("D", "distrator 3"),
         ("E", "distrator 4"),
     ]
+
+
+from types import SimpleNamespace as _NS
+
+from backend.app.domain import FaixaDificuldade as _Faixa
+from backend.app.domain import FormatoItem as _Formato
+from backend.app.domain import TipoQuestao as _Tipo
+from backend.app.services.critico.agente_critico_service import (
+    _montar_usuario as _usuario_critico,
+)
+from backend.app.services.geracao.contexto import formatar_trechos as _formatar_trechos
+from backend.app.services.geracao.formatos import (
+    texto_contextualizacao as _contextualizacao,
+)
+from backend.app.services.geracao.formatos import (
+    texto_pedido_formato as _pedido_formato,
+)
+from backend.app.services.rag.retrieval_service import TrechoRecuperado as _Trecho
+
+_TRECHOS_C = [
+    _Trecho(
+        material_id=1,
+        identificador_curto="P1",
+        localizacao="página 1",
+        texto="A busca em largura usa uma fila.",
+        score=1.0,
+        score_vetorial=1.0,
+    )
+]
+_RASCUNHO = _NS(model_dump_json=lambda indent: "{}")
+_MEDIA_C = _Faixa.MEDIA
+
+
+def test_pedido_do_critico_sem_orientacao_e_o_de_antes():
+    esperado = (
+        "Trechos disponíveis:\n"
+        + _formatar_trechos(_TRECHOS_C)
+        + "\n\nRascunho a revisar (JSON):\n{}"
+        + "\n\nViolações de forma medidas pelo sistema:\n"
+        + "Nenhuma violação de forma foi detectada."
+        + f"\n\n{_contextualizacao(_MEDIA_C)}\n\n"
+        + f"Devolva a questão revisada, de dificuldade {_MEDIA_C.value}, usando "
+        + f"apenas os trechos acima. {_pedido_formato(_Formato.PROPOSICAO, None, 5)}"
+    )
+    assert _usuario_critico(_TRECHOS_C, _RASCUNHO, [], _MEDIA_C, 5, _Tipo.OBJETIVA) == (
+        esperado
+    )
+    assert (
+        _usuario_critico(
+            _TRECHOS_C, _RASCUNHO, [], _MEDIA_C, 5, _Tipo.OBJETIVA, orientacoes=()
+        )
+        == esperado
+    )
+
+
+def test_critico_recebe_o_bloco_depois_das_violacoes():
+    usuario = _usuario_critico(
+        _TRECHOS_C,
+        _RASCUNHO,
+        [],
+        _MEDIA_C,
+        5,
+        _Tipo.OBJETIVA,
+        orientacoes=[_NS(o_que_mudar="exemplos práticos", cruzar_com=None)],
+    )
+    bloco = (
+        "Orientações do docente:\n1. Mudar: exemplos práticos\n"
+        "A revisão não desfaz o que as orientações pediram."
+    )
+    assert bloco in usuario
+    assert (
+        usuario.index("Violações de forma medidas")
+        < usuario.index(bloco)
+        < usuario.index(_contextualizacao(_MEDIA_C))
+    )

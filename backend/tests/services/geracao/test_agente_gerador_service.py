@@ -261,3 +261,101 @@ def test_sem_evitar_a_mensagem_nao_muda(
         distribuicao=DISTRIBUICAO,
     )
     assert "não a repita" not in provedor.requisicoes[0].usuario
+
+
+from types import SimpleNamespace as _NS
+
+from backend.app.domain import FaixaDificuldade as _Faixa
+from backend.app.domain import FormatoItem as _Formato
+from backend.app.domain import TipoQuestao as _Tipo
+from backend.app.services.geracao.agente_gerador_service import (
+    _montar_usuario as _usuario_gerador,
+)
+from backend.app.services.geracao.contexto import formatar_trechos as _formatar_trechos
+from backend.app.services.geracao.formatos import (
+    texto_contextualizacao as _contextualizacao,
+)
+from backend.app.services.geracao.formatos import (
+    texto_pedido_formato as _pedido_formato,
+)
+from backend.app.services.rag.retrieval_service import TrechoRecuperado as _Trecho
+
+_TRECHOS = [
+    _Trecho(
+        material_id=1,
+        identificador_curto="P1",
+        localizacao="página 1",
+        texto="A busca em largura usa uma fila.",
+        score=1.0,
+        score_vetorial=1.0,
+    )
+]
+_ORIENTACOES = [
+    _NS(o_que_mudar="exemplos práticos", cruzar_com=None),
+    _NS(o_que_mudar=None, cruzar_com="arquitetura de computadores"),
+]
+_MEDIA = _Faixa.MEDIA
+
+
+def test_pedido_sem_orientacao_e_o_de_antes():
+    """Regressão: toda geração sem orientação manda exatamente o pedido de antes
+    ."""
+    esperado = "\n\n".join(
+        [
+            "Trechos disponíveis:\n" + _formatar_trechos(_TRECHOS),
+            _contextualizacao(_MEDIA),
+            (
+                f"Gere UMA questão de dificuldade {_MEDIA.value}, usando apenas os "
+                f"trechos acima. {_pedido_formato(_Formato.PROPOSICAO, None, 5)}"
+            ),
+        ]
+    )
+    assert _usuario_gerador(_TRECHOS, _MEDIA, 5, _Tipo.OBJETIVA) == esperado
+    assert (
+        _usuario_gerador(_TRECHOS, _MEDIA, 5, _Tipo.OBJETIVA, orientacoes=(), partida=False)
+        == esperado
+    )
+
+
+def test_pedido_sem_orientacao_com_evitar_mantem_o_nao_repita():
+    usuario = _usuario_gerador(_TRECHOS, _MEDIA, 5, _Tipo.OBJETIVA, evitar="Enunciado: X")
+    assert "Questão que está sendo substituída — não a repita." in usuario
+    assert "Orientações do docente" not in usuario
+
+
+def test_bloco_de_orientacoes_entre_trechos_e_contextualizacao():
+    usuario = _usuario_gerador(
+        _TRECHOS, _MEDIA, 5, _Tipo.OBJETIVA, orientacoes=_ORIENTACOES
+    )
+    bloco = (
+        "Orientações do docente:\n1. Mudar: exemplos práticos\n"
+        "2. Articular com: arquitetura de computadores"
+    )
+    assert bloco in usuario
+    assert (
+        usuario.index("Trechos disponíveis")
+        < usuario.index(bloco)
+        < usuario.index(_contextualizacao(_MEDIA))
+    )
+
+
+def test_variacao_guiada_troca_nao_repita_por_questao_de_partida():
+    usuario = _usuario_gerador(
+        _TRECHOS,
+        _MEDIA,
+        5,
+        _Tipo.OBJETIVA,
+        evitar="Enunciado: X",
+        orientacoes=_ORIENTACOES[:1],
+        partida=True,
+    )
+    assert (
+        "Questão de partida: mantenha o que funciona nela e aplique a orientação.\n"
+        "Enunciado: X"
+    ) in usuario
+    assert "não a repita" not in usuario
+    assert (
+        usuario.index("Orientações do docente")
+        < usuario.index("Questão de partida")
+        < usuario.index(_contextualizacao(_MEDIA))
+    )

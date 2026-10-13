@@ -61,6 +61,7 @@ from backend.app.models.banco import (
 )
 from backend.app.models.identidade import Docente, SessaoGeracao
 from backend.app.models.materiais import ChunkMaterial, MaterialReferencia
+from backend.app.models.orientacoes import OrientacaoDocente, questoes_orientacoes
 from backend.app.models.prompt_provedor import PromptMestre
 from backend.app.models.provas import ExportacaoDocx, ItemProva, Prova
 from backend.app.schemas.identidade import DocenteCriar
@@ -107,6 +108,9 @@ _MODELOS_PARA_LIMPAR = (
     Prova,
     # Filhos de BancoQuestoes
     Questao,
+    # Referencia sessão e banco; sai depois das questões, que a referenciam pela
+    # associação, e antes de BancoQuestoes e SessaoGeracao.
+    OrientacaoDocente,
     RelatorioImpacto,
     BancoQuestoes,
     # Filhos de MaterialReferencia
@@ -181,6 +185,9 @@ def db_session(engine) -> Generator[Session]:
     session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)()
     yield session
     session.rollback()
+    # A associação não é model: `query().delete()` não a alcança, e a FK dela
+    # bloquearia o DELETE de questoes.
+    session.execute(questoes_orientacoes.delete())
     for modelo in _MODELOS_PARA_LIMPAR:
         session.query(modelo).delete()
     session.commit()

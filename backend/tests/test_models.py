@@ -9,6 +9,8 @@ from backend.app.models.materiais import MaterialReferencia
 
 TABELAS_ESPERADAS = {
     "docentes",
+    "orientacoes_docente",
+    "questoes_orientacoes",
     "sessoes_geracao",
     "materiais_referencia",
     "chunks_material",
@@ -322,3 +324,80 @@ def test_exportacao_e_append_only(db_session, sessao_rascunho):
     with pytest.raises(ValueError, match="append-only"):
         db_session.flush()
     db_session.rollback()
+
+
+def _orientacao(sessao_id: int, **campos):
+    from backend.app.domain import EstadoOrientacao, OrigemOrientacao
+    from backend.app.models.orientacoes import OrientacaoDocente
+
+    base = {
+        "sessao_id": sessao_id,
+        "origem": OrigemOrientacao.SESSAO,
+        "estado": EstadoOrientacao.ATIVA,
+        "o_que_mudar": "prefiro exemplos práticos",
+    }
+    base.update(campos)
+    return OrientacaoDocente(**base)
+
+
+def test_orientacao_exige_algum_texto(db_session, sessao_rascunho):
+    from sqlalchemy.exc import IntegrityError
+
+    db_session.add(_orientacao(sessao_rascunho.id, o_que_mudar=None))
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+
+
+def test_orientacao_de_sessao_nao_tem_banco_nem_cruzamento(db_session, sessao_rascunho):
+    from sqlalchemy.exc import IntegrityError
+
+    db_session.add(_orientacao(sessao_rascunho.id, cruzar_com="redes"))
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+
+
+def test_orientacao_de_questao_exige_banco_e_numero(db_session, sessao_rascunho):
+    from sqlalchemy.exc import IntegrityError
+
+    from backend.app.domain import OrigemOrientacao
+
+    db_session.add(_orientacao(sessao_rascunho.id, origem=OrigemOrientacao.QUESTAO))
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+
+
+def test_pontual_so_existe_com_origem_questao(db_session, sessao_rascunho):
+    from sqlalchemy.exc import IntegrityError
+
+    from backend.app.domain import EstadoOrientacao
+
+    db_session.add(_orientacao(sessao_rascunho.id, estado=EstadoOrientacao.PONTUAL))
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+
+
+def test_orientacao_de_questao_valida_e_ligada_a_questao(db_session, sessao_rascunho):
+    from sqlalchemy import select
+
+    from backend.app.domain import EstadoOrientacao, OrigemOrientacao
+    from backend.app.models.orientacoes import questoes_orientacoes
+    from backend.tests.fabrica_banco import criar_banco, criar_questao_objetiva
+
+    banco = criar_banco(db_session, sessao_rascunho, n_objetivas=1)
+    questao = criar_questao_objetiva(db_session, banco, numero=1)
+    orientacao = _orientacao(
+        sessao_rascunho.id,
+        origem=OrigemOrientacao.QUESTAO,
+        estado=EstadoOrientacao.PONTUAL,
+        o_que_mudar=None,
+        cruzar_com="arquitetura de computadores",
+        banco_id=banco.id,
+        numero_origem=1,
+    )
+    db_session.add(orientacao)
+    questao.orientacoes = [orientacao]
+    db_session.commit()
+
+    ligacoes = db_session.execute(select(questoes_orientacoes)).all()
+    assert [(q, o) for q, o in ligacoes] == [(questao.id, orientacao.id)]
+    assert orientacao.criada_em is not None

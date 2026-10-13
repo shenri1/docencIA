@@ -329,9 +329,14 @@ def test_semente_cria_admin_do_env_e_ativa_prompt(monkeypatch):
             ).all()
         assert (nome, perfil) == ("Admin", "ADMINISTRADOR")
         assert verificar_senha("senhaforte123", senha_hash)
-        # A 1.0.0 é semeada pela e1a4c8f02b77 e a 2.0.0 a substitui
-        # como ativa; rodar de novo não duplica nenhuma das duas.
-        assert [tuple(p) for p in prompts] == [("1.0.0", False), ("2.0.0", True)]
+        # A 1.0.0 é semeada pela e1a4c8f02b77, a 2.0.0 pela b7d2e9f4a1c6
+        # e a 2.1.0 pela c5e1f8a3b7d9, que fica ativa; rodar de novo
+        # não duplica nenhuma.
+        assert [tuple(p) for p in prompts] == [
+            ("1.0.0", False),
+            ("2.0.0", False),
+            ("2.1.0", True),
+        ]
     finally:
         eng.dispose()
 
@@ -504,7 +509,7 @@ def test_migracao_18_preserva_questoes_e_ativa_o_prompt_2():
                 {"b": banco_id},
             )
 
-        command.upgrade(cfg, "head")
+        command.upgrade(cfg, "b7d2e9f4a1c6")
 
         with eng.connect() as conn:
             assert conn.execute(text("SELECT formato FROM questoes")).scalar_one() == (
@@ -521,5 +526,50 @@ def test_migracao_18_preserva_questoes_e_ativa_o_prompt_2():
                 text("SELECT versao FROM prompts_mestres WHERE ativo")
             ).scalars().all()
             assert ativos == ["2.0.0"]
+    finally:
+        eng.dispose()
+
+
+_TABELAS_19 = {"orientacoes_docente", "questoes_orientacoes"}
+
+
+def _tabelas(eng) -> set[str]:
+    with eng.connect() as conn:
+        return set(
+            conn.execute(
+                text("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
+            ).scalars()
+        )
+
+
+def test_migracao_19_cria_e_remove_as_tabelas_de_orientacao():
+    cfg, eng = _banco_ate("b7d2e9f4a1c6")
+    try:
+        command.upgrade(cfg, "head")
+        assert _TABELAS_19 <= _tabelas(eng)
+
+        command.downgrade(cfg, "b7d2e9f4a1c6")
+        assert not (_TABELAS_19 & _tabelas(eng))
+        with eng.connect() as conn:
+            tipos = conn.execute(
+                text(
+                    "SELECT typname FROM pg_type WHERE typname IN "
+                    "('origem_orientacao', 'estado_orientacao')"
+                )
+            ).scalars().all()
+        assert tipos == []
+    finally:
+        eng.dispose()
+
+
+def test_migracao_19_ativa_o_prompt_2_1():
+    cfg, eng = _banco_ate("b7d2e9f4a1c6")
+    try:
+        command.upgrade(cfg, "head")
+        with eng.connect() as conn:
+            ativos = conn.execute(
+                text("SELECT versao FROM prompts_mestres WHERE ativo")
+            ).scalars().all()
+        assert ativos == ["2.1.0"]
     finally:
         eng.dispose()

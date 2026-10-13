@@ -1171,16 +1171,16 @@ def test_insuficiencia_em_afirmativas_recua_para_proposicao_sem_nova_busca(
     db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho,
     monkeypatch,
 ):
-    from backend.app.services.geracao import agente_gerador_service
+    from backend.app.services.geracao import busca_orientada
 
-    buscar = agente_gerador_service.buscar
+    buscar = busca_orientada.buscar
     buscas = []
 
     def contar(*args, **kwargs):
         buscas.append(1)
         return buscar(*args, **kwargs)
 
-    monkeypatch.setattr(agente_gerador_service, "buscar", contar)
+    monkeypatch.setattr(busca_orientada, "buscar", contar)
     preparar(db_session, armazenamento, sessao_rascunho)
     plano = _montar_plano(sessao_rascunho, 10, 0)
     item = {"faixa": plano[4].faixa, "distribuicao": plano[4].distribuicao,

@@ -10,6 +10,7 @@ from backend.app.exceptions import (
 )
 from backend.app.models.identidade import Docente, SessaoGeracao
 from backend.app.schemas.sessao import SessaoCriar
+from backend.app.services.orientacoes.orientacao_service import registrar_iniciais
 from backend.app.services.validacao_parametros_service import validar_distribuicao
 
 
@@ -28,6 +29,9 @@ def criar_sessao(db: Session, docente: Docente, dados: SessaoCriar) -> SessaoGer
         estado=EstadoSessao.RASCUNHO,
     )
     db.add(sessao)
+    db.flush()  # id da sessão, para as orientações
+    # Na transação da criação: sessão e orientações iniciais entram juntas.
+    registrar_iniciais(db, docente, sessao, dados.orientacoes)
     db.commit()
     db.refresh(sessao)
     return sessao

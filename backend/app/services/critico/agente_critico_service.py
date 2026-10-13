@@ -8,6 +8,7 @@ crítico não precisa descobrir o que o código já mediu.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from backend.app.core.config import settings
@@ -21,6 +22,7 @@ from backend.app.schemas.geracao import (
 )
 from backend.app.services.calculo_distribuicao_service import DistribuicaoQuestoes
 from backend.app.services.geracao.contexto import (
+    formatar_orientacoes,
     formatar_trechos,
     parametros_da_sessao,
 )
@@ -41,6 +43,8 @@ from backend.app.services.qualidade.validador_itens import (
     Violacao,
 )
 from backend.app.services.rag.retrieval_service import TrechoRecuperado
+
+_NAO_DESFAZER = "A revisão não desfaz o que as orientações pediram."
 
 
 @dataclass(frozen=True)
@@ -119,6 +123,7 @@ def _montar_usuario(
     formato: FormatoItem = FormatoItem.PROPOSICAO,
     configuracao=None,
     n_itens: int | None = None,
+    orientacoes: Sequence = (),
 ) -> str:
     if tipo is TipoQuestao.DISCURSIVA:
         if n_itens is None:
@@ -138,6 +143,8 @@ def _montar_usuario(
             f"apenas os trechos acima. {texto_pedido_formato(formato, configuracao, k)}"
         )
     frase_final = f"\n\n{texto_contextualizacao(faixa)}\n\n{pedido}"
+    bloco = formatar_orientacoes(orientacoes)
+    orientacoes_txt = "" if bloco is None else f"\n\n{bloco}\n{_NAO_DESFAZER}"
     return (
         "Trechos disponíveis:\n"
         + formatar_trechos(trechos)
@@ -145,6 +152,7 @@ def _montar_usuario(
         + rascunho.model_dump_json(indent=2)
         + "\n\nViolações de forma medidas pelo sistema:\n"
         + _formatar_violacoes(violacoes)
+        + orientacoes_txt
         + frase_final
     )
 
@@ -161,6 +169,7 @@ def revisar_questao(
     formato: FormatoItem = FormatoItem.PROPOSICAO,
     configuracao=None,
     n_itens: int | None = None,
+    orientacoes: Sequence = (),
 ) -> ResultadoRevisao:
     resposta = provedor.gerar(
         sessao.id,
@@ -178,6 +187,7 @@ def revisar_questao(
                 formato,
                 configuracao,
                 n_itens,
+                orientacoes,
             ),
             # Mesmo schema da geração: o crítico reemite a questão inteira, e
             # pode declarar insuficiência se concluir que ela não se sustenta.

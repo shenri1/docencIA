@@ -1,3 +1,4 @@
+import type { Orientacao } from "../api/tipos";
 import {
   type BancoFalso,
   criarHandlers,
@@ -20,11 +21,13 @@ export function comBanco({
   discursivas = 0,
   versao = "v1",
   estado: estadoBanco = "aberto",
+  orientacoes = [],
 }: {
   objetivas?: number;
   discursivas?: number;
   versao?: string;
   estado?: BancoFalso["estado"];
+  orientacoes?: Orientacao[];
 } = {}): BancoFalso {
   const estado = novoEstado();
   estado.docentes.push({ ...DOCENTE, senha: "segredo123" });
@@ -45,6 +48,7 @@ export function comBanco({
     ...umaSessao({ id: 5, estado: "banco_gerado" }),
     materiais: [umMaterial()],
     banco,
+    orientacoes,
   });
   server.use(...criarHandlers(API, estado));
   return banco;

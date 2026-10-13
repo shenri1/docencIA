@@ -6,6 +6,7 @@ import type {
   MarcoBanco,
   MarcoSessao,
   Material,
+  Orientacao,
   Questao,
   RelatorioImpacto,
   ResumoAuditoria,
@@ -147,6 +148,7 @@ export function umaQuestao(sobrescrever: Partial<Questao> = {}): Questao {
     ],
     letra_correta: "B",
     formato: "proposicao",
+    orientacoes_ids: [],
     aspectos_esperados: [],
     ...sobrescrever,
   };
@@ -188,6 +190,20 @@ export function umAchado(sobrescrever: Partial<Achado> = {}): Achado {
     localizacao: "slide 4",
     trecho_fonte: "O quicksort escolhe um pivô e particiona o vetor em torno dele.",
     proposta_ajuste: "Reescreva a alternativa C com uma ideia que o aluno não elimine de imediato.",
+    ...sobrescrever,
+  };
+}
+
+export function umaOrientacao(sobrescrever: Partial<Orientacao> = {}): Orientacao {
+  return {
+    id: 1,
+    origem: "sessao",
+    estado: "ativa",
+    o_que_mudar: "Prefiro exemplos práticos",
+    cruzar_com: null,
+    banco_id: null,
+    numero_origem: null,
+    criada_em: "2026-10-13T12:00:00Z",
     ...sobrescrever,
   };
 }

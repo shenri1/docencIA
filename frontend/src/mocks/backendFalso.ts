@@ -21,11 +21,13 @@ import type {
   Achado,
   Banco,
   Docente,
+  DirecaoVariacao,
   MarcoBanco,
   MarcoSessao,
   Exportacao,
   Gabarito,
   Material,
+  Orientacao,
   Prova,
   Prompt,
   PromptCriar,
@@ -107,6 +109,8 @@ export function auditoriaFalsa(parcial: Partial<AuditoriaFalsa> = {}): Auditoria
 interface SessaoFalsa extends Sessao {
   materiais: Material[];
   banco?: BancoFalso;
+  /** Opcional para os testes que montam a sessão à mão. */
+  orientacoes?: Orientacao[];
 }
 
 export interface EstadoFalso {
@@ -149,6 +153,7 @@ export function questaoFalsa(numero: number, tipo: Questao["tipo"] = "objetiva")
     faixa_dificuldade: FAIXAS[numero % 3] ?? "media",
     nivel_bloom: "entender",
     formato: "proposicao",
+    orientacoes_ids: [],
     tema: "Ordenação",
     enunciado: `Enunciado da questão ${numero}.`,
     fontes: [fonte],
@@ -444,6 +449,32 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
           `O banco está na revisão ${banco.revisao} e o comando esperava a ${esperada}. Leia o banco de novo antes de decidir.`,
           "REVISAO_DESATUALIZADA",
         );
+  const orientacoesDe = (sessao: SessaoFalsa) => (sessao.orientacoes ??= []);
+  const sessaoDoBanco = (banco: BancoFalso) => estado.sessoes.find((s) => s.banco === banco)!;
+  const semInternos = ({ materiais: _m, banco: _b, orientacoes: _o, ...s }: SessaoFalsa): Sessao =>
+    s;
+  const novaOrientacao = (
+    sessao: SessaoFalsa,
+    campos: Omit<Orientacao, "id" | "criada_em">,
+  ): Orientacao => {
+    const id =
+      1 + Math.max(0, ...estado.sessoes.flatMap((s) => s.orientacoes ?? []).map((o) => o.id));
+    const orientacao: Orientacao = { id, criada_em: new Date().toISOString(), ...campos };
+    orientacoesDe(sessao).push(orientacao);
+    return orientacao;
+  };
+  /** Espelha o teto da API: 5 ativas, no máximo 2 com articulação. */
+  const limiteOrientacoes = (sessao: SessaoFalsa, comCruzamento: boolean) => {
+    const ativas = orientacoesDe(sessao).filter((o) => o.estado === "ativa");
+    const cruzadas = ativas.filter((o) => o.cruzar_com).length;
+    if (ativas.length < 5 && !(comCruzamento && cruzadas >= 2)) return null;
+    return erro(
+      409,
+      `A sessão já tem ${ativas.length} orientações ativas, ${cruzadas} com articulação. O limite é 5, das quais 2 com articulação. Desative uma antes de acrescentar outra.`,
+      "LIMITE_ORIENTACOES",
+      { ativas: ativas.length, com_cruzamento: cruzadas, teto_ativas: 5, teto_cruzamentos: 2 },
+    );
+  };
   /** Toda mudança do banco ganha revisão nova e relatório de impacto. */
   const registrar = (banco: BancoFalso, evento: RelatorioImpacto["evento"]) => {
     banco.revisao += 1;
@@ -505,13 +536,16 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
       const limit = Number(url.searchParams.get("limit") ?? 20);
       const offset = Number(url.searchParams.get("offset") ?? 0);
       return HttpResponse.json(
-        estado.sessoes.slice(offset, offset + limit).map(({ materiais: _m, banco: _b, ...s }) => s),
+        estado.sessoes.slice(offset, offset + limit).map(semInternos),
       );
     }),
 
     http.post(`${base}/sessoes`, async ({ request }) => {
       if (!docenteDoToken(request)) return naoAutorizado();
-      const dados = (await request.json()) as Omit<Sessao, "id" | "estado">;
+      const { orientacoes = [], ...dados } = (await request.json()) as Omit<
+        Sessao,
+        "id" | "estado"
+      > & { orientacoes?: string[] };
       const soma = dados.p_f + dados.p_m + dados.p_d;
       if (soma !== 100) {
         return erro(
@@ -528,16 +562,24 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
         materiais: [],
       };
       estado.sessoes.push(sessao);
-      const { materiais: _m, banco: _b, ...resposta } = sessao;
-      return HttpResponse.json(resposta, { status: 201 });
+      for (const texto of orientacoes) {
+        novaOrientacao(sessao, {
+          origem: "sessao",
+          estado: "ativa",
+          o_que_mudar: texto,
+          cruzar_com: null,
+          banco_id: null,
+          numero_origem: null,
+        });
+      }
+      return HttpResponse.json(semInternos(sessao), { status: 201 });
     }),
 
     http.get(`${base}/sessoes/:id`, ({ request, params }) => {
       const sessao = sessaoDe(params.id);
       if (!docenteDoToken(request)) return naoAutorizado();
       if (!sessao) return erro(404, `Sessão ${params.id} não encontrada.`, "SESSAO_NAO_ENCONTRADA");
-      const { materiais: _m, banco: _b, ...resposta } = sessao;
-      return HttpResponse.json(resposta);
+      return HttpResponse.json(semInternos(sessao));
     }),
 
     http.get(`${base}/sessoes/:id/marco`, ({ request, params }) => {
@@ -554,6 +596,50 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
         bancos: sessao.banco ? [marcoDoBanco(sessao.banco)] : [],
       };
       return HttpResponse.json(marco);
+    }),
+
+    http.get(`${base}/sessoes/:id/orientacoes`, ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const sessao = sessaoDe(params.id);
+      if (!sessao) return erro(404, `Sessão ${params.id} não encontrada.`, "SESSAO_NAO_ENCONTRADA");
+      return HttpResponse.json(orientacoesDe(sessao));
+    }),
+
+    http.post(`${base}/sessoes/:id/orientacoes`, async ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const sessao = sessaoDe(params.id);
+      if (!sessao) return erro(404, `Sessão ${params.id} não encontrada.`, "SESSAO_NAO_ENCONTRADA");
+      const { o_que_mudar } = (await request.json()) as { o_que_mudar: string };
+      const limite = limiteOrientacoes(sessao, false);
+      if (limite) return limite;
+      const orientacao = novaOrientacao(sessao, {
+        origem: "sessao",
+        estado: "ativa",
+        o_que_mudar: o_que_mudar.trim(),
+        cruzar_com: null,
+        banco_id: null,
+        numero_origem: null,
+      });
+      return HttpResponse.json(orientacao, { status: 201 });
+    }),
+
+    http.post(`${base}/sessoes/:id/orientacoes/:oid/desativar`, ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const sessao = sessaoDe(params.id);
+      if (!sessao) return erro(404, `Sessão ${params.id} não encontrada.`, "SESSAO_NAO_ENCONTRADA");
+      const orientacao = orientacoesDe(sessao).find((o) => o.id === Number(params.oid));
+      if (!orientacao) {
+        return erro(404, `Orientação ${params.oid} não encontrada.`, "ORIENTACAO_NAO_ENCONTRADA");
+      }
+      if (orientacao.estado === "pontual") {
+        return erro(
+          409,
+          `A orientação ${orientacao.id} valeu só para a variação que a pediu e não pode ser desativada.`,
+          "ESTADO_ORIENTACAO_INVALIDO",
+        );
+      }
+      orientacao.estado = "inativa";
+      return HttpResponse.json(orientacao);
     }),
 
     http.post(`${base}/sessoes/:id/materiais`, async ({ request, params }) => {
@@ -781,7 +867,7 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
       return registrar(banco, "congelamento");
     }),
 
-    http.post(`${base}/bancos/:id/questoes/:numero/substituicao`, ({ request, params }) => {
+    http.post(`${base}/bancos/:id/questoes/:numero/substituicao`, async ({ request, params }) => {
       if (!docenteDoToken(request)) return naoAutorizado();
       const banco = bancoDe(params.id);
       if (!banco) return bancoNaoEncontrado(params.id);
@@ -797,11 +883,40 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
           "CANDIDATA_PENDENTE",
         );
       }
+      const corpo = await request.text();
+      const direcao = corpo ? (JSON.parse(corpo) as DirecaoVariacao) : null;
+      const sessao = sessaoDoBanco(banco);
+      let ids = orientacoesDe(sessao)
+        .filter((o) => o.estado === "ativa")
+        .map((o) => o.id);
+      let cruzar: string | null = null;
+      if (direcao) {
+        cruzar = direcao.cruzar_com?.trim() || null;
+        const mudar = direcao.o_que_mudar?.trim() || null;
+        if (!cruzar && !mudar) {
+          return erro(422, "Informe o assunto a articular, o que mudar, ou os dois.", "VALIDACAO");
+        }
+        if (direcao.acumular) {
+          const limite = limiteOrientacoes(sessao, cruzar !== null);
+          if (limite) return limite;
+        }
+        const nova = novaOrientacao(sessao, {
+          origem: "questao",
+          estado: direcao.acumular ? "ativa" : "pontual",
+          o_que_mudar: mudar,
+          cruzar_com: cruzar,
+          banco_id: banco.banco_id,
+          numero_origem: numero,
+        });
+        ids = [...ids, nova.id];
+      }
       if (banco.versao.startsWith("insuf")) {
         const proposta: PropostaSubstituicao = {
           numero,
           candidata: null,
-          motivo_insuficiencia: "o material não sustenta outra questão sobre este trecho",
+          motivo_insuficiencia: cruzar
+            ? `o material não sustenta a relação com ${cruzar}`
+            : "o material não sustenta outra questão sobre este trecho",
           localizacao: original.fontes[0]?.localizacao ?? null,
         };
         return HttpResponse.json(proposta);
@@ -810,6 +925,7 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
         ...original,
         estado: "candidata",
         enunciado: `Variação do enunciado da questão ${numero}.`,
+        orientacoes_ids: ids,
       };
       banco.questoes.push(candidata);
       const proposta: PropostaSubstituicao = { numero, candidata };

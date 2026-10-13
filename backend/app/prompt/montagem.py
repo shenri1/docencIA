@@ -117,6 +117,9 @@ def montar_sistema_critico(
         # O crítico reemite a questão inteira, logo reemite `subtema` e o contexto.
         "comum/03_classificacao.md",
         "comum/04_contextualizacao.md",
+        # o crítico recebe as mesmas orientações no pedido, e a regra
+        # de como tratá-las é a mesma do Gerador.
+        "comum/05_orientacoes.md",
     ]
     return _injetar("\n\n".join(todos[nome] for nome in nomes), params)
 

@@ -38,6 +38,7 @@ from backend.app.models.base import Base, append_only
 if TYPE_CHECKING:
     from backend.app.models.identidade import SessaoGeracao
     from backend.app.models.materiais import MaterialReferencia
+    from backend.app.models.orientacoes import OrientacaoDocente
     from backend.app.models.provas import ExportacaoDocx, ItemProva
 
 
@@ -156,6 +157,11 @@ class Questao(Base):
     )
     exclusoes: Mapped[list[RegistroExclusao]] = relationship(back_populates="questao")
     itens_prova: Mapped[list[ItemProva]] = relationship(back_populates="questao")
+    # as orientações vigentes na geração desta questão. Gravada só pela
+    # persistência da geração; o resto do sistema só lê.
+    orientacoes: Mapped[list[OrientacaoDocente]] = relationship(
+        secondary="questoes_orientacoes", order_by="OrientacaoDocente.id"
+    )
 
 
 class Alternativa(Base):

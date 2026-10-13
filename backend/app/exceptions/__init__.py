@@ -887,3 +887,49 @@ class CamposDoMarcoException(DomainException):
             faltando=faltando,
             sobrando=sobrando,
         )
+
+
+# --- Orientações do docente ---
+
+
+class OrientacaoNaoEncontradaException(DomainException):
+    status_code = 404
+    codigo = "ORIENTACAO_NAO_ENCONTRADA"
+
+    def __init__(self, orientacao_id: int) -> None:
+        super().__init__(
+            f"Orientação {orientacao_id} não encontrada.", orientacao_id=orientacao_id
+        )
+
+
+class LimiteOrientacoesException(DomainException):
+    """Cada "articular com" é uma busca a mais em toda questão, e cada
+    orientação soma linhas a um pedido que já carrega os trechos."""
+
+    status_code = 409
+    codigo = "LIMITE_ORIENTACOES"
+
+    def __init__(
+        self, ativas: int, com_cruzamento: int, teto_ativas: int, teto_cruzamentos: int
+    ) -> None:
+        super().__init__(
+            f"A sessão já tem {ativas} orientações ativas, {com_cruzamento} com "
+            f"articulação. O limite é {teto_ativas}, das quais {teto_cruzamentos} "
+            "com articulação. Desative uma antes de acrescentar outra.",
+            ativas=ativas,
+            com_cruzamento=com_cruzamento,
+            teto_ativas=teto_ativas,
+            teto_cruzamentos=teto_cruzamentos,
+        )
+
+
+class EstadoOrientacaoInvalidoException(DomainException):
+    status_code = 409
+    codigo = "ESTADO_ORIENTACAO_INVALIDO"
+
+    def __init__(self, orientacao_id: int) -> None:
+        super().__init__(
+            f"A orientação {orientacao_id} valeu só para a variação que a pediu e "
+            "não pode ser desativada.",
+            orientacao_id=orientacao_id,
+        )

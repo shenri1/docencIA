@@ -75,6 +75,9 @@ class QuestaoLida:
     letra_correta: str | None
     aspectos_esperados: list[AspectoLido]
     formato: FormatoItem
+    # ids das orientações vigentes na geração. Só ids: o texto vem da
+    # lista da sessão.
+    orientacoes_ids: list[int]
 
 
 @dataclass(frozen=True)
@@ -129,6 +132,7 @@ def questao_lida(questao: Questao, com_gabarito: bool) -> QuestaoLida:
         letra_correta=correta if com_gabarito else None,
         aspectos_esperados=[_aspecto_lido(a) for a in aspectos] if com_gabarito else [],
         formato=questao.formato,
+        orientacoes_ids=[o.id for o in questao.orientacoes],
     )
 
 
@@ -157,6 +161,7 @@ def ler_banco(
             selectinload(Questao.alternativas),
             selectinload(Questao.fontes_internas).selectinload(FonteInterna.material),
             selectinload(Questao.revisao),
+            selectinload(Questao.orientacoes),
             selectinload(Questao.aspectos)
             .selectinload(AspectoEsperado.fonte)
             .selectinload(FonteInterna.material),

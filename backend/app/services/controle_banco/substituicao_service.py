@@ -35,6 +35,7 @@ from backend.app.models.banco import (
 )
 from backend.app.models.identidade import Docente
 from backend.app.models.provas import Prova
+from backend.app.schemas.orientacao import DirecaoVariacao
 from backend.app.services.calculo_distribuicao_service import calcular_distribuicao
 from backend.app.services.controle_banco.estado import (
     exigir_revisao,
@@ -48,6 +49,10 @@ from backend.app.services.geracao.banco_service import (
     produzir_questao,
 )
 from backend.app.services.log_auditoria import registrar_evento
+from backend.app.services.orientacoes.orientacao_service import (
+    criar_orientacao_questao,
+    vigentes,
+)
 from backend.app.services.prompt_mestre_service import verificar_integridade
 
 # Estados que podem ser substituídos: a que está no banco e a que foi excluída.
@@ -118,9 +123,13 @@ def propor_substituicao(
     docente: Docente,
     banco: BancoQuestoes,
     numero: int,
+    direcao: DirecaoVariacao | None = None,
 ) -> Produzida | Improdutiva:
     """Gera a candidata. NÃO muda o banco: nem revisão, nem n_atual, nem a
-    original. Permitido com o banco aberto e congelado."""
+    original. Permitido com o banco aberto e congelado.
+
+    Com direcao, é a variação guiada: a original vira questão de
+    partida, e a orientação é gravada antes do modelo."""
     # Checagens baratas antes do modelo: ~38 s de GPU por proposta.
     verificar_integridade(db)
     original = _questao_por_numero(db, banco, numero, _SUBSTITUIVEIS)
@@ -146,6 +155,18 @@ def propor_substituicao(
     # depois do índice confirmado, então numero-1 recupera o mesmo trecho.
     ancora = selecionar_ancoras(db, sessao, banco.n_alvo)[numero - 1]
 
+    orientacoes = vigentes(db, sessao)
+    if direcao is not None:
+        # Gravada (e commitada) antes do modelo: a candidata aponta para ela, e
+        # uma insuficiência deixa o registro de que o docente pediu e o material
+        # não sustentou. O teto, se acumular, é checado aqui, antes da GPU.
+        nova = criar_orientacao_questao(
+            db, docente, banco, numero, direcao.cruzar_com, direcao.o_que_mudar,
+            direcao.acumular,
+        )
+        # Vigentes primeiro, na ordem de criação, e a da variação por último.
+        orientacoes = [*orientacoes, nova]
+
     # Mesma âncora => mesmos trechos, e o modelo tende a devolver o mesmo
     # enunciado mesmo instruído a não repetir (medido no qwen3:4b). A cópia é
     # medida no rascunho e ganha UMA nova tentativa, com o aviso explícito.
@@ -170,6 +191,8 @@ def propor_substituicao(
             configuracao=configuracao,
             n_itens=n_itens,
             pergunta_original=_pergunta(original),
+            orientacoes=orientacoes,
+            partida=direcao is not None,
         )
         if not (isinstance(resultado, Improdutiva) and resultado.repetida):
             return resultado

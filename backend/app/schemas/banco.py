@@ -211,6 +211,10 @@ class QuestaoResposta(BaseModel):
     formato: FormatoItem = Field(
         ..., description="Formato de item. A discursiva grava proposicao."
     )
+    orientacoes_ids: list[int] = Field(
+        ...,
+        description="Orientações vigentes na geração. Vazio antes.",
+    )
 
 
 class BancoResposta(BaseModel):

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.app.domain import EstadoSessao
+from backend.app.schemas.orientacao import TextoOrientacao
 
 
 class SessaoCriar(BaseModel):
@@ -20,6 +21,11 @@ class SessaoCriar(BaseModel):
     p_f: int = Field(..., ge=0, le=100, description="Percentual de questões fáceis.")
     p_m: int = Field(..., ge=0, le=100, description="Percentual de questões médias.")
     p_d: int = Field(..., ge=0, le=100, description="Percentual de questões difíceis.")
+    orientacoes: list[TextoOrientacao] = Field(
+        default_factory=list,
+        max_length=5,
+        description="Orientações de estilo para todas as questões da sessão.",
+    )
 
 
 class SessaoResposta(BaseModel):

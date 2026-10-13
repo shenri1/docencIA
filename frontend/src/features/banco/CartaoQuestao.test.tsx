@@ -1,5 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
-import { umaQuestao } from "../../test/fixtures";
+import { umaOrientacao, umaQuestao } from "../../test/fixtures";
 import { CartaoQuestao } from "./CartaoQuestao";
 
 describe("CartaoQuestao", () => {
@@ -78,5 +78,25 @@ describe("CartaoQuestao", () => {
     rerender(<CartaoQuestao questao={umaQuestao({ formato: "proposicao" })} />);
     expect(screen.queryByText("Afirmativas")).not.toBeInTheDocument();
     expect(screen.queryByText("Asserção-razão")).not.toBeInTheDocument();
+  });
+
+  it("mostra as orientações que geraram a questão", () => {
+    render(
+      <CartaoQuestao
+        questao={umaQuestao()}
+        orientacoes={[
+          umaOrientacao({ id: 1, o_que_mudar: "exemplos práticos" }),
+          umaOrientacao({ id: 2, o_que_mudar: null, cruzar_com: "memória cache" }),
+        ]}
+      />,
+    );
+    expect(
+      screen.getByText("Orientações: Mudar: exemplos práticos; Articular com: memória cache"),
+    ).toBeInTheDocument();
+  });
+
+  it("sem orientações não mostra a linha", () => {
+    render(<CartaoQuestao questao={umaQuestao()} orientacoes={[]} />);
+    expect(screen.queryByText(/Orientações:/)).not.toBeInTheDocument();
   });
 });

@@ -5,6 +5,7 @@ import { Alerta } from "../../components/Alerta";
 import { Botao } from "../../components/Botao";
 import { Campo } from "../../components/Campo";
 import { inteiroEntre } from "../../lib/validacao";
+import { PainelOrientacoes } from "../orientacoes/PainelOrientacoes";
 import { useMarcoSessao } from "../sessoes/api";
 import { bancoMaisRecente } from "../sessoes/marco";
 import { type Acumulado, type ParametrosGeracao, useGeracaoEmLotes } from "./api";
@@ -36,6 +37,9 @@ export function Geracao({ sessaoId }: { sessaoId: string }) {
           aoPausar={geracao.pausar}
         />
       )}
+
+      {/* ajustar as orientações antes de gerar ou de um v2. */}
+      {!rodando && marco.data && <PainelOrientacoes sessaoId={id} />}
 
       {!rodando && marco.data && banco === null && (
         <Formulario aoGerar={(p) => void geracao.iniciar(p)} />

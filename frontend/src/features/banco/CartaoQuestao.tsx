@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import type { Questao } from "../../api/tipos";
+import type { Orientacao, Questao } from "../../api/tipos";
 import { Alerta } from "../../components/Alerta";
 import { IconeAviso, IconeErro, IconeInfo, IconeOk } from "../../components/Icones";
+import { textoOrientacao } from "../orientacoes/texto";
 import { ListaAspectos } from "./ListaAspectos";
 import { ROTULO_BLOOM, ROTULO_FAIXA, ROTULO_FORMATO, ROTULO_TIPO_QUESTAO } from "./rotulos";
 
@@ -28,9 +29,11 @@ interface Props {
   acoes?: ReactNode;
   /** Letras que a auditoria apontou nesta questão. */
   apontadas?: ReadonlySet<string>;
+  /** as orientações vigentes na geração, já resolvidas pelos ids. */
+  orientacoes?: readonly Orientacao[];
 }
 
-export function CartaoQuestao({ questao, marcada = false, acoes, apontadas }: Props) {
+export function CartaoQuestao({ questao, marcada = false, acoes, apontadas, orientacoes }: Props) {
   const estado = ESTADO[marcada ? "marcada" : questao.estado];
   const nome =
     questao.estado === "candidata"
@@ -106,6 +109,12 @@ export function CartaoQuestao({ questao, marcada = false, acoes, apontadas }: Pr
             ))}
           </ul>
         </Alerta>
+      )}
+
+      {orientacoes && orientacoes.length > 0 && (
+        <p className="font-grotesca text-detalhe text-texto-suave">
+          Orientações: {orientacoes.map(textoOrientacao).join("; ")}
+        </p>
       )}
 
       <details className="font-grotesca text-detalhe">

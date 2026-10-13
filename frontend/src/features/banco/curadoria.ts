@@ -2,7 +2,13 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { useApi } from "../../app/api-context";
 import { type ClienteApi, desembrulhar } from "../../api/cliente";
 import { ErroApi } from "../../api/erros";
-import type { Banco, PropostaSubstituicao, RelatorioImpacto } from "../../api/tipos";
+import type {
+  Banco,
+  DirecaoVariacao,
+  PropostaSubstituicao,
+  RelatorioImpacto,
+} from "../../api/tipos";
+import { chavesOrientacoes } from "../orientacoes/api";
 import { chaves } from "../sessoes/api";
 
 /** o banco é lido em blocos de 20. */
@@ -62,9 +68,14 @@ export function useRecarregar(bancoId: number, sessaoId: number) {
 
 /** o 409 de revisão é orientação, não falha. */
 export function mensagemDeErro(erro: Error): string {
-  return erro instanceof ErroApi && erro.codigo === "REVISAO_DESATUALIZADA"
-    ? "O banco mudou desde que você o viu. Confira e aplique de novo."
-    : erro.message;
+  if (!(erro instanceof ErroApi)) return erro.message;
+  if (erro.codigo === "REVISAO_DESATUALIZADA") {
+    return "O banco mudou desde que você o viu. Confira e aplique de novo.";
+  }
+  if (erro.codigo === "LIMITE_ORIENTACOES") {
+    return "A sessão já tem o máximo de orientações ativas: 5, das quais até 2 com articulação. Desative uma no painel de orientações antes de acrescentar outra.";
+  }
+  return erro.message;
 }
 
 export function useExcluir(bancoId: number, sessaoId: number) {
@@ -86,22 +97,35 @@ export function useExcluir(bancoId: number, sessaoId: number) {
   });
 }
 
+export interface PedidoVariacao {
+  numero: number;
+  /** Sem direção, a API recebe o pedido sem corpo e se comporta como antes. */
+  direcao?: DirecaoVariacao;
+}
+
 /**
  * ~38 s de geração + revisão numa chamada só. A chave de mutação deixa a mesa
  * saber que há um pedido em curso e segurar os outros.
  */
 export function usePedirVariacao(bancoId: number, sessaoId: number) {
   const cliente = useApi();
+  const queryClient = useQueryClient();
   const recarregar = useRecarregar(bancoId, sessaoId);
-  return useMutation<PropostaSubstituicao, Error, number>({
+  return useMutation<PropostaSubstituicao, Error, PedidoVariacao>({
     mutationKey: chavesBanco.proposta(bancoId),
-    mutationFn: (numero) =>
+    mutationFn: ({ numero, direcao }) =>
       desembrulhar(
         cliente.POST("/bancos/{banco_id}/questoes/{numero}/substituicao", {
           params: { path: { banco_id: bancoId, numero } },
+          body: direcao,
         }),
       ),
-    onSettled: recarregar,
+    // A variação guiada grava uma orientação: a lista da sessão também muda.
+    onSettled: () =>
+      Promise.all([
+        recarregar(),
+        queryClient.invalidateQueries({ queryKey: chavesOrientacoes.daSessao(sessaoId) }),
+      ]),
   });
 }
 

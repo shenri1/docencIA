@@ -2,13 +2,40 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
 import { questaoFalsa } from "../../mocks/backendFalso";
 import { server } from "../../mocks/server";
-import { umMarcoBanco, umMarcoSessao } from "../../test/fixtures";
+import { umMarcoBanco, umMarcoSessao, umaOrientacao } from "../../test/fixtures";
 import { comBanco } from "../../test/comBanco";
 import { API, renderApp } from "../../test/renderApp";
 
 // DOCENTE.id é 1, e o falso reconhece o token "mock-token-<id>".
 const abrirMesa = () => renderApp("/sessoes/5/banco", { token: "mock-token-1" });
 const cartao = (numero: number) => screen.findByRole("article", { name: `Questão ${numero}` });
+
+async function pedirVariacao(
+  user: ReturnType<typeof renderApp>["user"],
+  numero: number,
+  campos: { articular?: string; mudar?: string; acumular?: boolean } = {},
+) {
+  const alvo = await cartao(numero);
+  await user.click(within(alvo).getByRole("button", { name: "Pedir variação" }));
+  if (campos.articular) {
+    await user.type(
+      within(alvo).getByLabelText("Articular com (um assunto do seu material)"),
+      campos.articular,
+    );
+  }
+  if (campos.mudar) await user.type(within(alvo).getByLabelText("O que mudar"), campos.mudar);
+  if (campos.acumular) {
+    await user.click(
+      within(alvo).getByRole("checkbox", {
+        name: "Aplicar também às próximas gerações desta sessão",
+      }),
+    );
+  }
+  const guiada = Boolean(campos.articular || campos.mudar);
+  await user.click(
+    within(alvo).getByRole("button", { name: guiada ? "Gerar variação" : "Gerar outra questão" }),
+  );
+}
 
 describe("Mesa de curadoria — leitura", () => {
   it("mostra as questões ativas, com a correta marcada e as fontes", async () => {
@@ -140,7 +167,7 @@ describe("Mesa de curadoria — variação", () => {
     const banco = comBanco();
     const { user } = abrirMesa();
 
-    await user.click(within(await cartao(1)).getByRole("button", { name: "Pedir variação" }));
+    await pedirVariacao(user, 1);
     const comparacao = await screen.findByRole("region", { name: "Variação da questão 1" });
     expect(within(comparacao).getByText("Enunciado da questão 1.")).toBeInTheDocument();
     expect(within(comparacao).getByText("Variação do enunciado da questão 1.")).toBeInTheDocument();
@@ -169,7 +196,7 @@ describe("Mesa de curadoria — variação", () => {
     const banco = comBanco();
     const { user } = abrirMesa();
 
-    await user.click(within(await cartao(1)).getByRole("button", { name: "Pedir variação" }));
+    await pedirVariacao(user, 1);
     const comparacao = await screen.findByRole("region", { name: "Variação da questão 1" });
     await user.click(within(comparacao).getByRole("button", { name: "Rejeitar variação" }));
 
@@ -187,7 +214,7 @@ describe("Mesa de curadoria — variação", () => {
     comBanco({ versao: "insuf" });
     const { user } = abrirMesa();
 
-    await user.click(within(await cartao(1)).getByRole("button", { name: "Pedir variação" }));
+    await pedirVariacao(user, 1);
 
     const orientacao = (await screen.findByText(/O material não sustentou outra questão/)).closest(
       "[role=status]",
@@ -220,7 +247,7 @@ describe("Mesa de curadoria — variação", () => {
     );
     const { user } = abrirMesa();
 
-    await user.click(within(await cartao(1)).getByRole("button", { name: "Pedir variação" }));
+    await pedirVariacao(user, 1);
 
     expect(
       await within(await cartao(1)).findByRole("button", { name: "Gerando variação…" }),
@@ -316,5 +343,98 @@ describe("Mesa de curadoria — entrada da auditoria", () => {
     abrirMesa();
     await cartao(1);
     expect(screen.queryByRole("link", { name: "Auditar o banco" })).not.toBeInTheDocument();
+  });
+});
+
+describe("Mesa de curadoria — variação guiada e orientações", () => {
+  it("variação guiada manda articular, mudar e acumular", async () => {
+    comBanco();
+    let corpo: unknown = null;
+    server.use(
+      http.post(`${API}/bancos/7/questoes/:numero/substituicao`, async ({ request }) => {
+        corpo = await request.clone().json();
+        // Sem retorno: o MSW segue para o handler do backend falso.
+      }),
+    );
+    const { user } = abrirMesa();
+
+    await pedirVariacao(user, 1, { articular: "redes", mudar: "use um roteador", acumular: true });
+
+    const comparacao = await screen.findByRole("region", { name: "Variação da questão 1" });
+    expect(corpo).toEqual({ cruzar_com: "redes", o_que_mudar: "use um roteador", acumular: true });
+    // find*: o texto depende da lista de orientações, recarregada depois do pedido.
+    expect(
+      await within(comparacao).findByText(
+        "Orientações: Articular com: redes. Mudar: use um roteador",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("sem texto pede outra questão sem corpo", async () => {
+    comBanco();
+    let corpo: string | null = null;
+    server.use(
+      http.post(`${API}/bancos/7/questoes/:numero/substituicao`, async ({ request }) => {
+        corpo = await request.clone().text();
+      }),
+    );
+    const { user } = abrirMesa();
+
+    await pedirVariacao(user, 1);
+
+    await screen.findByRole("region", { name: "Variação da questão 1" });
+    expect(corpo).toBe("");
+  });
+
+  it("insuficiência com articular diz o assunto no título", async () => {
+    comBanco({ versao: "insuf" });
+    const { user } = abrirMesa();
+
+    await pedirVariacao(user, 1, { articular: "redes" });
+
+    expect(
+      await screen.findByText("O material não sustentou a relação com redes"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Variação da questão 1" })).not.toBeInTheDocument();
+  });
+
+  it("variação acumulada no teto mostra o limite e não gera", async () => {
+    comBanco({
+      orientacoes: Array.from({ length: 5 }, (_, i) =>
+        umaOrientacao({ id: i + 1, o_que_mudar: `orientação ${i + 1}` }),
+      ),
+    });
+    const { user } = abrirMesa();
+
+    await pedirVariacao(user, 1, { mudar: "mais uma", acumular: true });
+
+    expect(await screen.findByText(/máximo de orientações ativas/)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Variação da questão 1" })).not.toBeInTheDocument();
+  });
+
+  it("o cartão mostra as orientações vigentes na geração", async () => {
+    const banco = comBanco({
+      orientacoes: [umaOrientacao({ id: 4, o_que_mudar: "exemplos práticos" })],
+    });
+    banco.questoes[0]!.orientacoes_ids = [4];
+    abrirMesa();
+
+    // find*: o cartão chega antes da lista de orientações.
+    expect(
+      await within(await cartao(1)).findByText("Orientações: Mudar: exemplos práticos"),
+    ).toBeInTheDocument();
+    expect(within(await cartao(2)).queryByText(/Orientações:/)).not.toBeInTheDocument();
+  });
+
+  it("o painel fica recolhido na mesa e funciona ao abrir", async () => {
+    comBanco();
+    const { user } = abrirMesa();
+
+    await user.click(await screen.findByText("Orientações da sessão (0 ativas)"));
+    const painel = screen.getByRole("region", { name: "Orientações da sessão" });
+    await user.type(within(painel).getByLabelText("Nova orientação"), "Enunciados curtos");
+    await user.click(within(painel).getByRole("button", { name: "Acrescentar" }));
+
+    expect(await within(painel).findByText("Mudar: Enunciados curtos")).toBeInTheDocument();
   });
 });

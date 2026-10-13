@@ -1,8 +1,16 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import type { Banco, MarcoBanco, Questao, RelatorioImpacto as Relatorio } from "../../api/tipos";
+import type {
+  Banco,
+  MarcoBanco,
+  Orientacao,
+  Questao,
+  RelatorioImpacto as Relatorio,
+} from "../../api/tipos";
 import { Alerta } from "../../components/Alerta";
 import { Botao } from "../../components/Botao";
+import { useOrientacoes } from "../orientacoes/api";
+import { PainelOrientacoes } from "../orientacoes/PainelOrientacoes";
 import { useMarcoSessao } from "../sessoes/api";
 import { bancoMaisRecente } from "../sessoes/marco";
 import { proximaAcao } from "../sessoes/proximaAcao";
@@ -56,6 +64,14 @@ function Mesa({ sessaoId, marcoBanco, proxima }: MesaProps) {
   const [marcadas, setMarcadas] = useState<ReadonlySet<number>>(new Set());
   const [aviso, setAviso] = useState<string | null>(null);
   const banco = useBanco(marcoBanco.banco_id, pagina);
+  const orientacoes = useOrientacoes(sessaoId);
+  const porId = new Map((orientacoes.data ?? []).map((o) => [o.id, o]));
+  // Só ids na questão: o texto vem da lista da sessão, pontuais incluídas.
+  const orientacoesDe = (q: Questao): Orientacao[] =>
+    q.orientacoes_ids.flatMap((id) => {
+      const o = porId.get(id);
+      return o ? [o] : [];
+    });
 
   if (banco.isError) return <Alerta variante="erro">{banco.error.message}</Alerta>;
   if (!banco.data) {
@@ -92,6 +108,7 @@ function Mesa({ sessaoId, marcoBanco, proxima }: MesaProps) {
   return (
     <>
       <Painel banco={dados} lacunas={marcoBanco.lacunas} />
+      <PainelOrientacoes sessaoId={sessaoId} recolhido />
       {aviso && <Alerta variante="sucesso">{aviso}</Alerta>}
       {provasMontadas && (
         <Alerta>
@@ -160,6 +177,7 @@ function Mesa({ sessaoId, marcoBanco, proxima }: MesaProps) {
               marcada={questao.estado === "ativa" && marcadas.has(questao.numero)}
               aoAlternar={() => alternar(questao.numero)}
               aoConcluir={setAviso}
+              orientacoesDe={orientacoesDe}
             />
           </li>
         ))}
@@ -200,6 +218,7 @@ interface ItemProps {
   marcada: boolean;
   aoAlternar: () => void;
   aoConcluir: (texto: string) => void;
+  orientacoesDe: (q: Questao) => Orientacao[];
 }
 
 function ItemDaMesa({
@@ -211,6 +230,7 @@ function ItemDaMesa({
   marcada,
   aoAlternar,
   aoConcluir,
+  orientacoesDe,
 }: ItemProps) {
   if (candidata) {
     return (
@@ -220,6 +240,7 @@ function ItemDaMesa({
         original={questao}
         candidata={candidata}
         aoConcluir={aoConcluir}
+        orientacoesDe={orientacoesDe}
       />
     );
   }
@@ -230,6 +251,7 @@ function ItemDaMesa({
     <CartaoQuestao
       questao={questao}
       marcada={marcada}
+      orientacoes={orientacoesDe(questao)}
       acoes={
         podeMarcar || variar ? (
           <>

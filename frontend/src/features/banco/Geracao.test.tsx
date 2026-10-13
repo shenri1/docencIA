@@ -36,6 +36,7 @@ function backend({
   const numeros = Array.from({ length: total }, (_, i) => i + 1);
   server.use(
     http.get(`${API}/auth/me`, () => HttpResponse.json(DOCENTE)),
+    http.get(`${API}/sessoes/5/orientacoes`, () => HttpResponse.json([])),
     http.get(`${API}/sessoes/5/marco`, () =>
       HttpResponse.json(
         umMarcoSessao({
@@ -120,6 +121,12 @@ async function preencherEGerar(
 }
 
 describe("Geração do banco", () => {
+  it("mostra as orientações da sessão antes de gerar", async () => {
+    backend();
+    renderApp("/sessoes/5/geracao", { token: "t" });
+    expect(await screen.findByRole("region", { name: "Orientações da sessão" })).toBeInTheDocument();
+  });
+
   it("valida o total de 1 a 25 antes de enviar", async () => {
     backend();
     const { user } = renderApp("/sessoes/5/geracao", { token: "t" });

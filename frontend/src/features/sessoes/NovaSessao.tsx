@@ -5,12 +5,22 @@ import { Botao } from "../../components/Botao";
 import { Campo } from "../../components/Campo";
 import { PASSOS_NOVA_SESSAO, Passos } from "../../components/Passos";
 import { inteiroEntre, somaDosPercentuais } from "../../lib/validacao";
+import { TETO_ATIVAS, useOrientacoesDaUltimaSessao } from "../orientacoes/api";
 import { useCriarSessao } from "./api";
 
 const K_MIN = 2;
 const K_MAX = 11;
 
 export function NovaSessao() {
+  const ultima = useOrientacoesDaUltimaSessao();
+  // O pré-preenchimento é conveniência: se a leitura falhar, o formulário abre vazio.
+  if (ultima.isPending) {
+    return <p className="font-grotesca text-detalhe text-texto-suave">Carregando…</p>;
+  }
+  return <FormularioNovaSessao trazidas={ultima.data ?? []} />;
+}
+
+function FormularioNovaSessao({ trazidas }: { trazidas: string[] }) {
   const router = useRouter();
   const criar = useCriarSessao();
   const [disciplina, setDisciplina] = useState("");
@@ -22,6 +32,11 @@ export function NovaSessao() {
   const [pM, setPM] = useState("60");
   const [pD, setPD] = useState("30");
   const [tentou, setTentou] = useState(false);
+  const [orientacoes, setOrientacoes] = useState<string[]>(trazidas.length ? trazidas : [""]);
+  const trocarOrientacao = (i: number, valor: string) =>
+    setOrientacoes((atual) => atual.map((t, j) => (j === i ? valor : t)));
+  const removerOrientacao = (i: number) =>
+    setOrientacoes((atual) => atual.filter((_, j) => j !== i));
 
   const kValido = inteiroEntre(k, K_MIN, K_MAX);
   const f = inteiroEntre(pF, 0, 100);
@@ -56,6 +71,7 @@ export function NovaSessao() {
         p_f: f!,
         p_m: m!,
         p_d: d!,
+        orientacoes: orientacoes.map((t) => t.trim()).filter(Boolean),
       },
       {
         onSuccess: (sessao) =>
@@ -157,6 +173,49 @@ export function NovaSessao() {
             Soma: {soma ?? "—"}%
             {!somaFecha && " — precisa ser 100%"}
           </p>
+        </fieldset>
+
+        <fieldset className="flex flex-col gap-3">
+          <legend className="font-grotesca text-rotulo-lg">
+            Como você costuma elaborar provas
+          </legend>
+          <p className="font-grotesca text-detalhe text-texto-suave">
+            Opcional. Preferências que valem para todas as questões desta sessão, como “prefiro
+            exemplos práticos”. Elas nunca ampliam a fonte além do material que você enviar.
+          </p>
+          {trazidas.length > 0 && (
+            <p className="font-grotesca text-detalhe text-texto-suave">
+              Trazidas da sua última sessão.
+            </p>
+          )}
+          {orientacoes.map((texto, i) => (
+            <div key={i} className="flex items-end gap-3">
+              <div className="min-w-0 flex-1">
+                <Campo
+                  rotulo={`Orientação ${i + 1}`}
+                  value={texto}
+                  maxLength={500}
+                  onChange={(e) => trocarOrientacao(i, e.target.value)}
+                />
+              </div>
+              <Botao
+                variante="fantasma"
+                aria-label={`Remover orientação ${i + 1}`}
+                onClick={() => removerOrientacao(i)}
+              >
+                Remover
+              </Botao>
+            </div>
+          ))}
+          <div>
+            <Botao
+              variante="fantasma"
+              disabled={orientacoes.length >= TETO_ATIVAS}
+              onClick={() => setOrientacoes((atual) => [...atual, ""])}
+            >
+              Acrescentar orientação
+            </Botao>
+          </div>
         </fieldset>
 
         <div className="flex items-center justify-end gap-3">

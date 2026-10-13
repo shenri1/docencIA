@@ -226,3 +226,6 @@ logs/*
 storage/
 
 # Outras infos
+
+
+.vscode/

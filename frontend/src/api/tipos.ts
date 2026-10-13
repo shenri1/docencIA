@@ -28,3 +28,6 @@ export type ProvasMontadas = Schemas["ProvasMontadasResposta"];
 export type Gabarito = Schemas["GabaritoResposta"];
 export type ItemGabarito = Schemas["ItemGabaritoResposta"];
 export type Exportacao = Schemas["ExportacaoResposta"];
+
+export type Orientacao = Schemas["OrientacaoResposta"];
+export type DirecaoVariacao = Schemas["DirecaoVariacao"];

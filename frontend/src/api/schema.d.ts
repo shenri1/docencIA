@@ -107,6 +107,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sessoes/{sessao_id}/orientacoes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Orientacoes */
+        get: operations["listar_orientacoes_sessoes__sessao_id__orientacoes_get"];
+        put?: never;
+        /** Acrescentar */
+        post: operations["acrescentar_sessoes__sessao_id__orientacoes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sessoes/{sessao_id}/orientacoes/{orientacao_id}/desativar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Desativar Orientacao */
+        post: operations["desativar_orientacao_sessoes__sessao_id__orientacoes__orientacao_id__desativar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessoes/{sessao_id}/materiais": {
         parameters: {
             query?: never;
@@ -832,6 +867,29 @@ export interface components {
              */
             revisao_esperada: number;
         };
+        /**
+         * DirecaoVariacao
+         * @description Corpo opcional da substituição. Os dois textos vão para o
+         *     pedido sem interpretação: `cruzar_com` também vira consulta ao RAG.
+         */
+        DirecaoVariacao: {
+            /**
+             * Cruzar Com
+             * @description Um assunto do material a articular.
+             */
+            cruzar_com?: string | null;
+            /**
+             * O Que Mudar
+             * @description O que mudar na questão, em texto livre.
+             */
+            o_que_mudar?: string | null;
+            /**
+             * Acumular
+             * @description Aplicar também às próximas gerações desta sessão.
+             * @default false
+             */
+            acumular: boolean;
+        };
         /** DocenteCriar */
         DocenteCriar: {
             /**
@@ -875,6 +933,13 @@ export interface components {
          * @enum {string}
          */
         EstadoBanco: "aberto" | "congelado";
+        /**
+         * EstadoOrientacao
+         * @description. A única transição é ATIVA → INATIVA. PONTUAL vale para a chamada
+         *     que a criou e nunca entra em outra geração.
+         * @enum {string}
+         */
+        EstadoOrientacao: "ativa" | "inativa" | "pontual";
         /**
          * EstadoProva
          * @enum {string}
@@ -1217,6 +1282,47 @@ export interface components {
          * @enum {string}
          */
         NivelBloom: "lembrar" | "entender" | "aplicar" | "analisar" | "avaliar" | "criar";
+        /** OrientacaoCriar */
+        OrientacaoCriar: {
+            /**
+             * O Que Mudar
+             * @description Orientação de estilo para as próximas gerações da sessão.
+             */
+            o_que_mudar: string;
+        };
+        /** OrientacaoResposta */
+        OrientacaoResposta: {
+            /** Id */
+            id: number;
+            origem: components["schemas"]["OrigemOrientacao"];
+            estado: components["schemas"]["EstadoOrientacao"];
+            /** O Que Mudar */
+            o_que_mudar: string | null;
+            /** Cruzar Com */
+            cruzar_com: string | null;
+            /**
+             * Banco Id
+             * @description Só na origem questao.
+             */
+            banco_id: number | null;
+            /**
+             * Numero Origem
+             * @description Só na origem questao.
+             */
+            numero_origem: number | null;
+            /**
+             * Criada Em
+             * Format: date-time
+             */
+            criada_em: string;
+        };
+        /**
+         * OrigemOrientacao
+         * @description onde o docente deu a orientação — na sessão, antes de gerar, ou
+         *     numa questão, ao pedir uma variação guiada.
+         * @enum {string}
+         */
+        OrigemOrientacao: "sessao" | "questao";
         /**
          * OrigemTexto
          * @enum {string}
@@ -1420,6 +1526,11 @@ export interface components {
             aspectos_esperados: components["schemas"]["AspectoEsperadoResposta"][];
             /** @description Formato de item. A discursiva grava proposicao. */
             formato: components["schemas"]["FormatoItem"];
+            /**
+             * Orientacoes Ids
+             * @description Orientações vigentes na geração. Vazio antes.
+             */
+            orientacoes_ids: number[];
         };
         /**
          * RegistroAuditoriaResposta
@@ -1660,6 +1771,11 @@ export interface components {
              * @description Percentual de questões difíceis.
              */
             p_d: number;
+            /**
+             * Orientacoes
+             * @description Orientações de estilo para todas as questões da sessão.
+             */
+            orientacoes?: string[];
         };
         /** SessaoResposta */
         SessaoResposta: {
@@ -1693,7 +1809,7 @@ export interface components {
          *     vocabulário, não um tipo do banco — acrescentar membro não pede migração.
          * @enum {string}
          */
-        TipoEventoAuditoria: "questao_gerada" | "exclusao" | "congelamento" | "substituicao_aceita" | "substituicao_rejeitada" | "provas_montadas" | "exportacao_docx" | "fallback_provedor" | "falha_provedor" | "auditoria_questao" | "login_falho" | "token_suspeito" | "acesso_negado";
+        TipoEventoAuditoria: "questao_gerada" | "exclusao" | "congelamento" | "substituicao_aceita" | "substituicao_rejeitada" | "provas_montadas" | "exportacao_docx" | "fallback_provedor" | "falha_provedor" | "auditoria_questao" | "login_falho" | "token_suspeito" | "acesso_negado" | "orientacao_criada" | "orientacao_desativada";
         /**
          * TipoExportacao
          * @enum {string}
@@ -2014,6 +2130,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessaoResposta"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_orientacoes_sessoes__sessao_id__orientacoes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessao_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrientacaoResposta"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    acrescentar_sessoes__sessao_id__orientacoes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessao_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrientacaoCriar"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrientacaoResposta"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    desativar_orientacao_sessoes__sessao_id__orientacoes__orientacao_id__desativar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessao_id: number;
+                orientacao_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrientacaoResposta"];
                 };
             };
             /** @description Validation Error */
@@ -2511,7 +2725,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DirecaoVariacao"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {

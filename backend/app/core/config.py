@@ -77,6 +77,11 @@ class Settings(BaseSettings):
     # Rerank custa uma chamada HTTP por par: 20 candidatos, não 40.
     rag_candidatos: int = 20
     rag_top_k: int = 8
+    # a busca de cada "articular com". Menos trechos e menos
+    # candidatos que a da âncora: até 2 cruzamentos somam 20 chamadas de rerank
+    # por questão, e 8 + 2 × 3 = 14 trechos precisam caber no num_ctx.
+    rag_top_k_cruzamento: int = 3
+    rag_candidatos_cruzamento: int = 10
 
     chunk_max_chars: int = 1200
     chunk_overlap_chars: int = 200

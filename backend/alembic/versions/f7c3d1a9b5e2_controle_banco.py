@@ -30,9 +30,7 @@ def upgrade() -> None:
     # criou, e o índice parcial do passo 4 referencia 'CANDIDATA'.
     with op.get_context().autocommit_block():
         for valor in _NOVOS_ESTADOS:
-            op.execute(
-                f"ALTER TYPE estado_questao ADD VALUE IF NOT EXISTS '{valor}'"
-            )
+            op.execute(f"ALTER TYPE estado_questao ADD VALUE IF NOT EXISTS '{valor}'")
 
     postgresql.ENUM(
         "EXCLUSAO", "SUBSTITUICAO", "CONGELAMENTO", name="evento_banco"

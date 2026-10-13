@@ -53,7 +53,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_column("prompts_mestres", "conteudo_critico")
-    op.drop_index(
-        op.f("ix_revisoes_questao_questao_id"), table_name="revisoes_questao"
-    )
+    op.drop_index(op.f("ix_revisoes_questao_questao_id"), table_name="revisoes_questao")
     op.drop_table("revisoes_questao")

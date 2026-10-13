@@ -50,7 +50,10 @@ _FORMATOS = ("PROPOSICAO", "AFIRMATIVAS", "ASSERCAO_RAZAO")
 
 def _semear_prompt(conexao: sa.Connection) -> None:
     with Session(bind=conexao) as db:
-        if db.scalar(sa.select(PromptMestre).where(PromptMestre.versao == VERSAO)) is None:
+        if (
+            db.scalar(sa.select(PromptMestre).where(PromptMestre.versao == VERSAO))
+            is None
+        ):
             registrar_versao(db, VERSAO, PAPEL, PARAMETROS_MARCADORES)
         ativar(db, VERSAO)
 

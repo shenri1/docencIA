@@ -21,8 +21,9 @@ def upgrade() -> None:
     # seguida, porque o model não declara default de servidor para o hash.
     op.add_column(
         "prompts_mestres",
-        sa.Column("hash_modulos", sa.String(length=64), nullable=False,
-                  server_default=""),
+        sa.Column(
+            "hash_modulos", sa.String(length=64), nullable=False, server_default=""
+        ),
     )
     op.alter_column("prompts_mestres", "hash_modulos", server_default=None)
     op.add_column(

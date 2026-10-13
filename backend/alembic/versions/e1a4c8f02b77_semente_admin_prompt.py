@@ -82,7 +82,9 @@ def _semear_admin(conexao: sa.Connection) -> None:
         return
 
     try:
-        dados = DocenteCriar(nome=nome, credencial_institucional=credencial, senha=senha)
+        dados = DocenteCriar(
+            nome=nome, credencial_institucional=credencial, senha=senha
+        )
     except ValidationError as exc:
         raise ValueError(
             f"ADMIN_SENHA, ADMIN_NOME ou ADMIN_CREDENCIAL inválidos: {exc}"

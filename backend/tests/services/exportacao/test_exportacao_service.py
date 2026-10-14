@@ -111,7 +111,9 @@ def test_exportacao_de_outro_docente_responde_404(
     outro = registrar_docente(
         db_session,
         DocenteCriar(
-            nome="Bruno", credencial_institucional="prof-outro-exp", senha="senhaforte123"
+            nome="Bruno",
+            credencial_institucional="prof-outro-exp",
+            senha="senhaforte123",
         ),
     )
     with pytest.raises(ExportacaoNaoEncontradaException):

@@ -113,7 +113,9 @@ def test_prompt_montado_nao_tem_vocabulario_medico():
 
 @pytest.mark.parametrize("k", [2, 5, 11])
 def test_k_nas_pontas_da_faixa_permitida(k):
-    assert f"exatamente {k} alternativas" in montar_sistema(OBJ, params(k_alternativas=k))
+    assert f"exatamente {k} alternativas" in montar_sistema(
+        OBJ, params(k_alternativas=k)
+    )
 
 
 def test_regra_1_usa_media_das_demais():
@@ -188,9 +190,11 @@ def test_modulo_do_auditor_entra_no_hash_de_versao():
 
 
 def _classificacao() -> str:
-    return (montagem.DIRETORIO_MODULOS / "comum" / "03_classificacao.md").read_text(
-        encoding="utf-8"
-    ).strip()[:60]
+    return (
+        (montagem.DIRETORIO_MODULOS / "comum" / "03_classificacao.md")
+        .read_text(encoding="utf-8")
+        .strip()[:60]
+    )
 
 
 def test_classificacao_vai_para_o_gerador_dos_dois_tipos():
@@ -218,14 +222,13 @@ INSTRUCAO_LETRA = "nunca cite letra de alternativa"
 
 def test_instrucao_de_letra_vai_para_gerador_e_critico_da_objetiva():
     assert INSTRUCAO_LETRA in montar_sistema(TipoQuestao.OBJETIVA, params()).lower()
-    assert (
-        INSTRUCAO_LETRA in montar_sistema_critico(OBJ, params()).lower()
-    )
+    assert INSTRUCAO_LETRA in montar_sistema_critico(OBJ, params()).lower()
 
 
 def test_instrucao_de_letra_nao_vai_para_o_auditor():
     """A proposta_ajuste do auditor cita letra DE PROPÓSITO."""
     assert INSTRUCAO_LETRA not in montar_sistema_auditor(params()).lower()
+
 
 from backend.app.domain import FormatoItem  # noqa: E402
 
@@ -266,7 +269,9 @@ def test_sem_formato_monta_proposicao():
 
 
 def test_exemplos_do_formato_vao_so_para_o_gerador():
-    assert "<exemplo_afirmativas>" in montar_sistema(OBJ, params(), FormatoItem.AFIRMATIVAS)
+    assert "<exemplo_afirmativas>" in montar_sistema(
+        OBJ, params(), FormatoItem.AFIRMATIVAS
+    )
     assert "<exemplo_afirmativas>" not in montar_sistema_critico(
         OBJ, params(), FormatoItem.AFIRMATIVAS
     )
@@ -274,7 +279,10 @@ def test_exemplos_do_formato_vao_so_para_o_gerador():
 
 @pytest.mark.parametrize("tipo", [OBJ, DISC])
 def test_contextualizacao_e_bloom_no_gerador_e_no_critico(tipo):
-    for texto in (montar_sistema(tipo, params()), montar_sistema_critico(tipo, params())):
+    for texto in (
+        montar_sistema(tipo, params()),
+        montar_sistema_critico(tipo, params()),
+    ):
         assert "<contextualizacao>" in texto
         assert "<nivel_bloom>" in texto
 
@@ -295,7 +303,10 @@ def test_modulos_de_formato_entram_no_hash_de_versao():
 
 @pytest.mark.parametrize("tipo", [OBJ, DISC])
 def test_orientacoes_no_gerador_e_no_critico(tipo):
-    for texto in (montar_sistema(tipo, params()), montar_sistema_critico(tipo, params())):
+    for texto in (
+        montar_sistema(tipo, params()),
+        montar_sistema_critico(tipo, params()),
+    ):
         assert "<orientacoes_docente>" in texto
 
 
@@ -307,3 +318,22 @@ def test_orientacoes_nao_vao_para_o_auditor():
 def test_modulo_de_orientacoes_entra_no_hash_de_versao():
     nomes = [nome for nome, _ in carregar_modulos_versionados()]
     assert "comum/05_orientacoes.md" in nomes
+
+
+@pytest.mark.parametrize("tipo", [OBJ, DISC])
+def test_critico_e_gerador_recebem_o_modulo_de_notacao(tipo):
+    for sistema in (
+        montar_sistema(tipo, params()),
+        montar_sistema_critico(tipo, params()),
+    ):
+        assert "<notacao>" in sistema
+        assert r'"\\frac{a}{b}"' in sistema
+
+
+def test_auditor_nao_recebe_notacao():
+    assert "<notacao>" not in montar_sistema_auditor(params())
+
+
+def test_modulo_de_notacao_entra_no_hash_de_versao():
+    nomes = [nome for nome, _ in carregar_modulos_versionados()]
+    assert "comum/06_notacao.md" in nomes

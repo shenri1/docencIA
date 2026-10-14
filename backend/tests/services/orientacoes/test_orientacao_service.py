@@ -22,7 +22,10 @@ from backend.tests.fabrica_banco import criar_banco
 
 
 def _de_sessao(db, docente, sessao, n):
-    return [criar_orientacao_sessao(db, docente, sessao, f"orientação {i}") for i in range(n)]
+    return [
+        criar_orientacao_sessao(db, docente, sessao, f"orientação {i}")
+        for i in range(n)
+    ]
 
 
 def _cruzada(db, docente, banco, numero, acumular=True):
@@ -113,7 +116,12 @@ def test_desativar_de_outra_sessao_responde_nao_encontrada(
         db_session,
         docente,
         SessaoCriar(
-            disciplina="Redes", periodo="2026.2", k_alternativas=5, p_f=30, p_m=40, p_d=30
+            disciplina="Redes",
+            periodo="2026.2",
+            k_alternativas=5,
+            p_f=30,
+            p_m=40,
+            p_d=30,
         ),
     )
     [orientacao] = _de_sessao(db_session, docente, outra, 1)
@@ -121,13 +129,18 @@ def test_desativar_de_outra_sessao_responde_nao_encontrada(
         desativar(db_session, docente, sessao_rascunho, orientacao.id)
 
 
-def test_vigentes_traz_so_ativas_em_ordem_de_criacao(db_session, docente, sessao_rascunho):
+def test_vigentes_traz_so_ativas_em_ordem_de_criacao(
+    db_session, docente, sessao_rascunho
+):
     banco = criar_banco(db_session, sessao_rascunho, n_objetivas=1)
     primeira, segunda, terceira = _de_sessao(db_session, docente, sessao_rascunho, 3)
     desativar(db_session, docente, sessao_rascunho, segunda.id)
     pontual = _cruzada(db_session, docente, banco, 1, acumular=False)
 
-    assert [o.id for o in vigentes(db_session, sessao_rascunho)] == [primeira.id, terceira.id]
+    assert [o.id for o in vigentes(db_session, sessao_rascunho)] == [
+        primeira.id,
+        terceira.id,
+    ]
     assert [o.id for o in listar(db_session, sessao_rascunho)] == [
         primeira.id,
         segunda.id,

@@ -67,9 +67,7 @@ def test_banco_aberto_e_m3_com_lacunas_e_alerta(db_session, sessao_rascunho):
     banco = criar_banco(db_session, sessao_rascunho, n_objetivas=4)
     criar_questao_objetiva(db_session, banco, numero=1)
     criar_questao_objetiva(db_session, banco, numero=2)
-    criar_questao_objetiva(
-        db_session, banco, numero=3, estado=EstadoQuestao.EXCLUIDA
-    )
+    criar_questao_objetiva(db_session, banco, numero=3, estado=EstadoQuestao.EXCLUIDA)
     db_session.commit()
 
     marco = marco_do_banco(db_session, banco)

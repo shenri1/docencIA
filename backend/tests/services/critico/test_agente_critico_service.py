@@ -29,7 +29,11 @@ VIOLACAO = Violacao(
 
 
 def rascunho(k: int = 5, **sobrescritas):
-    return montar_schema_objetiva(k).model_validate(corpo_questao(k, **sobrescritas)).resultado
+    return (
+        montar_schema_objetiva(k)
+        .model_validate(corpo_questao(k, **sobrescritas))
+        .resultado
+    )
 
 
 def revisar(provedor, sessao, violacoes=(VIOLACAO,)):
@@ -98,9 +102,11 @@ def test_item_de_atribui_letra_por_posicao_e_correta_pela_letra():
 
 
 def rascunho_discursivo(**sobrescritas):
-    return montar_schema_discursiva().model_validate(
-        corpo_discursiva(**sobrescritas)
-    ).resultado
+    return (
+        montar_schema_discursiva()
+        .model_validate(corpo_discursiva(**sobrescritas))
+        .resultado
+    )
 
 
 def test_revisao_discursiva_usa_sistema_e_pedido_proprios(sessao_rascunho):

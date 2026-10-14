@@ -136,7 +136,9 @@ def test_termo_absoluto_viola_com_pontuacao_e_caixa():
 
 
 def test_termo_absoluto_no_enunciado_viola():
-    violacoes = validar_objetiva(objetiva(LIMPO, enunciado="O percurso sempre usa qual estrutura?"))
+    violacoes = validar_objetiva(
+        objetiva(LIMPO, enunciado="O percurso sempre usa qual estrutura?")
+    )
     assert regras(violacoes) == [RegraQualidade.TERMO_ABSOLUTO]
     assert violacoes[0].alvo == "enunciado"
 
@@ -147,9 +149,7 @@ def test_termo_absoluto_sustentado_pelo_trecho_base_nao_viola():
     textos = ["Sempre usa fila.", "Usa pilha.", "Usa heap.", "Usa lista."]
     trechos = ("A busca em largura sempre usa uma fila.",)
     assert (
-        validar_objetiva(
-            objetiva(textos, correta="B", gemeos=("C",), trechos=trechos)
-        )
+        validar_objetiva(objetiva(textos, correta="B", gemeos=("C",), trechos=trechos))
         == []
     )
 
@@ -179,7 +179,7 @@ def test_identificador_de_material_enviado_viola():
 
 
 def test_termo_de_conteudo_parecido_com_identificador_nao_viola():
-    """"cache L2" é conteúdo de computação. Só é violação se L2 for um material
+    """ "cache L2" é conteúdo de computação. Só é violação se L2 for um material
     enviado nesta chamada."""
     violacoes = validar_objetiva(
         objetiva(LIMPO, enunciado="Qual estrutura aproveita melhor a cache L2?")
@@ -284,7 +284,8 @@ def test_discursiva_limpa_nao_tem_violacao():
 
 
 @pytest.mark.parametrize(
-    "enunciado", ["EXPLIQUE, com suas palavras, a busca.", "Compare: largura e profundidade."]
+    "enunciado",
+    ["EXPLIQUE, com suas palavras, a busca.", "Compare: largura e profundidade."],
 )
 def test_comando_com_pontuacao_e_caixa_casa(enunciado):
     assert validar_discursiva(discursiva(enunciado=enunciado)) == []
@@ -496,7 +497,12 @@ def test_frase_incompleta_com_alternativa_maiuscula_viola_pontuacao():
 
 
 @pytest.mark.parametrize(
-    "inicio", ["TCP como transporte da fila.", "12 vértices na fila agora.", r"\(n\) vértices na fila."]
+    "inicio",
+    [
+        "TCP como transporte da fila.",
+        "12 vértices na fila agora.",
+        r"\(n\) vértices na fila.",
+    ],
 )
 def test_sigla_numero_e_formula_nao_contam_para_pontuacao(inicio):
     textos = [inicio, *(t.lower() for t in PROPOSICOES[1:])]
@@ -529,9 +535,10 @@ def test_afirmativas_mede_comando_negativo_e_assercao_nao():
     assert regras_de(
         com_comando(comando=negativo, formato=FormatoItem.AFIRMATIVAS)
     ) == [RegraQualidade.COMANDO_NEGATIVO]
-    assert regras_de(
-        com_comando(comando=negativo, formato=FormatoItem.ASSERCAO_RAZAO)
-    ) == []
+    assert (
+        regras_de(com_comando(comando=negativo, formato=FormatoItem.ASSERCAO_RAZAO))
+        == []
+    )
 
 
 def test_termo_absoluto_em_formato_montado_so_no_enunciado():
@@ -553,7 +560,10 @@ def test_assercao_que_copia_o_trecho_viola():
 def test_assercao_com_redacao_propria_nao_viola():
     item = com_comando(
         formato=FormatoItem.ASSERCAO_RAZAO,
-        assercoes=["Os vértices descobertos esperam numa fila.", "A ordem é de chegada."],
+        assercoes=[
+            "Os vértices descobertos esperam numa fila.",
+            "A ordem é de chegada.",
+        ],
     )
     assert regras_de(item) == []
 
@@ -606,3 +616,110 @@ def test_contexto_curto_na_discursiva():
         contexto=CONTEXTO_15,
     )
     assert regras(validar_discursiva(item)) == [RegraQualidade.CONTEXTO_CURTO]
+
+
+# --- NOTACAO_INVALIDA ---
+
+
+def _notacao(violacoes):
+    return [v for v in violacoes if v.regra is RegraQualidade.NOTACAO_INVALIDA]
+
+
+@pytest.mark.parametrize(
+    ("texto", "trecho"),
+    [
+        (r"Seja \(x^2 sem fechar.", "delimitador"),
+        (r"Seja \(\color{red}{x}\).", r"\color"),
+        (r"Seja \(x^\).", "conversor"),
+        ("Seja \\(a\nb\\).", "quebra de linha"),
+    ],
+)
+def test_notacao_invalida_no_enunciado(texto, trecho):
+    achadas = _notacao(validar_objetiva(item_com(enunciado=texto)))
+    assert len(achadas) == 1
+    assert achadas[0].alvo == "enunciado"
+    assert trecho in achadas[0].detalhe
+
+
+@pytest.mark.parametrize("barra_perdida", ["\frac", "\times", "\beta", "\neq"])
+def test_barra_sem_escape_vira_violacao(barra_perdida):
+    # No JSON, "\frac" sem a barra dobrada chega como U+000C + "rac".
+    achadas = _notacao(
+        validar_objetiva(
+            item_com(enunciado=f"Calcule \\({barra_perdida}{{a}}{{b}}\\).")
+        )
+    )
+    assert len(achadas) >= 1
+    assert any(
+        "controle" in v.detalhe or "quebra de linha" in v.detalhe for v in achadas
+    )
+
+
+def test_barra_sem_escape_fora_de_formula_tambem_e_pega():
+    achadas = _notacao(validar_objetiva(item_com(enunciado="Calcule \frac{a}{b}.")))
+    assert len(achadas) == 1
+    assert "controle" in achadas[0].detalhe
+
+
+def test_quebra_de_linha_fora_de_formula_e_legitima():
+    assert (
+        _notacao(validar_objetiva(item_com(enunciado="Linha um.\nLinha dois."))) == []
+    )
+
+
+def test_texto_sem_formula_nao_gera_violacao():
+    assert _notacao(validar_objetiva(item_com(enunciado="O custo é R$ 50,00."))) == []
+
+
+def test_formula_valida_nao_gera_violacao():
+    texto = r"Seja \(\frac{a}{b}\) e \[\sum_{i=1}^{n} i\]."
+    assert _notacao(validar_objetiva(item_com(enunciado=texto))) == []
+
+
+def test_notacao_vale_para_alternativa_justificativa_e_invalidacao():
+    base = objetiva(LIMPO)
+    alternativas = [
+        replace(base.alternativas[0], texto=r"Vale \(\color{red}{a}\) sempre assim."),
+        *base.alternativas[1:],
+    ]
+    item = replace(
+        base,
+        alternativas=alternativas,
+        justificativa_correta=r"Porque \(\href{x}{y}\).",
+        texto_verificacao_unicidade=r"Só A \(x^\) serve.",
+        invalidacoes=[("B", r"Erra em \(x^\).")],
+    )
+    alvos = {v.alvo for v in _notacao(validar_objetiva(item))}
+    assert {"A", "justificativa", "verificacao", "invalidacao B"} <= alvos
+
+
+def test_alternativa_so_formula_nao_e_rotulo():
+    formulas = [rf"\(\frac{{1}}{{{n}}}\)" for n in range(2, 7)]
+    item = com_comando(textos=formulas, comando="Qual o valor?")
+    assert [
+        v
+        for v in validar_objetiva(item)
+        if v.regra is RegraQualidade.ALTERNATIVA_ROTULO
+    ] == []
+
+
+def test_discursiva_mede_notacao_em_aspecto_e_comando():
+    item = ItemDiscursivo(
+        enunciado="Calcule.",
+        aspectos=[AspectoAvaliavel(texto=r"Usa \(\color{red}{a}\).", trecho_base="t")],
+        identificadores_fonte=["P1"],
+        comandos=[("item a", r"Calcule \(\color{red}{x}\).")],
+    )
+    alvos = {v.alvo for v in _notacao(validar_discursiva(item))}
+    assert {"item a", "aspecto 1"} <= alvos
+
+
+def test_discursiva_contexto_dentro_do_enunciado_nao_duplica():
+    contexto = r"Seja \(\color{red}{x}\) dado."
+    item = ItemDiscursivo(
+        enunciado=f"{contexto}\nExplique por que isso vale.",
+        aspectos=[AspectoAvaliavel(texto="ok", trecho_base="t")],
+        identificadores_fonte=["P1"],
+        contexto=contexto,
+    )
+    assert len(_notacao(validar_discursiva(item))) == 1

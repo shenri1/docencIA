@@ -104,8 +104,26 @@ def test_normalizar_e_idempotente():
 
 
 def test_conteudo_puro_traz_as_duas_provas_na_ordem():
-    a = prova("A", [objetiva(1, "Qual estrutura a BFS usa?", ["fila", "pilha", "vetor", "grafo", "árvore"])])
-    b = prova("B", [objetiva(1, "Qual estrutura a DFS usa?", ["pilha", "fila", "vetor", "grafo", "árvore"])])
+    a = prova(
+        "A",
+        [
+            objetiva(
+                1,
+                "Qual estrutura a BFS usa?",
+                ["fila", "pilha", "vetor", "grafo", "árvore"],
+            )
+        ],
+    )
+    b = prova(
+        "B",
+        [
+            objetiva(
+                1,
+                "Qual estrutura a DFS usa?",
+                ["pilha", "fila", "vetor", "grafo", "árvore"],
+            )
+        ],
+    )
     textos = paragrafos(renderizar_conteudo_puro(CABECALHO, a, b))
 
     juntos = "\n".join(textos)
@@ -118,8 +136,12 @@ def test_conteudo_puro_traz_as_duas_provas_na_ordem():
 def test_texto_persistido_sai_identico():
     """Fidelidade: sem strip, sem troca de aspas, com quebra de linha."""
     enunciado = '  Considere o grafo "G":\nqual percurso usa fila?  '
-    a = prova("A", [objetiva(1, enunciado, ["fila", "pilha", "vetor", "grafo", "árvore"])])
-    b = prova("B", [objetiva(1, "outra", ["fila", "pilha", "vetor", "grafo", "árvore"])])
+    a = prova(
+        "A", [objetiva(1, enunciado, ["fila", "pilha", "vetor", "grafo", "árvore"])]
+    )
+    b = prova(
+        "B", [objetiva(1, "outra", ["fila", "pilha", "vetor", "grafo", "árvore"])]
+    )
     textos = paragrafos(renderizar_conteudo_puro(CABECALHO, a, b))
     assert any(enunciado in t for t in textos)
 
@@ -325,13 +347,19 @@ def test_auditoria_com_achado():
 
 def test_metadados_e_reproduzivel():
     uma = renderizar_metadados(
-        CABECALHO, gabarito("A", [item_objetivo()]), gabarito("B", [item_objetivo()]),
-        VERIFICACAO, auditoria(),
+        CABECALHO,
+        gabarito("A", [item_objetivo()]),
+        gabarito("B", [item_objetivo()]),
+        VERIFICACAO,
+        auditoria(),
     )
     time.sleep(2.1)
     outra = renderizar_metadados(
-        CABECALHO, gabarito("A", [item_objetivo()]), gabarito("B", [item_objetivo()]),
-        VERIFICACAO, auditoria(),
+        CABECALHO,
+        gabarito("A", [item_objetivo()]),
+        gabarito("B", [item_objetivo()]),
+        VERIFICACAO,
+        auditoria(),
     )
     assert uma == outra
 
@@ -360,9 +388,11 @@ def test_gabarito_com_itens_agrupa_os_aspectos_por_item():
 
 def test_discursiva_sem_itens_nao_ganha_titulo_de_item():
     item = item_objetivo(
-        tipo=TipoQuestao.DISCURSIVA, letra=None,
+        tipo=TipoQuestao.DISCURSIVA,
+        letra=None,
         aspectos=[AspectoGabarito(1, "camadas", FONTE)],
-        justificativa_correta=None, invalidacoes=[],
+        justificativa_correta=None,
+        invalidacoes=[],
     )
     assert "Item a)" not in metadados([item])
 
@@ -371,7 +401,13 @@ def test_afirmativas_saem_em_linhas_separadas_no_conteudo_puro():
     """O python-docx converte `\\n` do run em quebra de linha: as afirmativas I–III
     saem uma por linha sem mudar o renderizador."""
     enunciado = "Avalie as afirmações a seguir.\n\nI. Primeira.\nII. Segunda."
-    alternativas = ["I, apenas.", "II, apenas.", "I e II.", "I, II e III.", "III, apenas."]
+    alternativas = [
+        "I, apenas.",
+        "II, apenas.",
+        "I e II.",
+        "I, II e III.",
+        "III, apenas.",
+    ]
     textos = paragrafos(
         renderizar_conteudo_puro(
             CABECALHO,
@@ -386,3 +422,87 @@ def test_auditoria_diz_quantas_nao_tem_verificacao_de_forma():
     resumo = dataclasses.replace(auditoria(auditadas=3), sem_verificacao_de_forma=2)
     juntos = "\n".join(metadados([item_objetivo()], auditoria_=resumo))
     assert "não se aplica a 2 questão(ões)" in juntos
+
+
+# --- fórmulas ---
+
+M = "{http://schemas.openxmlformats.org/officeDocument/2006/math}"
+W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+
+def _documento_xml(dados: bytes) -> str:
+    with zipfile.ZipFile(io.BytesIO(dados)) as z:
+        return z.read("word/document.xml").decode("utf-8")
+
+
+def _prova_com(*enunciados: str) -> bytes:
+    itens = [
+        objetiva(i, texto, ["a", "b", "c", "d", "e"])
+        for i, texto in enumerate(enunciados, 1)
+    ]
+    return renderizar_conteudo_puro(CABECALHO, prova("A", itens), prova("B", itens))
+
+
+def test_formula_em_linha_vira_equacao_nativa():
+    dados = _prova_com(r"Seja \(\frac{a}{b}\) o valor.")
+    xml = _documento_xml(dados)
+    assert "<m:f>" in xml
+    assert "\\(" not in xml
+    assert "1. Seja  o valor." in paragrafos(dados)
+
+
+def test_formula_em_destaque_tem_paragrafo_proprio():
+    dados = _prova_com("Antes.\n\\[x^2\\]\nDepois.")
+    corpo = docx.Document(io.BytesIO(dados)).element.body
+    com_equacao = [
+        p for p in corpo.iter(f"{W}p") if p.find(f"{M}oMathPara") is not None
+    ]
+    assert len(com_equacao) == 2  # prova A e prova B
+    assert all(p.find(f"{W}r") is None for p in com_equacao)
+    textos = paragrafos(dados)
+    assert "1. Antes.\n" in textos
+    assert "\nDepois." in textos
+
+
+def test_formula_que_o_conversor_recusa_sai_crua():
+    xml = _documento_xml(_prova_com(r"Veja \(x^\) aqui."))
+    assert r"\(x^\)" in xml
+    assert "<m:oMath" not in xml
+
+
+def test_formula_fora_da_tabela_sai_crua():
+    # O latex2mathml aceita `\frac{a}`, mas o mapeamento não tem como montar m:f.
+    xml = _documento_xml(_prova_com(r"Veja \(\frac{a}\) aqui."))
+    assert r"\(\frac{a}\)" in xml
+    assert "<m:oMath" not in xml
+
+
+def test_delimitador_sem_par_nao_engole_o_resto():
+    dados = _prova_com(r"Abre \(x^2 e segue o texto.")
+    assert r"1. Abre \(x^2 e segue o texto." in "".join(paragrafos(dados))
+
+
+def test_docx_com_formula_e_reproduzivel():
+    um = _prova_com(r"Seja \(\frac{a}{b}\) e \[\sum_{i=1}^{n} i\].")
+    dois = _prova_com(r"Seja \(\frac{a}{b}\) e \[\sum_{i=1}^{n} i\].")
+    assert hashlib.sha256(um).hexdigest() == hashlib.sha256(dois).hexdigest()
+
+
+def test_gabarito_interpreta_justificativa_mas_nao_o_trecho_base():
+    fonte = FonteGabarito("P1", "página 12", r"A fórmula \(x\) do material.")
+    item = item_objetivo(
+        fontes=[fonte],
+        justificativa_correta=r"Porque \(\frac{1}{2}\) vale.",
+        invalidacoes=[InvalidacaoGabarito("A", r"Erra em \(x^2\).")],
+    )
+    xml = _documento_xml(
+        renderizar_metadados(
+            CABECALHO,
+            gabarito("A", [item]),
+            gabarito("B", [item_objetivo()]),
+            VERIFICACAO,
+            auditoria(),
+        )
+    )
+    assert "<m:f>" in xml and "<m:sSup>" in xml
+    assert r"A fórmula \(x\) do material." in xml

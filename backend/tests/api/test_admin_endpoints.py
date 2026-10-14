@@ -52,7 +52,12 @@ def test_logs_filtra_por_tipo_e_ordena_do_mais_novo(client, db_session):
     assert [r["tipo_evento"] for r in corpo] == ["exclusao", "exclusao"]
     assert corpo[0]["id"] > corpo[1]["id"]
     assert set(corpo[0]) == {
-        "id", "tipo_evento", "entidade_afetada", "ator", "payload", "timestamp",
+        "id",
+        "tipo_evento",
+        "entidade_afetada",
+        "ator",
+        "payload",
+        "timestamp",
     }
 
 
@@ -60,7 +65,10 @@ def test_logs_filtra_por_intervalo(client, db_session):
     headers, docente = admin(client, db_session, "adm-intervalo")
     semear(db_session, docente.id)
     futuro = (datetime.now(UTC) + timedelta(days=1)).isoformat()
-    assert client.get("/admin/logs", headers=headers, params={"desde": futuro}).json() == []
+    assert (
+        client.get("/admin/logs", headers=headers, params={"desde": futuro}).json()
+        == []
+    )
     todos = client.get("/admin/logs", headers=headers, params={"ate": futuro}).json()
     assert len([r for r in todos if r["entidade_afetada"] == "bancos_questoes:1"]) == 3
 
@@ -73,7 +81,8 @@ def test_logs_pagina(client, db_session):
         "/admin/logs", headers=headers, params={**params, "limite": 1}
     ).json()
     segunda = client.get(
-        "/admin/logs", headers=headers,
+        "/admin/logs",
+        headers=headers,
         params={**params, "limite": 1, "deslocamento": 1},
     ).json()
     assert len(primeira) == len(segunda) == 1

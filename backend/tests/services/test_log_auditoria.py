@@ -60,7 +60,12 @@ def test_auditoria_grava_o_pseudonimo_e_nao_a_credencial(
     db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
 ):
     auditar_um(
-        db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+        db_session,
+        docente,
+        armazenamento,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
     )
     [registro] = eventos(db_session, TipoEventoAuditoria.AUDITORIA_QUESTAO)
     assert registro.ator == pseudonimo(docente.id)
@@ -108,8 +113,14 @@ def test_questao_gerada(
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
     gerar_banco(
-        db_session, embeddings_fake, reranker_fake, ProvedorLLMFake(roteiro(2)),
-        sessao_rascunho, n_objetivas=2, n_discursivas=0, versao="v1",
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake(roteiro(2)),
+        sessao_rascunho,
+        n_objetivas=2,
+        n_discursivas=0,
+        versao="v1",
     )
     registros = eventos(db_session, E.QUESTAO_GERADA)
     assert len(registros) == 2
@@ -149,14 +160,25 @@ def test_substituicao_aceita_e_rejeitada(
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
     resumo = gerar_banco(
-        db_session, embeddings_fake, reranker_fake, ProvedorLLMFake(roteiro(2)),
-        sessao_rascunho, n_objetivas=2, n_discursivas=0, versao="v1",
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake(roteiro(2)),
+        sessao_rascunho,
+        n_objetivas=2,
+        n_discursivas=0,
+        versao="v1",
     )
     banco = db_session.get(BancoQuestoes, resumo.banco_id)
     for numero in (1, 2):
         propor_substituicao(
-            db_session, embeddings_fake, reranker_fake, ProvedorLLMFake(roteiro_variacao(1)),
-            docente, banco, numero,
+            db_session,
+            embeddings_fake,
+            reranker_fake,
+            ProvedorLLMFake(roteiro_variacao(1)),
+            docente,
+            banco,
+            numero,
         )
     aceitar_substituicao(db_session, docente, banco, 1, banco.revisao)
     rejeitar_substituicao(db_session, docente, banco, 2)
@@ -164,13 +186,17 @@ def test_substituicao_aceita_e_rejeitada(
     [aceita] = eventos(db_session, E.SUBSTITUICAO_ACEITA)
     assert aceita.payload["numero"] == 1
     assert set(aceita.payload) == {
-        "numero", "questao_original_id", "candidata_id", "revisao",
+        "numero",
+        "questao_original_id",
+        "candidata_id",
+        "revisao",
     }
     [rejeitada] = eventos(db_session, E.SUBSTITUICAO_REJEITADA)
     assert set(rejeitada.payload) == {"numero", "questao_original_id", "candidata_id"}
     # As candidatas também passam por _persistir.
     candidatas = [
-        r for r in eventos(db_session, E.QUESTAO_GERADA)
+        r
+        for r in eventos(db_session, E.QUESTAO_GERADA)
         if r.payload["estado"] == EstadoQuestao.CANDIDATA.value
     ]
     assert len(candidatas) == 2

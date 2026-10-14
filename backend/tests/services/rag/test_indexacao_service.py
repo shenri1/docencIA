@@ -210,9 +210,13 @@ def test_indexar_e_confirmar_pega_material_que_escorregou_no_meio(
     from backend.app.services.rag import indexacao_service
     from backend.app.services.rag.indexacao_service import indexar_e_confirmar
 
-    criar_material(db_session, armazenamento, sessao_rascunho, "P1", [
-        ("página 1", "primeiro material " * 30)
-    ])
+    criar_material(
+        db_session,
+        armazenamento,
+        sessao_rascunho,
+        "P1",
+        [("página 1", "primeiro material " * 30)],
+    )
 
     inserido = {"feito": False}
     real_indexar = indexacao_service.indexar_sessao
@@ -222,9 +226,9 @@ def test_indexar_e_confirmar_pega_material_que_escorregou_no_meio(
         if not inserido["feito"]:
             inserido["feito"] = True
             outra = sessionmaker(bind=db.get_bind())()
-            criar_material(outra, arm, sessao, "P2", [
-                ("página 1", "segundo material " * 30)
-            ])
+            criar_material(
+                outra, arm, sessao, "P2", [("página 1", "segundo material " * 30)]
+            )
             outra.close()
 
     monkeypatch.setattr(

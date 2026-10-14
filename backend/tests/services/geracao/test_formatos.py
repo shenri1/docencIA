@@ -153,9 +153,11 @@ V, X = True, False
 
 
 def _afirmativas(cfg, k=5, numero=1):
-    saida = montar_schema(TipoQuestao.OBJETIVA, k, A, cfg).model_validate(
-        corpo_afirmativas(cfg)
-    ).resultado
+    saida = (
+        montar_schema(TipoQuestao.OBJETIVA, k, A, cfg)
+        .model_validate(corpo_afirmativas(cfg))
+        .resultado
+    )
     return montar_afirmativas(saida, cfg, k, numero)
 
 
@@ -198,9 +200,10 @@ def test_afirmativas_com_k_11_usa_quatro_afirmativas():
 
 
 def test_afirmativas_posicao_reprodutivel_pela_semente():
-    assert _afirmativas((V, X, V), numero=7).letra_correta == _afirmativas(
-        (V, X, V), numero=7
-    ).letra_correta
+    assert (
+        _afirmativas((V, X, V), numero=7).letra_correta
+        == _afirmativas((V, X, V), numero=7).letra_correta
+    )
 
 
 def test_afirmativas_uma_invalidacao_por_distrator():
@@ -213,23 +216,29 @@ def test_afirmativas_uma_invalidacao_por_distrator():
 
 @pytest.mark.parametrize("cfg", list(TEXTO_ASSERCAO))
 def test_assercao_correta_para_cada_configuracao(cfg):
-    saida = montar_schema(TipoQuestao.OBJETIVA, 5, R, cfg).model_validate(
-        corpo_assercao()
-    ).resultado
+    saida = (
+        montar_schema(TipoQuestao.OBJETIVA, 5, R, cfg)
+        .model_validate(corpo_assercao())
+        .resultado
+    )
     montada = montar_assercao_razao(saida, cfg, 3)
     textos = [a.texto for a in montada.alternativas]
     assert sorted(textos) == sorted(TEXTO_ASSERCAO.values())
     assert textos["ABCDE".index(montada.letra_correta)] == TEXTO_ASSERCAO[cfg]
     assert "\n\nPORQUE\n\n" in montada.enunciado
-    assert montada.enunciado.endswith("A respeito dessas asserções, assinale a opção correta.")
+    assert montada.enunciado.endswith(
+        "A respeito dessas asserções, assinale a opção correta."
+    )
     assert montada.assercoes == [saida.assercao, saida.razao]
     assert montada.estrutura_formato["configuracao"] == cfg
 
 
 def test_discursiva_com_itens_monta_letras_e_item_dos_aspectos():
-    saida = montar_schema(TipoQuestao.DISCURSIVA, 5, n_itens=2).model_validate(
-        corpo_discursiva_itens(2)
-    ).resultado
+    saida = (
+        montar_schema(TipoQuestao.DISCURSIVA, 5, n_itens=2)
+        .model_validate(corpo_discursiva_itens(2))
+        .resultado
+    )
     montada = montar_discursiva(saida)
     assert montada.n_itens == 2
     assert ABERTURA_ITENS in montada.enunciado

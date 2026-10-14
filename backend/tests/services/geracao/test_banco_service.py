@@ -187,7 +187,9 @@ def test_questao_persiste_com_alternativas_fontes_e_justificativa(
     )
     assert db_session.query(FonteInterna).filter_by(questao_id=questao.id).count() >= 1
     justificativa = (
-        db_session.query(JustificativaEstruturada).filter_by(questao_id=questao.id).one()
+        db_session.query(JustificativaEstruturada)
+        .filter_by(questao_id=questao.id)
+        .one()
     )
     assert len(justificativa.invalidacao_distratores) == 4
 
@@ -287,14 +289,26 @@ def test_retomada_nao_regenera_o_que_ja_existe(
     interrompido = ProvedorLLMFake(completo[:4] + [RuntimeError("queda do Ollama")])
     with pytest.raises(RuntimeError):
         gerar_banco(
-            db_session, embeddings_fake, reranker_fake, interrompido,
-            sessao_rascunho, n_objetivas=4, n_discursivas=0, versao="v1",
+            db_session,
+            embeddings_fake,
+            reranker_fake,
+            interrompido,
+            sessao_rascunho,
+            n_objetivas=4,
+            n_discursivas=0,
+            versao="v1",
         )
 
     segundo = ProvedorLLMFake(completo[4:])
     resumo = gerar_banco(
-        db_session, embeddings_fake, reranker_fake, segundo,
-        sessao_rascunho, n_objetivas=4, n_discursivas=0, versao="v1",
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        segundo,
+        sessao_rascunho,
+        n_objetivas=4,
+        n_discursivas=0,
+        versao="v1",
     )
 
     assert resumo.ja_existentes == 2
@@ -398,8 +412,14 @@ COM_LONGA = [CURTAS[0], CURTAS[1], LONGA, CURTAS[3], CURTAS[4]]
 
 def gerar(db, emb, rer, sessao, provedor, n_alvo=1, n_discursivas=0):
     return gerar_banco(
-        db, emb, rer, provedor, sessao,
-        n_objetivas=n_alvo, n_discursivas=n_discursivas, versao="v1",
+        db,
+        emb,
+        rer,
+        provedor,
+        sessao,
+        n_objetivas=n_alvo,
+        n_discursivas=n_discursivas,
+        versao="v1",
     )
 
 
@@ -426,7 +446,9 @@ def test_revisao_persistida_com_rascunho_e_violacoes(
         alternativas=alternativas(COM_LONGA),
     )
     provedor = ProvedorLLMFake([rascunho, corpo_questao(5, contexto=CONTEXTO_MEDIA)])
-    resumo = gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
+    resumo = gerar(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor
+    )
 
     questao = db_session.query(Questao).filter_by(banco_id=resumo.banco_id).one()
     revisao = db_session.query(RevisaoQuestao).filter_by(questao_id=questao.id).one()
@@ -489,7 +511,9 @@ def test_fonte_persistida_vem_da_revisao_mesmo_com_rascunho_invalido(
         ],
     )
     provedor = ProvedorLLMFake([corpo_questao(5, identificador="P9"), revisada])
-    resumo = gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
+    resumo = gerar(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor
+    )
 
     questao = db_session.query(Questao).filter_by(banco_id=resumo.banco_id).one()
     fonte = db_session.query(FonteInterna).filter_by(questao_id=questao.id).one()
@@ -502,7 +526,9 @@ def test_fonte_inventada_na_revisao_vira_improdutiva_sem_persistir(
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
     provedor = ProvedorLLMFake([corpo_questao(5), corpo_questao(5, identificador="P9")])
-    resumo = gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
+    resumo = gerar(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor
+    )
     assert resumo.geradas == 0
     assert [i.numero for i in resumo.improdutivas] == [1]
     assert "P9" in resumo.improdutivas[0].motivo
@@ -536,8 +562,13 @@ def test_retomada_tenta_so_as_lacunas_da_falha(
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
     gerar(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
-        ProvedorLLMFake([*roteiro(1), RespostaLLMInvalidaException("cortada"), *roteiro(1)]),
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake(
+            [*roteiro(1), RespostaLLMInvalidaException("cortada"), *roteiro(1)]
+        ),
         n_alvo=3,
     )
     provedor = ProvedorLLMFake(roteiro(1))
@@ -564,7 +595,9 @@ def test_insuficiencia_declarada_pelo_critico_vira_improdutiva(
     provedor = ProvedorLLMFake(
         [corpo_questao(5), corpo_insuficiencia("o trecho não define o critério")]
     )
-    resumo = gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
+    resumo = gerar(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor
+    )
     assert resumo.geradas == 0
     assert resumo.improdutivas[0].motivo == "revisão: o trecho não define o critério"
     assert db_session.query(Questao).count() == 0
@@ -582,14 +615,23 @@ def test_ancora_recusada_pelo_critico_e_tentada_de_novo_na_retomada(
         ProvedorLLMFake([corpo_questao(5), corpo_insuficiencia()]),
     )
     resumo = gerar(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho, ProvedorLLMFake(roteiro(1))
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake(roteiro(1)),
     )
     assert resumo.ja_existentes == 0
     assert resumo.geradas == 1
 
 
 def test_prompt_do_critico_editado_sem_versao_bloqueia_antes_do_modelo(
-    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho, monkeypatch
+    db_session,
+    armazenamento,
+    embeddings_fake,
+    reranker_fake,
+    sessao_rascunho,
+    monkeypatch,
 ):
     from backend.app.prompt import montagem
     from backend.app.services import prompt_mestre_service
@@ -613,7 +655,13 @@ def test_bloom_da_objetiva_e_persistido_como_enum(
     db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
-    gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, ProvedorLLMFake(roteiro(1)))
+    gerar(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake(roteiro(1)),
+    )
     db_session.expire_all()
     assert db_session.query(Questao).one().nivel_bloom is NivelBloom.APLICAR
 
@@ -624,8 +672,14 @@ def roteiro_misto(n_obj: int, n_disc: int) -> list[dict]:
 
 def gerar_misto(db, emb, rer, sessao, provedor, n_obj, n_disc):
     return gerar_banco(
-        db, emb, rer, provedor, sessao,
-        n_objetivas=n_obj, n_discursivas=n_disc, versao="v1",
+        db,
+        emb,
+        rer,
+        provedor,
+        sessao,
+        n_objetivas=n_obj,
+        n_discursivas=n_disc,
+        versao="v1",
     )
 
 
@@ -636,8 +690,13 @@ def test_banco_misto_distribui_cada_tipo_e_numera_objetivas_primeiro(
     # 30/40/30: 10 objetivas -> 3/4/3; 5 discursivas -> 1/2/2 (maior resto,
     # desempate por dificuldade — calcular_distribuicao(5, 30, 40, 30)).
     resumo = gerar_misto(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
-        ProvedorLLMFake(roteiro_misto(10, 5)), 10, 5,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake(roteiro_misto(10, 5)),
+        10,
+        5,
     )
     questoes = (
         db_session.query(Questao)
@@ -669,8 +728,13 @@ def test_discursiva_persiste_aspectos_com_fonte_deduplicada(
     """Review Focus 1: os dois aspectos do duplo citam a mesma fonte."""
     preparar(db_session, armazenamento, sessao_rascunho)
     resumo = gerar_misto(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
-        ProvedorLLMFake(roteiro_misto(0, 1)), 0, 1,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake(roteiro_misto(0, 1)),
+        0,
+        1,
     )
     questao = db_session.query(Questao).filter_by(banco_id=resumo.banco_id).one()
     assert questao.tipo is TipoQuestao.DISCURSIVA
@@ -689,7 +753,9 @@ def test_discursiva_persiste_aspectos_com_fonte_deduplicada(
     assert {a.fonte_interna_id for a in aspectos} == {fontes[0].id}
 
     justificativa = (
-        db_session.query(JustificativaEstruturada).filter_by(questao_id=questao.id).one()
+        db_session.query(JustificativaEstruturada)
+        .filter_by(questao_id=questao.id)
+        .one()
     )
     assert justificativa.objetivo_cognitivo == "explicar a estrutura auxiliar da busca"
     assert justificativa.justificativa_correta is None
@@ -702,8 +768,13 @@ def test_discursiva_pode_ser_criar(
     preparar(db_session, armazenamento, sessao_rascunho)
     criar = corpo_discursiva(nivel_bloom="criar")
     gerar_misto(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
-        ProvedorLLMFake([criar, criar]), 0, 1,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake([criar, criar]),
+        0,
+        1,
     )
     assert db_session.query(Questao).one().nivel_bloom is NivelBloom.CRIAR
 
@@ -712,7 +783,9 @@ def test_aspecto_com_fonte_inventada_vira_improdutiva(
     db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
-    provedor = ProvedorLLMFake([corpo_discursiva(), corpo_discursiva(identificador="P9")])
+    provedor = ProvedorLLMFake(
+        [corpo_discursiva(), corpo_discursiva(identificador="P9")]
+    )
     resumo = gerar_misto(
         db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor, 0, 1
     )
@@ -744,8 +817,13 @@ def test_so_discursivas_comeca_em_q1(
     """Review Focus 3: nenhum calcular_distribuicao(0, ...)."""
     preparar(db_session, armazenamento, sessao_rascunho)
     resumo = gerar_misto(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
-        ProvedorLLMFake(roteiro_misto(0, 3)), 0, 3,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake(roteiro_misto(0, 3)),
+        0,
+        3,
     )
     assert resumo.geradas_por_tipo == {
         TipoQuestao.OBJETIVA: 0,
@@ -760,8 +838,13 @@ def test_retomada_com_contagens_diferentes_e_409_sem_chamar_o_modelo(
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
     gerar_misto(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
-        ProvedorLLMFake(roteiro_misto(1, 1)), 1, 1,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake(roteiro_misto(1, 1)),
+        1,
+        1,
     )
     provedor = ProvedorLLMFake(roteiro_misto(2, 0))
     with pytest.raises(ParametrosBancoDivergentesException):
@@ -779,14 +862,23 @@ def test_banco_anterior_a_10c_e_retomado_como_so_objetivas(
     preparar(db_session, armazenamento, sessao_rascunho)
     db_session.add(
         BancoQuestoes(
-            sessao_id=sessao_rascunho.id, versao="v1", n_alvo=2,
-            n_alvo_objetivas=2, n_alvo_discursivas=0, n_atual=0,
+            sessao_id=sessao_rascunho.id,
+            versao="v1",
+            n_alvo=2,
+            n_alvo_objetivas=2,
+            n_alvo_discursivas=0,
+            n_atual=0,
         )
     )
     db_session.commit()
     resumo = gerar_misto(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
-        ProvedorLLMFake(roteiro(2)), 2, 0,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake(roteiro(2)),
+        2,
+        0,
     )
     assert resumo.geradas == 2
 
@@ -796,8 +888,12 @@ def test_gerar_banco_move_a_sessao_para_banco_gerado(
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
     gerar(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
-        ProvedorLLMFake(roteiro(3)), n_alvo=3,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake(roteiro(3)),
+        n_alvo=3,
     )
     assert sessao_rascunho.estado is EstadoSessao.BANCO_GERADO
 
@@ -809,13 +905,21 @@ def test_retomada_continua_funcionando_com_a_sessao_em_banco_gerado(
     não bloqueia a retomada."""
     preparar(db_session, armazenamento, sessao_rascunho)
     gerar(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
-        ProvedorLLMFake(roteiro(1) + [corpo_insuficiencia()]), n_alvo=2,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake(roteiro(1) + [corpo_insuficiencia()]),
+        n_alvo=2,
     )
     assert sessao_rascunho.estado is EstadoSessao.BANCO_GERADO
     resumo = gerar(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
-        ProvedorLLMFake(roteiro(1)), n_alvo=2,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake(roteiro(1)),
+        n_alvo=2,
     )
     assert resumo.geradas == 1
     assert resumo.ja_existentes == 1
@@ -827,8 +931,12 @@ def test_banco_nao_muda_de_estado_de_sessao_quando_nada_e_gerado(
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
     gerar(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
-        ProvedorLLMFake([corpo_insuficiencia()]), n_alvo=1,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake([corpo_insuficiencia()]),
+        n_alvo=1,
     )
     assert sessao_rascunho.estado is EstadoSessao.MATERIAIS_CONFIRMADOS
 
@@ -934,9 +1042,14 @@ def test_colisao_de_numero_com_outra_requisicao_responde_409_e_deixa_a_sessao_us
 
     with pytest.raises(GeracaoEmAndamentoException) as erro:
         gerar_banco(
-            db_session, embeddings_fake, reranker_fake,
+            db_session,
+            embeddings_fake,
+            reranker_fake,
             ProvedorQueColide(roteiro(1)),
-            sessao_rascunho, n_objetivas=1, n_discursivas=0, versao="v1",
+            sessao_rascunho,
+            n_objetivas=1,
+            n_discursivas=0,
+            versao="v1",
         )
 
     assert erro.value.status_code == 409
@@ -980,8 +1093,16 @@ def test_criacao_concorrente_do_banco_reaproveita_o_que_a_outra_criou(
 
 def gerar_lote(db, emb, rer, sessao, provedor, apos=0, limite=None, n=4):
     return gerar_banco(
-        db, emb, rer, provedor, sessao,
-        n_objetivas=n, n_discursivas=0, versao="v1", apos=apos, limite=limite,
+        db,
+        emb,
+        rer,
+        provedor,
+        sessao,
+        n_objetivas=n,
+        n_discursivas=0,
+        versao="v1",
+        apos=apos,
+        limite=limite,
     )
 
 
@@ -1021,7 +1142,10 @@ def test_sem_limite_tenta_todos_e_termina_em_zero(
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
     r = gerar_lote(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
         ProvedorLLMFake(roteiro_misto(4, 0)),
     )
     assert (r.geradas, r.ultimo_numero, r.restantes) == (4, 4, 0)
@@ -1050,8 +1174,12 @@ def test_retomada_com_apos_zero_retenta_so_as_lacunas(
     gerar_lote(
         *args,
         ProvedorLLMFake(
-            [*roteiro_do_item(plano[0]), corpo_insuficiencia(),
-             *roteiro_do_item(plano[2]), *roteiro_do_item(plano[3])]
+            [
+                *roteiro_do_item(plano[0]),
+                corpo_insuficiencia(),
+                *roteiro_do_item(plano[2]),
+                *roteiro_do_item(plano[3]),
+            ]
         ),
     )
 
@@ -1091,9 +1219,15 @@ def test_n_atual_nao_perde_incremento_de_outra_geracao(
             return super().gerar(sessao_id, requisicao)
 
     gerar_banco(
-        db_session, embeddings_fake, reranker_fake,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
         ProvedorComOutraGeracao(roteiro(1)),
-        sessao_rascunho, n_objetivas=2, n_discursivas=0, versao="v1", limite=1,
+        sessao_rascunho,
+        n_objetivas=2,
+        n_discursivas=0,
+        versao="v1",
+        limite=1,
     )
 
     db_session.expire_all()
@@ -1119,7 +1253,9 @@ def test_plano_atribui_formato_por_faixa_e_e_estavel(sessao_rascunho):
         ("dificil", FormatoItem.ASSERCAO_RAZAO),
     ]
     assert plano == _montar_plano(sessao_rascunho, 10, 0)
-    afirmativas = [i.configuracao for i in plano if i.formato is FormatoItem.AFIRMATIVAS]
+    afirmativas = [
+        i.configuracao for i in plano if i.formato is FormatoItem.AFIRMATIVAS
+    ]
     assert len(set(afirmativas)) == 3  # o rodízio corre entre faixas
 
 
@@ -1140,8 +1276,18 @@ def _gerar_um(db, emb, rer, sessao, item, roteiro_):
     ancora = selecionar_ancoras(db, sessao, 10)[0]
     provedor = ProvedorLLMFake(roteiro_)
     return provedor, produzir_questao(
-        db, emb, rer, provedor, sessao, banco, 1, TipoQuestao.OBJETIVA,
-        item["faixa"], ancora, item["distribuicao"], formato=item["formato"],
+        db,
+        emb,
+        rer,
+        provedor,
+        sessao,
+        banco,
+        1,
+        TipoQuestao.OBJETIVA,
+        item["faixa"],
+        ancora,
+        item["distribuicao"],
+        formato=item["formato"],
         configuracao=item["configuracao"],
     )
 
@@ -1152,23 +1298,37 @@ def test_afirmativas_persistem_formato_estrutura_e_correta_montada(
     preparar(db_session, armazenamento, sessao_rascunho)
     cfg = (True, False, True)
     plano = _montar_plano(sessao_rascunho, 10, 0)
-    item = {"faixa": plano[4].faixa, "distribuicao": plano[4].distribuicao,
-            "formato": FormatoItem.AFIRMATIVAS, "configuracao": cfg}
+    item = {
+        "faixa": plano[4].faixa,
+        "distribuicao": plano[4].distribuicao,
+        "formato": FormatoItem.AFIRMATIVAS,
+        "configuracao": cfg,
+    }
     provedor, produzida = _gerar_um(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho, item,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        item,
         [corpo_afirmativas(cfg), corpo_afirmativas(cfg)],
     )
     questao = produzida.questao
     assert questao.formato is FormatoItem.AFIRMATIVAS
     correta = next(a for a in questao.alternativas if a.correta)
     assert correta.texto == "I e III, apenas."
-    assert questao.justificativa.estrutura_formato["afirmativas"][1]["verdadeira"] is False
+    assert (
+        questao.justificativa.estrutura_formato["afirmativas"][1]["verdadeira"] is False
+    )
     assert "<formato_afirmativas>" in provedor.requisicoes[0].sistema
     assert "a afirmativa II deve ser falsa" in provedor.requisicoes[0].usuario
 
 
 def test_insuficiencia_em_afirmativas_recua_para_proposicao_sem_nova_busca(
-    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho,
+    db_session,
+    armazenamento,
+    embeddings_fake,
+    reranker_fake,
+    sessao_rascunho,
     monkeypatch,
 ):
     from backend.app.services.geracao import busca_orientada
@@ -1183,12 +1343,23 @@ def test_insuficiencia_em_afirmativas_recua_para_proposicao_sem_nova_busca(
     monkeypatch.setattr(busca_orientada, "buscar", contar)
     preparar(db_session, armazenamento, sessao_rascunho)
     plano = _montar_plano(sessao_rascunho, 10, 0)
-    item = {"faixa": plano[4].faixa, "distribuicao": plano[4].distribuicao,
-            "formato": FormatoItem.AFIRMATIVAS, "configuracao": (True, False, True)}
+    item = {
+        "faixa": plano[4].faixa,
+        "distribuicao": plano[4].distribuicao,
+        "formato": FormatoItem.AFIRMATIVAS,
+        "configuracao": (True, False, True),
+    }
     provedor, produzida = _gerar_um(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho, item,
-        [corpo_insuficiencia(), corpo_questao(5, contexto=CONTEXTO_MEDIA),
-         corpo_questao(5, contexto=CONTEXTO_MEDIA)],
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        item,
+        [
+            corpo_insuficiencia(),
+            corpo_questao(5, contexto=CONTEXTO_MEDIA),
+            corpo_questao(5, contexto=CONTEXTO_MEDIA),
+        ],
     )
     assert produzida.questao.formato is FormatoItem.PROPOSICAO
     assert provedor.chamadas == 3
@@ -1202,10 +1373,18 @@ def test_insuficiencia_em_proposicao_nao_recua(
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
     plano = _montar_plano(sessao_rascunho, 10, 0)
-    item = {"faixa": plano[0].faixa, "distribuicao": plano[0].distribuicao,
-            "formato": FormatoItem.PROPOSICAO, "configuracao": None}
+    item = {
+        "faixa": plano[0].faixa,
+        "distribuicao": plano[0].distribuicao,
+        "formato": FormatoItem.PROPOSICAO,
+        "configuracao": None,
+    }
     provedor, produzida = _gerar_um(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho, item,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        item,
         [corpo_insuficiencia()],
     )
     assert isinstance(produzida, Improdutiva)
@@ -1218,10 +1397,18 @@ def test_insuficiencia_do_critico_em_formato_montado_vira_improdutiva(
     preparar(db_session, armazenamento, sessao_rascunho)
     cfg = (True, False, True)
     plano = _montar_plano(sessao_rascunho, 10, 0)
-    item = {"faixa": plano[4].faixa, "distribuicao": plano[4].distribuicao,
-            "formato": FormatoItem.AFIRMATIVAS, "configuracao": cfg}
+    item = {
+        "faixa": plano[4].faixa,
+        "distribuicao": plano[4].distribuicao,
+        "formato": FormatoItem.AFIRMATIVAS,
+        "configuracao": cfg,
+    }
     provedor, produzida = _gerar_um(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho, item,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        item,
         [corpo_afirmativas(cfg), corpo_insuficiencia()],
     )
     assert isinstance(produzida, Improdutiva)
@@ -1236,16 +1423,32 @@ def test_log_da_geracao_tem_formato_planejado_e_gravado(
 
     preparar(db_session, armazenamento, sessao_rascunho)
     plano = _montar_plano(sessao_rascunho, 10, 0)
-    item = {"faixa": plano[4].faixa, "distribuicao": plano[4].distribuicao,
-            "formato": FormatoItem.AFIRMATIVAS, "configuracao": (True, False, True)}
+    item = {
+        "faixa": plano[4].faixa,
+        "distribuicao": plano[4].distribuicao,
+        "formato": FormatoItem.AFIRMATIVAS,
+        "configuracao": (True, False, True),
+    }
     _gerar_um(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho, item,
-        [corpo_insuficiencia(), corpo_questao(5, contexto=CONTEXTO_MEDIA),
-         corpo_questao(5, contexto=CONTEXTO_MEDIA)],
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        item,
+        [
+            corpo_insuficiencia(),
+            corpo_questao(5, contexto=CONTEXTO_MEDIA),
+            corpo_questao(5, contexto=CONTEXTO_MEDIA),
+        ],
     )
-    payload = db_session.query(RegistroAuditoria).filter(
-        RegistroAuditoria.tipo_evento == TipoEventoAuditoria.QUESTAO_GERADA.value
-    ).one().payload
+    payload = (
+        db_session.query(RegistroAuditoria)
+        .filter(
+            RegistroAuditoria.tipo_evento == TipoEventoAuditoria.QUESTAO_GERADA.value
+        )
+        .one()
+        .payload
+    )
     assert payload["formato_planejado"] == "afirmativas"
     assert payload["formato"] == "proposicao"
 
@@ -1259,8 +1462,13 @@ def test_discursiva_dificil_persiste_aspectos_com_item(
         corpo_discursiva_itens(2, contexto=" ".join(["palavra"] * 40))
     ] * 2
     gerar_misto(
-        db_session, embeddings_fake, reranker_fake, sessao_rascunho,
-        ProvedorLLMFake(roteiro_), 0, 4,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake(roteiro_),
+        0,
+        4,
     )
     q4 = db_session.query(Questao).filter_by(numero=4).one()
     assert [(a.ordem, a.item) for a in q4.aspectos] == [(1, 1), (2, 2)]

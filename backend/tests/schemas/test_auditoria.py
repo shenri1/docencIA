@@ -105,9 +105,14 @@ def test_json_schema_fecha_alvo_e_localizacao_por_enum():
 def test_no_maximo_um_achado_por_alternativa_errada():
     schema = montar_schema_auditoria(5, LOCS)
     letras_erradas = ["B", "C", "D", "E"]
-    assert len(schema.model_validate(
-        {"achados": [_achado(alvo=letra) for letra in letras_erradas]}
-    ).achados) == 4
+    assert (
+        len(
+            schema.model_validate(
+                {"achados": [_achado(alvo=letra) for letra in letras_erradas]}
+            ).achados
+        )
+        == 4
+    )
     with pytest.raises(ValueError):
         schema.model_validate({"achados": [_achado() for _ in range(5)]})
 

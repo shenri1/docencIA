@@ -73,7 +73,12 @@ def banco_gerado(db, armazenamento, embeddings, reranker, sessao, n=3):
 
 def _propor(db, emb, rer, docente, banco, numero, roteiro_=None):
     return propor_substituicao(
-        db, emb, rer, ProvedorLLMFake(roteiro_ or roteiro_variacao(1)), docente, banco,
+        db,
+        emb,
+        rer,
+        ProvedorLLMFake(roteiro_ or roteiro_variacao(1)),
+        docente,
+        banco,
         numero,
     )
 
@@ -393,7 +398,12 @@ def test_duas_substituicoes_do_mesmo_numero(
     # Cada variação precisa diferir da questão que está no número naquele momento.
     for enunciado in (VARIACAO, "Por que a fila preserva a ordem de descoberta?"):
         _propor(
-            db_session, embeddings_fake, reranker_fake, docente, banco, 1,
+            db_session,
+            embeddings_fake,
+            reranker_fake,
+            docente,
+            banco,
+            1,
             roteiro_variacao(1, enunciado=enunciado),
         )
         aceitar_substituicao(db_session, docente, banco, 1, banco.revisao)
@@ -487,9 +497,14 @@ def test_variacao_que_reusa_o_cenario_nao_e_copia(
     preparar(db_session, armazenamento, sessao_rascunho)
     cenario = " ".join(["cenário"] * 40)
     resumo = gerar_banco(
-        db_session, embeddings_fake, reranker_fake,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
         ProvedorLLMFake([corpo_questao(5, contexto=cenario)] * 2),
-        sessao_rascunho, n_objetivas=1, n_discursivas=0, versao="v1",
+        sessao_rascunho,
+        n_objetivas=1,
+        n_discursivas=0,
+        versao="v1",
     )
     banco = db_session.get(BancoQuestoes, resumo.banco_id)
     outra = corpo_questao(5, contexto=cenario, enunciado=VARIACAO)
@@ -511,8 +526,14 @@ def _banco_com_afirmativas(db, armazenamento, emb, rer, sessao):
         if i.formato is FormatoItem.AFIRMATIVAS
     )
     resumo = gerar_banco(
-        db, emb, rer, ProvedorLLMFake(roteiro_do_plano(sessao, 4)), sessao,
-        n_objetivas=4, n_discursivas=0, versao="v1",
+        db,
+        emb,
+        rer,
+        ProvedorLLMFake(roteiro_do_plano(sessao, 4)),
+        sessao,
+        n_objetivas=4,
+        n_discursivas=0,
+        versao="v1",
     )
     return db.get(BancoQuestoes, resumo.banco_id), numero, cfg
 
@@ -523,8 +544,11 @@ def test_substituicao_mantem_formato_e_configuracao(
     banco, numero, cfg = _banco_com_afirmativas(
         db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
     )
-    outras = ("A fila guarda os descobertos.", "A pilha guarda os descobertos.",
-              "A visita segue camadas de distância.")
+    outras = (
+        "A fila guarda os descobertos.",
+        "A pilha guarda os descobertos.",
+        "A visita segue camadas de distância.",
+    )
     provedor = ProvedorLLMFake([corpo_afirmativas(cfg, textos=outras)] * 2)
     produzida = propor_substituicao(
         db_session, embeddings_fake, reranker_fake, provedor, docente, banco, numero
@@ -545,15 +569,21 @@ def test_substituicao_de_afirmativas_recua_para_proposicao(
     produzida = propor_substituicao(
         db_session, embeddings_fake, reranker_fake, provedor, docente, banco, numero
     )
-    assert "a afirmativa" in provedor.requisicoes[0].usuario  # tentou o formato da original
+    assert (
+        "a afirmativa" in provedor.requisicoes[0].usuario
+    )  # tentou o formato da original
     assert produzida.questao.formato is FormatoItem.PROPOSICAO
     original = next(
         q for q in banco.questoes if q.numero == numero and q.estado.value == "ativa"
     )
     assert original.formato is FormatoItem.AFIRMATIVAS
-    assert tuple(
-        a["verdadeira"] for a in original.justificativa.estrutura_formato["afirmativas"]
-    ) == cfg
+    assert (
+        tuple(
+            a["verdadeira"]
+            for a in original.justificativa.estrutura_formato["afirmativas"]
+        )
+        == cfg
+    )
 
 
 from backend.app.domain import EstadoOrientacao, OrigemOrientacao
@@ -581,8 +611,14 @@ def test_variacao_guiada_grava_pontual_e_liga_a_candidata(
         db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
     )
     provedor, produzida = _guiada(
-        db_session, embeddings_fake, reranker_fake, docente, banco, 1,
-        DirecaoVariacao(o_que_mudar="use um exemplo de rede"), roteiro_variacao(1),
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        docente,
+        banco,
+        1,
+        DirecaoVariacao(o_que_mudar="use um exemplo de rede"),
+        roteiro_variacao(1),
     )
 
     [orientacao] = produzida.questao.orientacoes
@@ -604,7 +640,12 @@ def test_variacao_acumulada_vira_vigente(
         db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
     )
     _, produzida = _guiada(
-        db_session, embeddings_fake, reranker_fake, docente, banco, 1,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        docente,
+        banco,
+        1,
         DirecaoVariacao(cruzar_com="busca em profundidade", acumular=True),
         roteiro_variacao(1),
     )
@@ -622,8 +663,14 @@ def test_vigentes_vem_antes_da_orientacao_da_variacao(
     )
     criar_orientacao_sessao(db_session, docente, sessao_rascunho, "enunciados curtos")
     provedor, _ = _guiada(
-        db_session, embeddings_fake, reranker_fake, docente, banco, 1,
-        DirecaoVariacao(o_que_mudar="use um exemplo de rede"), roteiro_variacao(1),
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        docente,
+        banco,
+        1,
+        DirecaoVariacao(o_que_mudar="use um exemplo de rede"),
+        roteiro_variacao(1),
     )
     assert (
         "1. Mudar: enunciados curtos\n2. Mudar: use um exemplo de rede"
@@ -654,10 +701,19 @@ def test_insuficiencia_mantem_a_orientacao_gravada(
         db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
     )
     _, produzida = _guiada(
-        db_session, embeddings_fake, reranker_fake, docente, banco, 1,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        docente,
+        banco,
+        1,
         DirecaoVariacao(cruzar_com="redes de computadores"),
         # Duas: se a original não for proposição, o recuo pede de novo.
-        [corpo_insuficiencia("o material não sustenta a relação com redes de computadores")]
+        [
+            corpo_insuficiencia(
+                "o material não sustenta a relação com redes de computadores"
+            )
+        ]
         * 2,
     )
 
@@ -682,7 +738,13 @@ def test_teto_estourado_nao_chama_o_provedor(
 
     with pytest.raises(LimiteOrientacoesException):
         propor_substituicao(
-            db_session, embeddings_fake, reranker_fake, provedor, docente, banco, 1,
+            db_session,
+            embeddings_fake,
+            reranker_fake,
+            provedor,
+            docente,
+            banco,
+            1,
             DirecaoVariacao(o_que_mudar="mais uma", acumular=True),
         )
     assert provedor.chamadas == 0
@@ -696,8 +758,14 @@ def test_variacao_guiada_mantem_formato_da_original(
     )
     original = next(q for q in banco.questoes if q.numero == 1)
     _, produzida = _guiada(
-        db_session, embeddings_fake, reranker_fake, docente, banco, 1,
-        DirecaoVariacao(o_que_mudar="enunciado mais curto"), roteiro_variacao(1),
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        docente,
+        banco,
+        1,
+        DirecaoVariacao(o_que_mudar="enunciado mais curto"),
+        roteiro_variacao(1),
     )
     assert produzida.questao.formato is original.formato
     assert produzida.questao.faixa_dificuldade is original.faixa_dificuldade
@@ -711,7 +779,12 @@ def test_copia_na_variacao_guiada_ganha_nova_tentativa(
         db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
     )
     provedor, produzida = _guiada(
-        db_session, embeddings_fake, reranker_fake, docente, banco, 1,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        docente,
+        banco,
+        1,
         DirecaoVariacao(o_que_mudar="enunciado mais curto"),
         [corpo_questao(5)] + roteiro_variacao(1),
     )

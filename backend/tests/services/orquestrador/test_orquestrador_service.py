@@ -131,9 +131,7 @@ def test_prosseguir_sem_versao_depois_do_m1_falta_versao(
     assert erro.value.extras["faltando"] == ["versao"]
 
 
-def test_prosseguir_no_m3_congela_e_cataloga(
-    executar, db_session, sessao_rascunho
-):
+def test_prosseguir_no_m3_congela_e_cataloga(executar, db_session, sessao_rascunho):
     banco = criar_banco(db_session, sessao_rascunho, n_objetivas=2)
     criar_questao_objetiva(db_session, banco, numero=1)
     criar_questao_objetiva(db_session, banco, numero=2)

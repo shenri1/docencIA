@@ -111,4 +111,3 @@ def test_historico_vem_do_mais_novo_para_o_mais_antigo(client, db_session):
 
     versoes = [p["versao"] for p in client.get("/prompts", headers=cabecalhos).json()]
     assert versoes == ["2.0.0", "1.0.0"]
-

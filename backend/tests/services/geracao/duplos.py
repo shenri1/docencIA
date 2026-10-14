@@ -130,7 +130,9 @@ _NOMES = ("afirmativa_i", "afirmativa_ii", "afirmativa_iii", "afirmativa_iv")
 
 
 def corpo_afirmativas(
-    configuracao: tuple[bool, ...], textos: tuple[str, ...] | None = None, **sobrescritas
+    configuracao: tuple[bool, ...],
+    textos: tuple[str, ...] | None = None,
+    **sobrescritas,
 ) -> dict:
     textos = textos or tuple(
         f"Afirmação número {i + 1} sobre a busca em largura."

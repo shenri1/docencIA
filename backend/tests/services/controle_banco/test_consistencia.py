@@ -205,13 +205,17 @@ def test_varios_problemas_saem_juntos(db_session, sessao_rascunho):
     assert len(problemas) >= 2
 
 
-def test_discursiva_com_itens_tem_de_1_a_3_aspectos_por_item(db_session, sessao_rascunho):
+def test_discursiva_com_itens_tem_de_1_a_3_aspectos_por_item(
+    db_session, sessao_rascunho
+):
     banco = criar_banco(db_session, sessao_rascunho, n_discursivas=1)
     questao = criar_questao_discursiva(db_session, banco, numero=1, aspectos=5)
     for aspecto, item in zip(questao.aspectos, (1, 1, 1, 1, 2), strict=True):
         aspecto.item = item
     db_session.commit()
-    assert "Q1: item 1 com 4 aspectos, esperado de 1 a 3" in problemas_de(db_session, banco)
+    assert "Q1: item 1 com 4 aspectos, esperado de 1 a 3" in problemas_de(
+        db_session, banco
+    )
 
 
 def test_aspectos_com_e_sem_item_na_mesma_questao(db_session, sessao_rascunho):
@@ -219,10 +223,14 @@ def test_aspectos_com_e_sem_item_na_mesma_questao(db_session, sessao_rascunho):
     questao = criar_questao_discursiva(db_session, banco, numero=1, aspectos=2)
     questao.aspectos[0].item = 1
     db_session.commit()
-    assert "Q1: aspectos com e sem item na mesma questão" in problemas_de(db_session, banco)
+    assert "Q1: aspectos com e sem item na mesma questão" in problemas_de(
+        db_session, banco
+    )
 
 
-def test_discursiva_com_itens_e_ate_9_aspectos_e_consistente(db_session, sessao_rascunho):
+def test_discursiva_com_itens_e_ate_9_aspectos_e_consistente(
+    db_session, sessao_rascunho
+):
     banco = criar_banco(db_session, sessao_rascunho, n_discursivas=1)
     questao = criar_questao_discursiva(db_session, banco, numero=1, aspectos=6)
     for aspecto, item in zip(questao.aspectos, (1, 1, 2, 2, 3, 3), strict=True):

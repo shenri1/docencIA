@@ -13,14 +13,22 @@ def item_falso(ordem, tipo=TipoQuestao.OBJETIVA, k=5):
 
 def test_permutacao_identidade():
     assert letras_na_prova(item_falso(list("ABCDE"))) == {
-        "A": "A", "B": "B", "C": "C", "D": "D", "E": "E",
+        "A": "A",
+        "B": "B",
+        "C": "C",
+        "D": "D",
+        "E": "E",
     }
 
 
 def test_permutacao_qualquer():
     """ordem[i] é a original que aparece na posição i. C na posição 0 vira A."""
     assert letras_na_prova(item_falso(["C", "A", "E", "B", "D"])) == {
-        "C": "A", "A": "B", "E": "C", "B": "D", "D": "E",
+        "C": "A",
+        "A": "B",
+        "E": "C",
+        "B": "D",
+        "D": "E",
     }
 
 

@@ -176,7 +176,9 @@ def test_propor_e_aceitar_pela_api(
         versao="v1",
     )
 
-    app.dependency_overrides[get_provedor] = lambda: ProvedorLLMFake(roteiro_variacao(1))
+    app.dependency_overrides[get_provedor] = lambda: ProvedorLLMFake(
+        roteiro_variacao(1)
+    )
     try:
         proposta = client.post(
             f"/bancos/{resumo.banco_id}/questoes/1/substituicao", headers=headers

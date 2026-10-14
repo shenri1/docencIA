@@ -175,6 +175,7 @@ def test_get_reranker_reusa_o_mesmo_cliente():
 def test_token_amostrado_fora_do_top_logprobs_ainda_conta():
     """O token escolhido ("yes") pode não ser repetido em top_logprobs — ele
     vem do campo token/logprob de primeira ordem e não pode virar score 0."""
+
     def responder(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,

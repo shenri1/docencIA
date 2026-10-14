@@ -179,9 +179,7 @@ def test_ocr_nao_renderiza_pagina_acima_do_teto_de_megapixels():
             OcrMedidor.pixels = pixmap.width * pixmap.height
             return "", 0.0
 
-    cfg = ConfigExtracao(
-        **{**CFG.__dict__, "ocr_dpi": 300, "ocr_max_megapixels": 10.0}
-    )
+    cfg = ConfigExtracao(**{**CFG.__dict__, "ocr_dpi": 300, "ocr_max_megapixels": 10.0})
     with pytest.raises(PdfEscaneadoOcrInsuficienteException):
         extrair_pdf(pdf_escaneado_pagina_gigante(2000), cfg, ocr=OcrMedidor())
     assert 0 < OcrMedidor.pixels <= 10.0 * 1_000_000

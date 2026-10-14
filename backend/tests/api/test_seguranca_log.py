@@ -90,7 +90,9 @@ def test_tokens_suspeitos_viram_evento_e_expirado_nao(client, db_session):
         algorithm=settings.algorithm,
     )
 
-    corpos = [_me(client, t) for t in (outra_chave, truncado, sub_texto, apagado, expirado)]
+    corpos = [
+        _me(client, t) for t in (outra_chave, truncado, sub_texto, apagado, expirado)
+    ]
     assert {r.status_code for r in corpos} == {401}
     # O cliente nunca aprende o motivo.
     assert len({json.dumps(r.json(), sort_keys=True) for r in corpos}) == 1
@@ -103,7 +105,8 @@ def test_tokens_suspeitos_viram_evento_e_expirado_nao(client, db_session):
         "sub_invalido",
     ]
     [inexistente] = [
-        e for e in eventos(db_session, E.TOKEN_SUSPEITO)
+        e
+        for e in eventos(db_session, E.TOKEN_SUSPEITO)
         if e.payload["motivo"] == "docente_inexistente"
     ]
     assert inexistente.ator == pseudonimo(999999)

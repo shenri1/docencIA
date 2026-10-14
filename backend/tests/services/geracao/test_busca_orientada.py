@@ -77,10 +77,19 @@ def test_cada_cruzamento_consulta_assunto_e_ancora(monkeypatch):
         ],
     )
 
-    assert falsa.chamadas == [(ANCORA.texto, 8, 20), (arquitetura, 3, 10), (cache, 3, 10)]
+    assert falsa.chamadas == [
+        (ANCORA.texto, 8, 20),
+        (arquitetura, 3, 10),
+        (cache, 3, 10),
+    ]
     assert len(trechos) == 14
     assert [t.localizacao for t in trechos[8:]] == [
-        "arq 0", "arq 1", "arq 2", "cache 0", "cache 1", "cache 2",
+        "arq 0",
+        "arq 1",
+        "arq 2",
+        "cache 0",
+        "cache 1",
+        "cache 2",
     ]
 
 

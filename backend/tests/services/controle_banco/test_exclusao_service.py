@@ -55,7 +55,9 @@ def test_exclusao_marca_mantem_numero_e_registra(db_session, docente, sessao_ras
     assert db_session.query(RegistroExclusao).count() == 2
 
 
-def test_cada_rodada_de_exclusao_gera_um_relatorio(db_session, docente, sessao_rascunho):
+def test_cada_rodada_de_exclusao_gera_um_relatorio(
+    db_session, docente, sessao_rascunho
+):
     """ diz "após cada exclusão", e segue o RF em vez do passo
     único do F6."""
     banco = banco_com_dez(db_session, sessao_rascunho)

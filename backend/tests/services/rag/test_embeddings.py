@@ -183,9 +183,7 @@ def test_get_embeddings_reusa_o_mesmo_cliente():
 
 def test_resposta_sem_index_falha():
     def responder(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200, json={"data": [{"embedding": [1.0, 0.0, 0.0, 0.0]}]}
-        )
+        return httpx.Response(200, json={"data": [{"embedding": [1.0, 0.0, 0.0, 0.0]}]})
 
     cliente = EmbeddingsOllama(CFG, cliente=cliente_com(responder))
     with pytest.raises(FalhaEmbeddingException):

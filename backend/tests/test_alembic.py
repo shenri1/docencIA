@@ -131,9 +131,7 @@ def test_migracao_10c_preserva_bancos_e_questoes_existentes():
                 "OBJETIVA"
             )
             linha = conn.execute(
-                text(
-                    "SELECT n_alvo_objetivas, n_alvo_discursivas FROM bancos_questoes"
-                )
+                text("SELECT n_alvo_objetivas, n_alvo_discursivas FROM bancos_questoes")
             ).one()
             assert tuple(linha) == (7, 0)
     finally:
@@ -267,9 +265,13 @@ def test_migracao_pseudonimiza_o_ator_legado():
 
         def atores():
             with eng.connect() as conn:
-                return conn.execute(
-                    text("SELECT ator FROM registros_auditoria ORDER BY id")
-                ).scalars().all()
+                return (
+                    conn.execute(
+                        text("SELECT ator FROM registros_auditoria ORDER BY id")
+                    )
+                    .scalars()
+                    .all()
+                )
 
         esperado = [pseudonimo(docente_id), None, ja_pseudonimo, "ana16"]
         command.upgrade(cfg, "head")
@@ -329,13 +331,14 @@ def test_semente_cria_admin_do_env_e_ativa_prompt(monkeypatch):
             ).all()
         assert (nome, perfil) == ("Admin", "ADMINISTRADOR")
         assert verificar_senha("senhaforte123", senha_hash)
-        # A 1.0.0 é semeada pela e1a4c8f02b77, a 2.0.0 pela b7d2e9f4a1c6
-        # e a 2.1.0 pela c5e1f8a3b7d9, que fica ativa; rodar de novo
-        # não duplica nenhuma.
+        # A 1.0.0 é semeada pela e1a4c8f02b77, a 2.0.0 pela b7d2e9f4a1c6,
+        # a 2.1.0 pela c5e1f8a3b7d9 e a 2.2.0 pela d8a4f1c6e3b2
+        #que fica ativa; rodar de novo não duplica nenhuma.
         assert [tuple(p) for p in prompts] == [
             ("1.0.0", False),
             ("2.0.0", False),
-            ("2.1.0", True),
+            ("2.1.0", False),
+            ("2.2.0", True),
         ]
     finally:
         eng.dispose()
@@ -356,7 +359,9 @@ def test_semente_promove_conta_existente_sem_trocar_a_senha(monkeypatch):
 
         with eng.connect() as conn:
             linha = conn.execute(
-                text("SELECT perfil, senha_hash FROM docentes WHERE credencial_institucional = 'ana'")
+                text(
+                    "SELECT perfil, senha_hash FROM docentes WHERE credencial_institucional = 'ana'"
+                )
             ).one()
         assert tuple(linha) == ("ADMINISTRADOR", "hash-antigo")
     finally:
@@ -370,9 +375,12 @@ def test_semente_sem_env_nao_cria_admin_mas_ativa_prompt(monkeypatch):
         command.upgrade(cfg, "head")
         with eng.connect() as conn:
             assert conn.execute(text("SELECT count(*) FROM docentes")).scalar_one() == 0
-            assert conn.execute(
-                text("SELECT count(*) FROM prompts_mestres WHERE ativo")
-            ).scalar_one() == 1
+            assert (
+                conn.execute(
+                    text("SELECT count(*) FROM prompts_mestres WHERE ativo")
+                ).scalar_one()
+                == 1
+            )
     finally:
         eng.dispose()
 
@@ -522,9 +530,11 @@ def test_migracao_18_preserva_questoes_e_ativa_o_prompt_2():
                 )
             ).scalar_one()
             assert default is None
-            ativos = conn.execute(
-                text("SELECT versao FROM prompts_mestres WHERE ativo")
-            ).scalars().all()
+            ativos = (
+                conn.execute(text("SELECT versao FROM prompts_mestres WHERE ativo"))
+                .scalars()
+                .all()
+            )
             assert ativos == ["2.0.0"]
     finally:
         eng.dispose()
@@ -551,12 +561,16 @@ def test_migracao_19_cria_e_remove_as_tabelas_de_orientacao():
         command.downgrade(cfg, "b7d2e9f4a1c6")
         assert not (_TABELAS_19 & _tabelas(eng))
         with eng.connect() as conn:
-            tipos = conn.execute(
-                text(
-                    "SELECT typname FROM pg_type WHERE typname IN "
-                    "('origem_orientacao', 'estado_orientacao')"
+            tipos = (
+                conn.execute(
+                    text(
+                        "SELECT typname FROM pg_type WHERE typname IN "
+                        "('origem_orientacao', 'estado_orientacao')"
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
         assert tipos == []
     finally:
         eng.dispose()
@@ -565,11 +579,34 @@ def test_migracao_19_cria_e_remove_as_tabelas_de_orientacao():
 def test_migracao_19_ativa_o_prompt_2_1():
     cfg, eng = _banco_ate("b7d2e9f4a1c6")
     try:
+        command.upgrade(cfg, "c5e1f8a3b7d9")
+        with eng.connect() as conn:
+            ativos = (
+                conn.execute(text("SELECT versao FROM prompts_mestres WHERE ativo"))
+                .scalars()
+                .all()
+            )
+        assert ativos == ["2.1.0"]
+    finally:
+        eng.dispose()
+
+
+def test_migracao_20_ativa_o_prompt_2_2():
+    cfg, eng = _banco_ate("c5e1f8a3b7d9")
+    try:
         command.upgrade(cfg, "head")
         with eng.connect() as conn:
-            ativos = conn.execute(
-                text("SELECT versao FROM prompts_mestres WHERE ativo")
-            ).scalars().all()
-        assert ativos == ["2.1.0"]
+            ativos = (
+                conn.execute(text("SELECT versao FROM prompts_mestres WHERE ativo"))
+                .scalars()
+                .all()
+            )
+            existentes = (
+                conn.execute(text("SELECT versao FROM prompts_mestres ORDER BY versao"))
+                .scalars()
+                .all()
+            )
+        assert ativos == ["2.2.0"]
+        assert existentes[-3:] == ["2.0.0", "2.1.0", "2.2.0"]
     finally:
         eng.dispose()

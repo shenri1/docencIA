@@ -308,9 +308,7 @@ def test_falha_da_cadeia_sem_sessao_ainda_levanta_falha_do_provedor_e_registra()
     falha não pode virar AttributeError e esconder a FalhaProvedorLLMException."""
     p1 = provedor(1, "primario", 1)
     db = DbSemSessao([p1])
-    servico, _ = montar(
-        [p1], {1: [FalhaTransporteLLMException("HTTP 500")] * 2}, db=db
-    )
+    servico, _ = montar([p1], {1: [FalhaTransporteLLMException("HTTP 500")] * 2}, db=db)
 
     with pytest.raises(FalhaProvedorLLMException):
         servico.gerar(sessao_id=9, requisicao=requisicao())

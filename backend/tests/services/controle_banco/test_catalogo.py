@@ -11,12 +11,8 @@ from backend.tests.fabrica_banco import (
 
 def test_catalogo_lista_ativas_por_numero(db_session, sessao_rascunho):
     banco = criar_banco(db_session, sessao_rascunho, n_objetivas=2, n_discursivas=1)
-    criar_questao_objetiva(
-        db_session, banco, numero=2, faixa=FaixaDificuldade.DIFICIL
-    )
-    criar_questao_objetiva(
-        db_session, banco, numero=1, estado=EstadoQuestao.EXCLUIDA
-    )
+    criar_questao_objetiva(db_session, banco, numero=2, faixa=FaixaDificuldade.DIFICIL)
+    criar_questao_objetiva(db_session, banco, numero=1, estado=EstadoQuestao.EXCLUIDA)
     criar_questao_discursiva(db_session, banco, numero=3)
     db_session.commit()
 

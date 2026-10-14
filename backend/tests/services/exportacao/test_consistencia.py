@@ -84,7 +84,9 @@ def test_sem_provas_montadas_e_problema(db_session, docente, sessao_rascunho):
     criar_questao_objetiva(db_session, banco, numero=1, faixa=FaixaDificuldade.MEDIA)
     banco.estado = EstadoBanco.CONGELADO
     db_session.commit()
-    assert any("não foram montadas" in p for p in problemas_de(db_session, docente, banco))
+    assert any(
+        "não foram montadas" in p for p in problemas_de(db_session, docente, banco)
+    )
 
 
 def test_varios_problemas_saem_juntos(db_session, docente, sessao_rascunho):

@@ -124,7 +124,10 @@ def test_formato_montado_nao_tem_achado_de_forma():
         alternativas=[
             AlternativaAvaliavel("A", "I, apenas.", True, False),
             AlternativaAvaliavel(
-                "B", "I e II, apenas, com um texto bem mais longo que o outro", False, True
+                "B",
+                "I e II, apenas, com um texto bem mais longo que o outro",
+                False,
+                True,
             ),
         ],
         trechos_base=[],

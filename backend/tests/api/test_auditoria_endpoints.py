@@ -50,7 +50,9 @@ def test_post_auditoria_sem_token_responde_401(client, db_session, armazenamento
 def test_post_auditoria_de_banco_alheio_responde_404(client, db_session, armazenamento):
     _, banco = preparar_banco(client, db_session, armazenamento, "prof-dono-aud")
     outro = _auth(client, "prof-intruso-aud")
-    assert client.post(f"/bancos/{banco.id}/auditoria", headers=outro).status_code == 404
+    assert (
+        client.post(f"/bancos/{banco.id}/auditoria", headers=outro).status_code == 404
+    )
 
 
 def test_post_auditoria_devolve_resumo(client, db_session, armazenamento):
@@ -103,7 +105,9 @@ def test_auditoria_nao_expoe_delete_nem_justificativa():
     }
 
 
-def test_post_auditoria_com_limite_audita_so_esse_tanto(client, db_session, armazenamento):
+def test_post_auditoria_com_limite_audita_so_esse_tanto(
+    client, db_session, armazenamento
+):
     headers, banco = preparar_banco(client, db_session, armazenamento, n=3)
     app.dependency_overrides[get_provedor] = lambda: ProvedorLLMFake([sem_achado()])
     try:

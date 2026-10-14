@@ -201,15 +201,26 @@ def test_prova_desatualizada_gera_gabarito_marcado(
 
 def test_gerar_gabarito_nao_escreve_nada(db_session, docente, sessao_rascunho):
     _, montadas = provas_montadas(db_session, docente, sessao_rascunho)
-    modelos = (Prova, ItemProva, Questao, Alternativa, FonteInterna, JustificativaEstruturada)
+    modelos = (
+        Prova,
+        ItemProva,
+        Questao,
+        Alternativa,
+        FonteInterna,
+        JustificativaEstruturada,
+    )
     antes = [db_session.query(m).count() for m in modelos]
     gerar_gabarito(db_session, docente, montadas.prova_a_id, COMENTADO)
     assert [db_session.query(m).count() for m in modelos] == antes
     assert not db_session.new and not db_session.dirty
 
 
-def test_gabarito_da_discursiva_com_itens_leva_o_item(db_session, docente, sessao_rascunho):
-    banco, montadas = provas_montadas(db_session, docente, sessao_rascunho, discursivas=3)
+def test_gabarito_da_discursiva_com_itens_leva_o_item(
+    db_session, docente, sessao_rascunho
+):
+    banco, montadas = provas_montadas(
+        db_session, docente, sessao_rascunho, discursivas=3
+    )
     for questao in banco.questoes:
         for aspecto in questao.aspectos:
             aspecto.item = aspecto.ordem  # 2 aspectos: itens 1 e 2, um cada

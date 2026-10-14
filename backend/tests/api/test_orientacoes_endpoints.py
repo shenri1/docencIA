@@ -78,7 +78,9 @@ def test_sexta_orientacao_responde_409(client):
     sessao_id = _sessao(client, headers, orientacoes=[f"o{i}" for i in range(5)])
 
     resposta = client.post(
-        f"/sessoes/{sessao_id}/orientacoes", headers=headers, json={"o_que_mudar": "mais"}
+        f"/sessoes/{sessao_id}/orientacoes",
+        headers=headers,
+        json={"o_que_mudar": "mais"},
     )
 
     assert resposta.status_code == 409
@@ -92,10 +94,15 @@ def test_rotas_de_orientacao_de_outro_docente_respondem_404(client):
     oid = client.get(f"/sessoes/{sessao_id}/orientacoes", headers=dono).json()[0]["id"]
     intruso = _auth(client, "prof-ori6")
 
-    assert client.get(f"/sessoes/{sessao_id}/orientacoes", headers=intruso).status_code == 404
+    assert (
+        client.get(f"/sessoes/{sessao_id}/orientacoes", headers=intruso).status_code
+        == 404
+    )
     assert (
         client.post(
-            f"/sessoes/{sessao_id}/orientacoes", headers=intruso, json={"o_que_mudar": "x"}
+            f"/sessoes/{sessao_id}/orientacoes",
+            headers=intruso,
+            json={"o_que_mudar": "x"},
         ).status_code
         == 404
     )
@@ -113,8 +120,14 @@ def _banco_gerado(client, db_session, armazenamento, emb, rer, credencial):
     sessao = db_session.get(SessaoGeracao, sessao_id)
     preparar(db_session, armazenamento, sessao)
     resumo = gerar_banco(
-        db_session, emb, rer, ProvedorLLMFake(roteiro(2)), sessao,
-        n_objetivas=2, n_discursivas=0, versao="v1",
+        db_session,
+        emb,
+        rer,
+        ProvedorLLMFake(roteiro(2)),
+        sessao,
+        n_objetivas=2,
+        n_discursivas=0,
+        versao="v1",
     )
     return headers, sessao_id, resumo.banco_id
 
@@ -140,7 +153,9 @@ def test_variacao_guiada_pela_api_liga_a_candidata(
     headers, sessao_id, banco_id = _banco_gerado(
         client, db_session, armazenamento, embeddings_fake, reranker_fake, "prof-ori8"
     )
-    app.dependency_overrides[get_provedor] = lambda: ProvedorLLMFake(roteiro_variacao(1))
+    app.dependency_overrides[get_provedor] = lambda: ProvedorLLMFake(
+        roteiro_variacao(1)
+    )
     try:
         proposta = client.post(
             f"/bancos/{banco_id}/questoes/1/substituicao",
@@ -151,12 +166,15 @@ def test_variacao_guiada_pela_api_liga_a_candidata(
         app.dependency_overrides.pop(get_provedor, None)
 
     assert proposta.status_code == 201
-    [orientacao] = client.get(f"/sessoes/{sessao_id}/orientacoes", headers=headers).json()
+    [orientacao] = client.get(
+        f"/sessoes/{sessao_id}/orientacoes", headers=headers
+    ).json()
     assert orientacao["estado"] == "pontual"
     assert proposta.json()["candidata"]["orientacoes_ids"] == [orientacao["id"]]
 
     desativar = client.post(
-        f"/sessoes/{sessao_id}/orientacoes/{orientacao['id']}/desativar", headers=headers
+        f"/sessoes/{sessao_id}/orientacoes/{orientacao['id']}/desativar",
+        headers=headers,
     )
     assert desativar.status_code == 409
     assert desativar.json()["codigo"] == "ESTADO_ORIENTACAO_INVALIDO"

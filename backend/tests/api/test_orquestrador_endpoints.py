@@ -27,7 +27,9 @@ def sessao_com_material(client, db_session, armazenamento, credencial):
     não passa pelo Orquestrador; aqui ele é o fixture."""
     headers = _auth(client, credencial)
     sessao_id = client.post("/sessoes", headers=headers, json=SESSAO).json()["id"]
-    material_indexado(db_session, armazenamento, db_session.get(SessaoGeracao, sessao_id))
+    material_indexado(
+        db_session, armazenamento, db_session.get(SessaoGeracao, sessao_id)
+    )
     return headers, sessao_id
 
 
@@ -46,7 +48,10 @@ def roteiro_com_subtemas(n: int) -> list[dict]:
 
 def test_marco_sem_token_e_401(client):
     assert client.get("/sessoes/1/marco").status_code == 401
-    assert client.post("/sessoes/1/comando", json={"comando": "prosseguir"}).status_code == 401
+    assert (
+        client.post("/sessoes/1/comando", json={"comando": "prosseguir"}).status_code
+        == 401
+    )
 
 
 def test_marco_de_sessao_alheia_e_404(client, db_session, armazenamento):
@@ -56,7 +61,9 @@ def test_marco_de_sessao_alheia_e_404(client, db_session, armazenamento):
 
 
 def test_marco_em_m1(client, db_session, armazenamento):
-    headers, sessao_id = sessao_com_material(client, db_session, armazenamento, "orq-m1")
+    headers, sessao_id = sessao_com_material(
+        client, db_session, armazenamento, "orq-m1"
+    )
     corpo = client.get(f"/sessoes/{sessao_id}/marco", headers=headers).json()
     assert corpo["marco"] == "m1_materiais"
     assert corpo["n_materiais"] == 1
@@ -65,7 +72,9 @@ def test_marco_em_m1(client, db_session, armazenamento):
 
 
 def test_comando_desconhecido_e_422(client, db_session, armazenamento):
-    headers, sessao_id = sessao_com_material(client, db_session, armazenamento, "orq-422")
+    headers, sessao_id = sessao_com_material(
+        client, db_session, armazenamento, "orq-422"
+    )
     resposta = client.post(
         f"/sessoes/{sessao_id}/comando", headers=headers, json={"comando": "parar"}
     )
@@ -75,15 +84,24 @@ def test_comando_desconhecido_e_422(client, db_session, armazenamento):
 def test_contagens_fora_do_limite_e_422(client, db_session, armazenamento):
     headers, sessao_id = sessao_com_material(client, db_session, armazenamento, "orq-n")
     for corpo in (
-        {"comando": "prosseguir", "versao": "v1", "n_objetivas": 26, "n_discursivas": 0},
+        {
+            "comando": "prosseguir",
+            "versao": "v1",
+            "n_objetivas": 26,
+            "n_discursivas": 0,
+        },
         {"comando": "prosseguir", "versao": "v1", "n_objetivas": 5},
     ):
-        resposta = client.post(f"/sessoes/{sessao_id}/comando", headers=headers, json=corpo)
+        resposta = client.post(
+            f"/sessoes/{sessao_id}/comando", headers=headers, json=corpo
+        )
         assert resposta.status_code == 422
 
 
 def test_campos_do_marco_e_422_com_o_codigo(client, db_session, armazenamento):
-    headers, sessao_id = sessao_com_material(client, db_session, armazenamento, "orq-campos")
+    headers, sessao_id = sessao_com_material(
+        client, db_session, armazenamento, "orq-campos"
+    )
     resposta = client.post(
         f"/sessoes/{sessao_id}/comando",
         headers=headers,
@@ -95,7 +113,9 @@ def test_campos_do_marco_e_422_com_o_codigo(client, db_session, armazenamento):
 
 
 def test_comando_fora_do_marco_e_409_com_o_codigo(client, db_session, armazenamento):
-    headers, sessao_id = sessao_com_material(client, db_session, armazenamento, "orq-409")
+    headers, sessao_id = sessao_com_material(
+        client, db_session, armazenamento, "orq-409"
+    )
     resposta = client.post(
         f"/sessoes/{sessao_id}/comando",
         headers=headers,
@@ -111,7 +131,9 @@ def test_f1_a_f12_so_por_comando(client, db_session, armazenamento):
     do login ao banco gerado são login, criar sessão, enviar o
     material, prosseguir no M1 e prosseguir no M2 — 5 requisições. O RNF fala
     em 50 questões; o limite do sistema é 25, e a contagem não depende de N."""
-    headers, sessao_id = sessao_com_material(client, db_session, armazenamento, "orq-f1f12")
+    headers, sessao_id = sessao_com_material(
+        client, db_session, armazenamento, "orq-f1f12"
+    )
     url = f"/sessoes/{sessao_id}/comando"
     comandos = 0
 
@@ -122,8 +144,8 @@ def test_f1_a_f12_so_por_comando(client, db_session, armazenamento):
         assert resposta.status_code == 200, resposta.json()
         return resposta.json()
 
-    app.dependency_overrides[get_provedor_sob_demanda] = lambda: lambda: ProvedorLLMFake(
-        roteiro_com_subtemas(25)
+    app.dependency_overrides[get_provedor_sob_demanda] = lambda: (
+        lambda: ProvedorLLMFake(roteiro_com_subtemas(25))
     )
     try:
         m1 = comando({"comando": "prosseguir"})
@@ -131,7 +153,12 @@ def test_f1_a_f12_so_por_comando(client, db_session, armazenamento):
         assert m1["indice"]["materiais"][0]["identificador_curto"] == "P1"
 
         m2 = comando(
-            {"comando": "prosseguir", "versao": "v1", "n_objetivas": 25, "n_discursivas": 0}
+            {
+                "comando": "prosseguir",
+                "versao": "v1",
+                "n_objetivas": 25,
+                "n_discursivas": 0,
+            }
         )
     finally:
         app.dependency_overrides.pop(get_provedor_sob_demanda, None)
@@ -161,7 +188,12 @@ def test_f1_a_f12_so_por_comando(client, db_session, armazenamento):
     assert [g["modalidade"] for g in m6["gabaritos"]] == ["simples", "simples"]
     assert m6["marco"]["bancos"][0]["marco"] == "m10_docx"
 
-    m10 = comando({"comando": "prosseguir", "versao": "v1", "revisao_esperada": revisao})
-    assert sorted(e["tipo"] for e in m10["exportacoes"]) == ["conteudo_puro", "metadados"]
+    m10 = comando(
+        {"comando": "prosseguir", "versao": "v1", "revisao_esperada": revisao}
+    )
+    assert sorted(e["tipo"] for e in m10["exportacoes"]) == [
+        "conteudo_puro",
+        "metadados",
+    ]
     assert all("caminho_arquivo" not in e for e in m10["exportacoes"])
     assert m10["marco"]["bancos"][0]["marco"] == "concluido"

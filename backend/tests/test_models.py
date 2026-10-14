@@ -185,8 +185,12 @@ def test_indice_parcial_permite_substituida_repetida_e_veta_dois_ocupantes(
 
     banco = criar_banco(db_session, sessao_rascunho, n_objetivas=3)
     criar_questao_objetiva(db_session, banco, numero=1)
-    criar_questao_objetiva(db_session, banco, numero=1, estado=EstadoQuestao.SUBSTITUIDA)
-    criar_questao_objetiva(db_session, banco, numero=1, estado=EstadoQuestao.SUBSTITUIDA)
+    criar_questao_objetiva(
+        db_session, banco, numero=1, estado=EstadoQuestao.SUBSTITUIDA
+    )
+    criar_questao_objetiva(
+        db_session, banco, numero=1, estado=EstadoQuestao.SUBSTITUIDA
+    )
     criar_questao_objetiva(db_session, banco, numero=1, estado=EstadoQuestao.CANDIDATA)
     db_session.commit()
 

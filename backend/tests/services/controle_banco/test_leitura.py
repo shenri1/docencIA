@@ -74,7 +74,9 @@ def test_com_gabarito_traz_correta_e_aspectos(db_session, docente, sessao_rascun
 
 def test_historico_so_aparece_com_o_parametro(db_session, docente, sessao_rascunho):
     banco = banco_misto(db_session, sessao_rascunho)
-    criar_questao_objetiva(db_session, banco, numero=1, estado=EstadoQuestao.SUBSTITUIDA)
+    criar_questao_objetiva(
+        db_session, banco, numero=1, estado=EstadoQuestao.SUBSTITUIDA
+    )
     criar_questao_objetiva(db_session, banco, numero=1, estado=EstadoQuestao.CANDIDATA)
     db_session.commit()
 

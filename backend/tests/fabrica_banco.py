@@ -64,9 +64,11 @@ def criar_material_minimo(
     """Só o que a FK de FonteInterna exige. Nada é escrito no armazenamento:
     estes testes nunca leem o arquivo. Reusa o material da sessão com o mesmo
     identificador: hash e identificador são únicos por sessão."""
-    existente = db.query(MaterialReferencia).filter_by(
-        sessao_id=sessao.id, identificador_curto=identificador
-    ).first()
+    existente = (
+        db.query(MaterialReferencia)
+        .filter_by(sessao_id=sessao.id, identificador_curto=identificador)
+        .first()
+    )
     if existente is not None:
         return existente
     material = MaterialReferencia(

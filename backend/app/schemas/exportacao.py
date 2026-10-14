@@ -15,7 +15,9 @@ class ExportacaoResposta(BaseModel):
 
     id: int
     tipo: TipoExportacao
-    revisao_banco: int = Field(..., description="Revisão do banco que o arquivo representa.")
+    revisao_banco: int = Field(
+        ..., description="Revisão do banco que o arquivo representa."
+    )
     hash_conteudo: str = Field(
         ..., description="sha256 do arquivo entregue. Conferível com `sha256sum`."
     )

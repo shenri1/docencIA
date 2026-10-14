@@ -42,9 +42,9 @@ def test_ancoras_nunca_se_repetem(db_session, armazenamento, sessao_rascunho):
 
 def test_n_igual_ao_total_devolve_todos(db_session, armazenamento, sessao_rascunho):
     semear_chunks(db_session, armazenamento, sessao_rascunho, 7)
-    assert [a.ordem for a in selecionar_ancoras(db_session, sessao_rascunho, 7)] == list(
-        range(7)
-    )
+    assert [
+        a.ordem for a in selecionar_ancoras(db_session, sessao_rascunho, 7)
+    ] == list(range(7))
 
 
 def test_selecao_e_deterministica(db_session, armazenamento, sessao_rascunho):

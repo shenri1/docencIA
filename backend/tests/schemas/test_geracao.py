@@ -227,9 +227,18 @@ def test_discursiva_aceita_criar():
 
 
 def test_discursiva_tem_uniao_com_insuficiencia():
-    resultado = montar_schema_discursiva().model_validate(
-        {"resultado": {"tipo": "insuficiencia_de_fonte", "informacao_faltante": "x"}}
-    ).resultado
+    resultado = (
+        montar_schema_discursiva()
+        .model_validate(
+            {
+                "resultado": {
+                    "tipo": "insuficiencia_de_fonte",
+                    "informacao_faltante": "x",
+                }
+            }
+        )
+        .resultado
+    )
     assert isinstance(resultado, InsuficienciaFonte)
 
 
@@ -288,7 +297,11 @@ def test_objetiva_tem_contexto_antes_do_comando_e_nao_tem_enunciado():
     questao = _questao_objetiva(montar_schema_objetiva(5).model_json_schema())
     campos = list(questao["properties"])
     assert "enunciado" not in campos
-    assert campos.index("contexto") < campos.index("comando") < campos.index("alternativas")
+    assert (
+        campos.index("contexto")
+        < campos.index("comando")
+        < campos.index("alternativas")
+    )
 
 
 def test_discursiva_tem_contexto_antes_do_comando():
@@ -307,9 +320,7 @@ from backend.tests.services.geracao.duplos import (  # noqa: E402
 
 
 def _questao_de(esquema):
-    return next(
-        d for nome, d in esquema["$defs"].items() if nome.startswith("Questao")
-    )
+    return next(d for nome, d in esquema["$defs"].items() if nome.startswith("Questao"))
 
 
 def test_afirmativas_fixam_o_valor_por_posicao():
@@ -317,7 +328,13 @@ def test_afirmativas_fixam_o_valor_por_posicao():
     esquema = montar_schema(TipoQuestao.OBJETIVA, 5, FormatoItem.AFIRMATIVAS, cfg)
     js = esquema.model_json_schema()
     campos = list(_questao_de(js)["properties"])
-    assert campos[:5] == ["tipo", "contexto", "comando", "afirmativa_i", "afirmativa_ii"]
+    assert campos[:5] == [
+        "tipo",
+        "contexto",
+        "comando",
+        "afirmativa_i",
+        "afirmativa_ii",
+    ]
     assert "afirmativa_iv" not in campos
     assert "alternativas" not in campos and "letra_correta" not in campos
     esquema.model_validate(corpo_afirmativas(cfg))
@@ -333,7 +350,9 @@ def test_afirmativas_com_k_grande_tem_quatro():
 
 def test_afirmativas_recusa_configuracao_do_tamanho_errado():
     with pytest.raises(ValueError):
-        montar_schema(TipoQuestao.OBJETIVA, 9, FormatoItem.AFIRMATIVAS, (True, False, True))
+        montar_schema(
+            TipoQuestao.OBJETIVA, 9, FormatoItem.AFIRMATIVAS, (True, False, True)
+        )
 
 
 def test_assercao_nao_tem_comando_nem_alternativas():

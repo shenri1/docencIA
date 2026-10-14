@@ -312,13 +312,17 @@ def test_pedido_sem_orientacao_e_o_de_antes():
     )
     assert _usuario_gerador(_TRECHOS, _MEDIA, 5, _Tipo.OBJETIVA) == esperado
     assert (
-        _usuario_gerador(_TRECHOS, _MEDIA, 5, _Tipo.OBJETIVA, orientacoes=(), partida=False)
+        _usuario_gerador(
+            _TRECHOS, _MEDIA, 5, _Tipo.OBJETIVA, orientacoes=(), partida=False
+        )
         == esperado
     )
 
 
 def test_pedido_sem_orientacao_com_evitar_mantem_o_nao_repita():
-    usuario = _usuario_gerador(_TRECHOS, _MEDIA, 5, _Tipo.OBJETIVA, evitar="Enunciado: X")
+    usuario = _usuario_gerador(
+        _TRECHOS, _MEDIA, 5, _Tipo.OBJETIVA, evitar="Enunciado: X"
+    )
     assert "Questão que está sendo substituída — não a repita." in usuario
     assert "Orientações do docente" not in usuario
 

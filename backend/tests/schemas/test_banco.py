@@ -6,7 +6,9 @@ from backend.app.schemas.orquestrador import ComandoExcluir
 
 
 def test_exclusao_aceita_ate_o_tamanho_maximo_do_banco():
-    dados = ExclusaoCriar(numeros=list(range(1, N_MAXIMO_BANCO + 1)), revisao_esperada=0)
+    dados = ExclusaoCriar(
+        numeros=list(range(1, N_MAXIMO_BANCO + 1)), revisao_esperada=0
+    )
     assert len(dados.numeros) == N_MAXIMO_BANCO
 
 

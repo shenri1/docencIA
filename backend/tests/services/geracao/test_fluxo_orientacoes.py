@@ -38,14 +38,24 @@ def test_gerar_banco_manda_as_vigentes_ao_gerador_e_ao_critico(
     db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
-    ativa = criar_orientacao_sessao(db_session, docente, sessao_rascunho, "exemplos práticos")
-    inativa = criar_orientacao_sessao(db_session, docente, sessao_rascunho, "texto desativado")
+    ativa = criar_orientacao_sessao(
+        db_session, docente, sessao_rascunho, "exemplos práticos"
+    )
+    inativa = criar_orientacao_sessao(
+        db_session, docente, sessao_rascunho, "texto desativado"
+    )
     desativar(db_session, docente, sessao_rascunho, inativa.id)
     provedor = ProvedorLLMFake(roteiro(1))
 
     gerar_banco(
-        db_session, embeddings_fake, reranker_fake, provedor, sessao_rascunho,
-        n_objetivas=1, n_discursivas=0, versao="v1",
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        provedor,
+        sessao_rascunho,
+        n_objetivas=1,
+        n_discursivas=0,
+        versao="v1",
     )
 
     gerador, critico = (r.usuario for r in provedor.requisicoes)
@@ -66,16 +76,29 @@ def test_geracao_sem_orientacoes_nao_grava_ligacao(
 ):
     preparar(db_session, armazenamento, sessao_rascunho)
     gerar_banco(
-        db_session, embeddings_fake, reranker_fake, ProvedorLLMFake(roteiro(1)),
-        sessao_rascunho, n_objetivas=1, n_discursivas=0, versao="v1",
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake(roteiro(1)),
+        sessao_rascunho,
+        n_objetivas=1,
+        n_discursivas=0,
+        versao="v1",
     )
-    assert db_session.scalar(select(func.count()).select_from(questoes_orientacoes)) == 0
+    assert (
+        db_session.scalar(select(func.count()).select_from(questoes_orientacoes)) == 0
+    )
     payload = _payload_da_geracao(db_session)
     assert (payload["n_orientacoes"], payload["orientacoes_ids"]) == (0, [])
 
 
 def test_recuo_com_cruzamento_nao_busca_de_novo(
-    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho,
+    db_session,
+    docente,
+    armazenamento,
+    embeddings_fake,
+    reranker_fake,
+    sessao_rascunho,
     monkeypatch,
 ):
     buscar = busca_orientada.buscar
@@ -94,14 +117,27 @@ def test_recuo_com_cruzamento_nao_busca_de_novo(
     ancora = selecionar_ancoras(db_session, sessao_rascunho, 10)[0]
     plano = _montar_plano(sessao_rascunho, 10, 0)
     provedor = ProvedorLLMFake(
-        [corpo_insuficiencia(), corpo_questao(5, contexto=CONTEXTO_MEDIA),
-         corpo_questao(5, contexto=CONTEXTO_MEDIA)]
+        [
+            corpo_insuficiencia(),
+            corpo_questao(5, contexto=CONTEXTO_MEDIA),
+            corpo_questao(5, contexto=CONTEXTO_MEDIA),
+        ]
     )
 
     produzida = produzir_questao(
-        db_session, embeddings_fake, reranker_fake, provedor, sessao_rascunho, banco, 1,
-        TipoQuestao.OBJETIVA, plano[4].faixa, ancora, plano[4].distribuicao,
-        formato=FormatoItem.AFIRMATIVAS, configuracao=(True, False, True),
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        provedor,
+        sessao_rascunho,
+        banco,
+        1,
+        TipoQuestao.OBJETIVA,
+        plano[4].faixa,
+        ancora,
+        plano[4].distribuicao,
+        formato=FormatoItem.AFIRMATIVAS,
+        configuracao=(True, False, True),
         orientacoes=[cruzada],
     )
 

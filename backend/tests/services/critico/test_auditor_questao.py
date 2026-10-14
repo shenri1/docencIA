@@ -47,7 +47,9 @@ def test_mensagem_traz_trechos_enunciado_alternativas_e_a_correta(
     questao = preparar_questao(db_session, armazenamento, sessao_rascunho)
     provedor = ProvedorLLMFake([sem_achado()])
 
-    auditar(db_session, embeddings_fake, reranker_fake, provedor, sessao_rascunho, questao)
+    auditar(
+        db_session, embeddings_fake, reranker_fake, provedor, sessao_rascunho, questao
+    )
 
     usuario = provedor.requisicoes[0].usuario
     assert questao.enunciado in usuario
@@ -64,7 +66,9 @@ def test_mensagem_nao_traz_as_violacoes_de_forma(
     questao = preparar_questao(db_session, armazenamento, sessao_rascunho)
     provedor = ProvedorLLMFake([sem_achado()])
 
-    auditar(db_session, embeddings_fake, reranker_fake, provedor, sessao_rascunho, questao)
+    auditar(
+        db_session, embeddings_fake, reranker_fake, provedor, sessao_rascunho, questao
+    )
 
     usuario = provedor.requisicoes[0].usuario
     assert "Violações de forma" not in usuario
@@ -76,7 +80,9 @@ def test_uma_chamada_por_questao(
 ):
     questao = preparar_questao(db_session, armazenamento, sessao_rascunho)
     provedor = ProvedorLLMFake([sem_achado()])
-    auditar(db_session, embeddings_fake, reranker_fake, provedor, sessao_rascunho, questao)
+    auditar(
+        db_session, embeddings_fake, reranker_fake, provedor, sessao_rascunho, questao
+    )
     assert provedor.chamadas == 1
 
 
@@ -85,8 +91,12 @@ def test_lista_vazia_do_modelo_devolve_so_os_achados_de_forma(
 ):
     questao = preparar_questao(db_session, armazenamento, sessao_rascunho)
     resultado = auditar(
-        db_session, embeddings_fake, reranker_fake,
-        ProvedorLLMFake([sem_achado()]), sessao_rascunho, questao,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake([sem_achado()]),
+        sessao_rascunho,
+        questao,
     )
     # A questão da fábrica é equilibrada: nenhum achado de forma tampouco.
     assert resultado.achados == []
@@ -110,8 +120,12 @@ def test_achado_do_modelo_vira_achado_com_enum(
     )
 
     resultado = auditar(
-        db_session, embeddings_fake, reranker_fake,
-        ProvedorLLMFake([com_achado(loc)]), sessao_rascunho, questao,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake([com_achado(loc)]),
+        sessao_rascunho,
+        questao,
     )
 
     assert len(resultado.achados) == 1
@@ -138,8 +152,12 @@ def test_achados_de_forma_vem_antes_dos_do_modelo(
     )
 
     resultado = auditar(
-        db_session, embeddings_fake, reranker_fake,
-        ProvedorLLMFake([com_achado(loc)]), sessao_rascunho, questao,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake([com_achado(loc)]),
+        sessao_rascunho,
+        questao,
     )
     assert resultado.achados[0].risco is RiscoAuditoria.ASSIMETRIA_FORMA
     assert resultado.achados[-1].risco is RiscoAuditoria.CORRETA_NAO_UNICA

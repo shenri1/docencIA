@@ -71,7 +71,9 @@ def test_uma_chamada_por_objetiva_ativa_e_um_registro_cada(
     banco = banco_misto(db_session, armazenamento, sessao_rascunho)
     provedor = ProvedorLLMFake([sem_achado() for _ in range(3)])
 
-    resumo = _auditar(db_session, embeddings_fake, reranker_fake, provedor, docente, banco)
+    resumo = _auditar(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco
+    )
 
     assert provedor.chamadas == 3
     assert resumo.auditadas == 3
@@ -91,8 +93,12 @@ def test_payload_grava_revisao_modelo_e_versao_de_prompt(
         db_session, armazenamento, sessao_rascunho, objetivas=1, discursivas=0
     )
     _auditar(
-        db_session, embeddings_fake, reranker_fake,
-        ProvedorLLMFake([sem_achado()]), docente, banco,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake([sem_achado()]),
+        docente,
+        banco,
     )
     payload = db_session.query(RegistroAuditoria).one().payload
     assert payload["banco_id"] == banco.id
@@ -113,8 +119,12 @@ def test_auditar_nao_muda_nada_do_banco(
     estados = {q.numero: q.estado for q in banco.questoes}
 
     _auditar(
-        db_session, embeddings_fake, reranker_fake,
-        ProvedorLLMFake([sem_achado() for _ in range(3)]), docente, banco,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake([sem_achado() for _ in range(3)]),
+        docente,
+        banco,
     )
 
     assert (banco.revisao, banco.n_atual, banco.estado) == antes
@@ -134,7 +144,9 @@ def test_excluida_e_candidata_nao_geram_chamada(
     db_session.commit()
 
     provedor = ProvedorLLMFake([sem_achado() for _ in range(2)])
-    resumo = _auditar(db_session, embeddings_fake, reranker_fake, provedor, docente, banco)
+    resumo = _auditar(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco
+    )
     assert provedor.chamadas == 2
     assert resumo.auditadas == 2
 
@@ -146,12 +158,18 @@ def test_retomada_na_mesma_revisao_nao_audita_de_novo(
         db_session, armazenamento, sessao_rascunho, objetivas=2, discursivas=0
     )
     _auditar(
-        db_session, embeddings_fake, reranker_fake,
-        ProvedorLLMFake([sem_achado(), sem_achado()]), docente, banco,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake([sem_achado(), sem_achado()]),
+        docente,
+        banco,
     )
 
     provedor = ProvedorLLMFake([])  # roteiro vazio: qualquer chamada estoura
-    resumo = _auditar(db_session, embeddings_fake, reranker_fake, provedor, docente, banco)
+    resumo = _auditar(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco
+    )
     assert provedor.chamadas == 0
     assert resumo.auditadas == 2
     assert resumo.ja_auditadas == 2
@@ -166,8 +184,12 @@ def test_revisao_nova_reaudita_o_banco_inteiro(
         db_session, armazenamento, sessao_rascunho, objetivas=2, discursivas=0
     )
     _auditar(
-        db_session, embeddings_fake, reranker_fake,
-        ProvedorLLMFake([sem_achado(), sem_achado()]), docente, banco,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake([sem_achado(), sem_achado()]),
+        docente,
+        banco,
     )
     # Simula o efeito de uma substituição aceita. Como o banco não tem
     # RelatorioImpacto correspondente, a consistência (checagem 3) acusaria a
@@ -179,7 +201,9 @@ def test_revisao_nova_reaudita_o_banco_inteiro(
     db_session.commit()
 
     provedor = ProvedorLLMFake([sem_achado(), sem_achado()])
-    resumo = _auditar(db_session, embeddings_fake, reranker_fake, provedor, docente, banco)
+    resumo = _auditar(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco
+    )
     assert provedor.chamadas == 2
     assert resumo.ja_auditadas == 0
     assert db_session.query(RegistroAuditoria).count() == 4
@@ -192,7 +216,9 @@ def test_banco_sem_objetiva_ativa_nao_chama_o_provedor(
         db_session, armazenamento, sessao_rascunho, objetivas=0, discursivas=2
     )
     provedor = ProvedorLLMFake([])
-    resumo = _auditar(db_session, embeddings_fake, reranker_fake, provedor, docente, banco)
+    resumo = _auditar(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco
+    )
     assert provedor.chamadas == 0
     assert resumo.auditadas == 0
     assert resumo.discursivas_ignoradas == 2
@@ -209,7 +235,9 @@ def test_proporcao_com_achado(
     )
     longa = (
         db_session.query(Alternativa)
-        .filter(Alternativa.questao_id == banco.questoes[0].id, Alternativa.letra == "A")
+        .filter(
+            Alternativa.questao_id == banco.questoes[0].id, Alternativa.letra == "A"
+        )
         .one()
     )
     longa.texto = (
@@ -219,8 +247,12 @@ def test_proporcao_com_achado(
     db_session.commit()
 
     resumo = _auditar(
-        db_session, embeddings_fake, reranker_fake,
-        ProvedorLLMFake([sem_achado() for _ in range(4)]), docente, banco,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake([sem_achado() for _ in range(4)]),
+        docente,
+        banco,
     )
     assert [q.numero for q in resumo.questoes] == [1]
     assert resumo.proporcao_com_achado == Decimal("25.00")
@@ -238,7 +270,9 @@ def test_divergencia_de_prompt_barra_antes_de_qualquer_chamada(
     provedor = ProvedorLLMFake([])
     try:
         with pytest.raises(PromptDivergenteException):
-            _auditar(db_session, embeddings_fake, reranker_fake, provedor, docente, banco)
+            _auditar(
+                db_session, embeddings_fake, reranker_fake, provedor, docente, banco
+            )
     finally:
         caminho.write_text(original, encoding="utf-8")
     assert provedor.chamadas == 0
@@ -258,7 +292,9 @@ def test_banco_incoerente_barra_a_auditoria(
     assert provedor.chamadas == 0
 
 
-def test_montar_resumo_sem_nenhuma_auditoria(db_session, armazenamento, sessao_rascunho):
+def test_montar_resumo_sem_nenhuma_auditoria(
+    db_session, armazenamento, sessao_rascunho
+):
     banco = banco_misto(
         db_session, armazenamento, sessao_rascunho, objetivas=2, discursivas=1
     )
@@ -277,8 +313,12 @@ def test_montar_resumo_sem_ja_antes_iguala_os_contadores(
         db_session, armazenamento, sessao_rascunho, objetivas=2, discursivas=0
     )
     _auditar(
-        db_session, embeddings_fake, reranker_fake,
-        ProvedorLLMFake([sem_achado(), sem_achado()]), docente, banco,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake([sem_achado(), sem_achado()]),
+        docente,
+        banco,
     )
     resumo = montar_resumo(db_session, banco)
     assert resumo.auditadas == resumo.ja_auditadas == 2
@@ -328,8 +368,12 @@ def test_registros_duplicados_do_mesmo_numero_contam_uma_vez(
         db_session, armazenamento, sessao_rascunho, objetivas=1, discursivas=0
     )
     _auditar(
-        db_session, embeddings_fake, reranker_fake,
-        ProvedorLLMFake([sem_achado()]), docente, banco,
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake([sem_achado()]),
+        docente,
+        banco,
     )
     existente = db_session.query(RegistroAuditoria).one()
     registrar_evento(
@@ -355,7 +399,9 @@ def test_resumo_conta_as_questoes_sem_verificacao_de_forma(
     next(q for q in banco.questoes if q.numero == 2).formato = FormatoItem.AFIRMATIVAS
     db_session.commit()
     provedor = ProvedorLLMFake([sem_achado(), sem_achado()])
-    resumo = _auditar(db_session, embeddings_fake, reranker_fake, provedor, docente, banco)
+    resumo = _auditar(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco
+    )
     assert resumo.auditadas == 2
     assert resumo.sem_verificacao_de_forma == 1
     assert "<formato_afirmativas>" in provedor.requisicoes[1].sistema

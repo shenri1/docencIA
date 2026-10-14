@@ -4205,7 +4205,8 @@
           "comando_negativo",
           "pontuacao_incoerente",
           "assercao_citacao",
-          "opiniao_pessoal"
+          "opiniao_pessoal",
+          "notacao_invalida"
         ],
         "title": "RegraQualidade",
         "description": "Regras de forma, e, medidas sem LLM."

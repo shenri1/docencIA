@@ -30,7 +30,9 @@ from backend.app.services.provas.montagem_service import (
 from backend.app.services.provas.verificacao import verificar_provas
 
 _CARREGAR_ITENS = (
-    selectinload(Prova.itens).selectinload(ItemProva.questao).selectinload(Questao.alternativas)
+    selectinload(Prova.itens)
+    .selectinload(ItemProva.questao)
+    .selectinload(Questao.alternativas)
 )
 
 
@@ -150,9 +152,7 @@ def provas_do_banco(db: Session, banco: BancoQuestoes) -> ProvasMontadas:
     por_versao = {
         prova.versao: prova
         for prova in db.scalars(
-            select(Prova)
-            .where(Prova.banco_id == banco.id)
-            .options(_CARREGAR_ITENS)
+            select(Prova).where(Prova.banco_id == banco.id).options(_CARREGAR_ITENS)
         )
     }
     prova_a, prova_b = por_versao.get(VERSAO_A), por_versao.get(VERSAO_B)

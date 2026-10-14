@@ -165,9 +165,7 @@ def marco_da_sessao(db: Session, sessao: SessaoGeracao) -> MarcoSessao:
     # Depois do M1 a sessão está sempre em M2: criar outro banco com versão
     # nova é sempre possível.
     marco = (
-        Marco.M1_MATERIAIS
-        if sessao.estado is EstadoSessao.RASCUNHO
-        else Marco.M2_BANCO
+        Marco.M1_MATERIAIS if sessao.estado is EstadoSessao.RASCUNHO else Marco.M2_BANCO
     )
     n_materiais = db.scalar(
         select(func.count())

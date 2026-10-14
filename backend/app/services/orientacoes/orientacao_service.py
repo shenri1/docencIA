@@ -61,7 +61,9 @@ def _exigir_teto(db: Session, sessao: SessaoGeracao, com_cruzamento: bool) -> No
         )
 
 
-def _gravar(db: Session, docente: Docente, orientacao: OrientacaoDocente) -> OrientacaoDocente:
+def _gravar(
+    db: Session, docente: Docente, orientacao: OrientacaoDocente
+) -> OrientacaoDocente:
     db.add(orientacao)
     db.flush()  # id para o evento
     registrar_evento(

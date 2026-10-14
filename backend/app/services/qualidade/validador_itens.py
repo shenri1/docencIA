@@ -14,6 +14,13 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 
 from backend.app.domain import FaixaDificuldade, FormatoItem, RegraQualidade
+from backend.app.services.notacao import (
+    Formula,
+    Texto,
+    comandos_fora_do_subconjunto,
+    para_mathml,
+    separar,
+)
 
 # Listas fechadas em código de propósito: elas definem o que a métrica da
 # mede, e mudá-las é mudança revisada, não configuração.
@@ -102,8 +109,8 @@ TERMOS_OPINIAO = (
     "seu ponto de vista",
     "na sua visao",
 )
-# Abaixo disso a alternativa é rótulo ("Usa fila."). revisita:
-# "12 m/s" é alternativa legítima de cálculo.
+# Abaixo disso a alternativa é rótulo ("Usa fila."). Alternativa que contém
+# fórmula é isenta; "12 m/s" é.
 MINIMO_PALAVRAS_ALTERNATIVA = 4
 # A fácil não tem mínimo: pergunta direta é permitida.
 MINIMO_PALAVRAS_CONTEXTO = {FaixaDificuldade.MEDIA: 15, FaixaDificuldade.DIFICIL: 40}
@@ -342,7 +349,10 @@ def _letra_citada_em_texto(item: ItemObjetivo) -> list[Violacao]:
         ("enunciado", item.enunciado),
         ("justificativa", item.justificativa_correta),
         ("unicidade", item.texto_verificacao_unicidade),
-        *((f"invalidacao {letra}", motivo) for letra, motivo in item.invalidacoes or []),
+        *(
+            (f"invalidacao {letra}", motivo)
+            for letra, motivo in item.invalidacoes or []
+        ),
     ]
     return [
         Violacao(
@@ -365,7 +375,7 @@ def _alternativa_rotulo(item: ItemObjetivo) -> list[Violacao]:
     violacoes = []
     for alternativa in item.alternativas:
         n = len(_palavras(alternativa.texto))
-        if n < MINIMO_PALAVRAS_ALTERNATIVA:
+        if n < MINIMO_PALAVRAS_ALTERNATIVA and not _contem_formula(alternativa.texto):
             violacoes.append(
                 Violacao(
                     RegraQualidade.ALTERNATIVA_ROTULO,
@@ -408,11 +418,17 @@ def _pontuacao_incoerente(item: ItemObjetivo) -> list[Violacao]:
         return []
     fim = item.comando.rstrip()[-1:]
     if fim == "?":
-        proibida, detalhe = "minuscula", "o comando é pergunta, e a alternativa começa com minúscula"
+        proibida, detalhe = (
+            "minuscula",
+            "o comando é pergunta, e a alternativa começa com minúscula",
+        )
     elif fim in (".", ":", "!"):
         return []
     else:
-        proibida, detalhe = "maiuscula", "o comando é frase incompleta, e a alternativa começa com maiúscula"
+        proibida, detalhe = (
+            "maiuscula",
+            "o comando é frase incompleta, e a alternativa começa com maiúscula",
+        )
     return [
         Violacao(RegraQualidade.PONTUACAO_INCOERENTE, a.letra, detalhe)
         for a in item.alternativas
@@ -465,8 +481,62 @@ def _assercao_citacao(item: ItemObjetivo) -> list[Violacao]:
             "copia o trecho-base; o trecho sustenta, mas a redação é própria",
         )
         for alvo, texto in zip(("assercao", "razao"), item.assercoes, strict=False)
-        if any(_semelhanca(texto, t) >= LIMIAR_ASSERCAO_CITACAO for t in item.trechos_base)
+        if any(
+            _semelhanca(texto, t) >= LIMIAR_ASSERCAO_CITACAO for t in item.trechos_base
+        )
     ]
+
+
+def _notacao(alvo: str, texto: str) -> list[Violacao]:
+    """Não conserta: o crítico reemite, e o que sobrar aparece crua ao docente."""
+
+    def _viol(detalhe: str) -> Violacao:
+        return Violacao(RegraQualidade.NOTACAO_INVALIDA, alvo, detalhe)
+
+    violacoes: list[Violacao] = []
+    controle = next((c for c in texto if ord(c) < 0x20 and c != "\n"), None)
+    if controle is not None:
+        violacoes.append(
+            _viol(
+                f"caractere de controle U+{ord(controle):04X}: a barra do LaTeX "
+                'precisa ir dobrada no JSON ("\\\\frac")'
+            )
+        )
+    for segmento in separar(texto):
+        if isinstance(segmento, Texto):
+            if any(d in segmento.conteudo for d in ("\\(", "\\)", "\\[", "\\]")):
+                violacoes.append(_viol("delimitador de fórmula sem par"))
+            continue
+        if "\n" in segmento.latex and not segmento.destaque:
+            violacoes.append(
+                _viol(
+                    "quebra de linha dentro de \\(...\\): a barra do LaTeX foi "
+                    "lida como \\n no JSON?"
+                )
+            )
+        fora = comandos_fora_do_subconjunto(segmento.latex)
+        if fora:
+            violacoes.append(_viol(f"fora do subconjunto: {', '.join(fora)}"))
+        elif para_mathml(segmento.latex) is None:
+            violacoes.append(_viol(f"o conversor não aceita: {segmento.latex}"))
+    return violacoes
+
+
+def _contem_formula(texto: str) -> bool:
+    return any(isinstance(s, Formula) for s in separar(texto))
+
+
+def _notacao_objetiva(item: ItemObjetivo) -> list[Violacao]:
+    # O enunciado montado já traz contexto, comando, afirmativas e asserção.
+    alvos = _textos(item)
+    if item.justificativa_correta is not None:
+        alvos.append(("justificativa", item.justificativa_correta))
+    if item.texto_verificacao_unicidade is not None:
+        alvos.append(("verificacao", item.texto_verificacao_unicidade))
+    alvos += [
+        (f"invalidacao {letra}", motivo) for letra, motivo in item.invalidacoes or []
+    ]
+    return [v for alvo, texto in alvos for v in _notacao(alvo, texto)]
 
 
 def validar_objetiva(item: ItemObjetivo) -> list[Violacao]:
@@ -490,6 +560,7 @@ def validar_objetiva(item: ItemObjetivo) -> list[Violacao]:
         *_contexto_curto_em(item.contexto, item.faixa),
         *_comando_negativo(item),
         *_assercao_citacao(item),
+        *_notacao_objetiva(item),
     ]
 
 
@@ -529,7 +600,9 @@ def _mencao_fonte_em(
 
 
 def _comandos(item: ItemDiscursivo) -> list[tuple[str, str]]:
-    return item.comandos if item.comandos is not None else [("enunciado", item.enunciado)]
+    return (
+        item.comandos if item.comandos is not None else [("enunciado", item.enunciado)]
+    )
 
 
 def _comando_ausente(item: ItemDiscursivo) -> list[Violacao]:
@@ -576,6 +649,17 @@ def _aspectos_repetidos(item: ItemDiscursivo) -> list[Violacao]:
     return violacoes
 
 
+def _alvos_discursiva(item: ItemDiscursivo) -> list[tuple[str, str]]:
+    alvos = [("enunciado", item.enunciado)]
+    # O contexto já está no enunciado montado: medir os dois duplicaria o achado.
+    if item.contexto is not None and item.contexto not in item.enunciado:
+        alvos.append(("contexto", item.contexto))
+    if item.comandos is not None:
+        alvos += item.comandos
+    alvos += [(f"aspecto {i}", a.texto) for i, a in enumerate(item.aspectos, 1)]
+    return alvos
+
+
 def validar_discursiva(item: ItemDiscursivo) -> list[Violacao]:
     """Só forma. "O enunciado revela os aspectos" e "o aspecto é observável"
     são juízo semântico — do crítico e do docente. Aspectos ficam fora de
@@ -588,4 +672,5 @@ def validar_discursiva(item: ItemDiscursivo) -> list[Violacao]:
         *_aspectos_repetidos(item),
         *_opiniao_pessoal(item),
         *_contexto_curto_em(item.contexto, item.faixa),
+        *(v for alvo, texto in _alvos_discursiva(item) for v in _notacao(alvo, texto)),
     ]

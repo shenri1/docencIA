@@ -183,7 +183,11 @@ def _montar_plano(
 
 
 def _obter_ou_criar_banco(
-    db: Session, sessao: SessaoGeracao, versao: str, n_objetivas: int, n_discursivas: int
+    db: Session,
+    sessao: SessaoGeracao,
+    versao: str,
+    n_objetivas: int,
+    n_discursivas: int,
 ) -> BancoQuestoes:
     consulta = select(BancoQuestoes).where(
         BancoQuestoes.sessao_id == sessao.id, BancoQuestoes.versao == versao
@@ -216,7 +220,10 @@ def _obter_ou_criar_banco(
     if banco.estado is EstadoBanco.CONGELADO:
         # congelado não recebe questão nova.
         raise BancoCongeladoException(versao)
-    if (banco.n_alvo_objetivas, banco.n_alvo_discursivas) != (n_objetivas, n_discursivas):
+    if (banco.n_alvo_objetivas, banco.n_alvo_discursivas) != (
+        n_objetivas,
+        n_discursivas,
+    ):
         raise ParametrosBancoDivergentesException(
             versao,
             gravado=(banco.n_alvo_objetivas, banco.n_alvo_discursivas),
@@ -269,7 +276,9 @@ def _persistir(
         banco_id=banco.id,
         numero=numero,
         tipo=tipo,
-        formato=final.formato if tipo is TipoQuestao.OBJETIVA else FormatoItem.PROPOSICAO,
+        formato=final.formato
+        if tipo is TipoQuestao.OBJETIVA
+        else FormatoItem.PROPOSICAO,
         enunciado=final.enunciado,
         nivel_bloom=NivelBloom(final.nivel_bloom),
         faixa_dificuldade=faixa,
@@ -548,8 +557,18 @@ def produzir_questao(
     números seguintes falharem igual."""
     try:
         return _produzir_questao(
-            db, embeddings, reranker, provedor, sessao, banco, numero, tipo,
-            faixa, ancora, distribuicao, **resto,
+            db,
+            embeddings,
+            reranker,
+            provedor,
+            sessao,
+            banco,
+            numero,
+            tipo,
+            faixa,
+            ancora,
+            distribuicao,
+            **resto,
         )
     except (FonteInvalidaException, RespostaLLMInvalidaException) as exc:
         return Improdutiva(

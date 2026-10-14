@@ -21,6 +21,7 @@ def formatar_trechos(trechos: list[TrechoRecuperado]) -> str:
         f"[{t.identificador_curto}, {t.localizacao}] {t.texto}" for t in trechos
     )
 
+
 def formatar_orientacoes(orientacoes: Sequence) -> str | None:
     """Gerador e Crítico recebem o mesmo bloco. Nada aqui interpreta o
     texto: é numeração e concatenação."""

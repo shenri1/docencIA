@@ -70,7 +70,9 @@ def extrair_pdf(
             alvo = candidatas if len(candidatas) <= cfg.ocr_max_paginas else []
             for numero in alvo:
                 pagina = documento[numero - 1]
-                imagem = pagina.get_pixmap(dpi=_dpi_dentro_do_teto(pagina, cfg)).tobytes("png")
+                imagem = pagina.get_pixmap(
+                    dpi=_dpi_dentro_do_teto(pagina, cfg)
+                ).tobytes("png")
                 texto_ocr, confianca = ocr.reconhecer(imagem, cfg.ocr_langs)
                 anterior = metricas[numero - 1]
                 metricas[numero - 1] = MetricaPagina(

@@ -29,12 +29,12 @@ _MINIMO_ASPECTOS = 2
 class FonteGabarito:
     identificador_material: str
     localizacao: str
-    trecho_base: str | None          # None na simples
+    trecho_base: str | None  # None na simples
 
 
 @dataclass(frozen=True)
 class InvalidacaoGabarito:
-    letra: str | None                # letra DA PROVA; None quando sem vínculo
+    letra: str | None  # letra DA PROVA; None quando sem vínculo
     motivo: str
 
 
@@ -91,9 +91,10 @@ def _invalidacoes(
     """
     gravadas = item.questao.justificativa.invalidacao_distratores or []
     erradas = sorted(a.letra for a in item.questao.alternativas if not a.correta)
-    ligadas = all(isinstance(g, dict) for g in gravadas) and sorted(
-        g["letra"] for g in gravadas
-    ) == erradas
+    ligadas = (
+        all(isinstance(g, dict) for g in gravadas)
+        and sorted(g["letra"] for g in gravadas) == erradas
+    )
     if not ligadas:
         motivos = [g["motivo"] if isinstance(g, dict) else g for g in gravadas]
         return [InvalidacaoGabarito(None, motivo) for motivo in motivos], True

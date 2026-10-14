@@ -251,7 +251,9 @@ def _distancia(a: tuple[bool, ...], b: tuple[bool, ...]) -> int:
 
 
 def _motivo_afirmativas(combinacao, julgamento, afirmativas) -> str:
-    j = next(i for i, (x, y) in enumerate(zip(combinacao, julgamento, strict=True)) if x != y)
+    j = next(
+        i for i, (x, y) in enumerate(zip(combinacao, julgamento, strict=True)) if x != y
+    )
     if afirmativas[j].verdadeira:
         return (
             f"Deixa de fora a afirmativa {ROMANOS[j]}, que é verdadeira: "
@@ -262,14 +264,21 @@ def _motivo_afirmativas(combinacao, julgamento, afirmativas) -> str:
     )
 
 
-def montar_afirmativas(saida, configuracao: tuple[bool, ...], k: int, numero: int) -> QuestaoMontada:
-    afirmativas = [getattr(saida, nome) for nome in CAMPOS_AFIRMATIVA[: len(configuracao)]]
+def montar_afirmativas(
+    saida, configuracao: tuple[bool, ...], k: int, numero: int
+) -> QuestaoMontada:
+    afirmativas = [
+        getattr(saida, nome) for nome in CAMPOS_AFIRMATIVA[: len(configuracao)]
+    ]
     julgamento = tuple(a.verdadeira for a in afirmativas)
     if julgamento != tuple(configuracao):
         # O schema impõe a configuração como Literal: divergir é bug, não modelo.
-        raise ValueError(f"julgamento {julgamento} difere da configuração {configuracao}")
+        raise ValueError(
+            f"julgamento {julgamento} difere da configuração {configuracao}"
+        )
     outras = [
-        c for c in product((True, False), repeat=len(julgamento))
+        c
+        for c in product((True, False), repeat=len(julgamento))
         if any(c) and c != julgamento
     ]
     # Estável: dentro da mesma distância, fica a ordem canônica do product.
@@ -300,7 +309,9 @@ def montar_afirmativas(saida, configuracao: tuple[bool, ...], k: int, numero: in
             for i, a in enumerate(afirmativas)
         ),
         invalidacoes=[
-            InvalidacaoMontada(LETRAS[i], _motivo_afirmativas(c, julgamento, afirmativas))
+            InvalidacaoMontada(
+                LETRAS[i], _motivo_afirmativas(c, julgamento, afirmativas)
+            )
             for i, c in enumerate(ordem)
             if c != julgamento
         ],
@@ -312,7 +323,11 @@ def montar_afirmativas(saida, configuracao: tuple[bool, ...], k: int, numero: in
         estrutura_formato={
             "contexto": saida.contexto,
             "afirmativas": [
-                {"texto": a.texto, "verdadeira": a.verdadeira, "justificativa": a.justificativa}
+                {
+                    "texto": a.texto,
+                    "verdadeira": a.verdadeira,
+                    "justificativa": a.justificativa,
+                }
                 for a in afirmativas
             ],
         },
@@ -347,7 +362,11 @@ def montar_assercao_razao(saida, configuracao: str, numero: int) -> QuestaoMonta
     if julgamento[0] and julgamento[1]:
         justificativa += f"\nA II {'é' if julgamento[2] else 'não é'} uma justificativa correta da I."
     pergunta = juntar(
-        ABERTURA_ASSERCAO, f"I. {saida.assercao}", "PORQUE", f"II. {saida.razao}", FECHO_ASSERCAO
+        ABERTURA_ASSERCAO,
+        f"I. {saida.assercao}",
+        "PORQUE",
+        f"II. {saida.razao}",
+        FECHO_ASSERCAO,
     )
     return QuestaoMontada(
         formato=FormatoItem.ASSERCAO_RAZAO,
@@ -391,7 +410,9 @@ def montar_assercao_razao(saida, configuracao: str, numero: int) -> QuestaoMonta
     )
 
 
-def montar_objetiva(saida, formato: FormatoItem, configuracao, k: int, numero: int) -> QuestaoMontada:
+def montar_objetiva(
+    saida, formato: FormatoItem, configuracao, k: int, numero: int
+) -> QuestaoMontada:
     if formato is FormatoItem.AFIRMATIVAS:
         return montar_afirmativas(saida, configuracao, k, numero)
     if formato is FormatoItem.ASSERCAO_RAZAO:

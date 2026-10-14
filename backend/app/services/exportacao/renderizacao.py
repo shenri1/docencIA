@@ -21,9 +21,12 @@ from dataclasses import dataclass
 
 import docx
 from docx.enum.text import WD_BREAK
+from docx.oxml import parse_xml
 
 from backend.app.services.critico.auditor_service import ResumoAuditoria
+from backend.app.services.exportacao.notacao_omml import omml_da_formula
 from backend.app.services.geracao.formatos import LETRAS_ITEM
+from backend.app.services.notacao import Texto, separar
 from backend.app.services.provas.gabarito import FonteGabarito, Gabarito, ItemGabarito
 from backend.app.services.provas.leitura import ItemLido, ProvaLida
 from backend.app.services.provas.verificacao import Verificacao
@@ -73,15 +76,47 @@ def _paragrafo(documento, *partes: str):
     return paragrafo
 
 
+def _paragrafo_modelo(documento, *partes: str):
+    """Como `_paragrafo`, mas o texto escrito pelo modelo pode ter fórmula
+O texto persistido não é reescrito: fórmula que não converte sai
+    crua, com o delimitador. Trecho-base e rótulos do sistema usam `_paragrafo`."""
+    paragrafo = documento.add_paragraph()
+    for parte in partes:
+        segmentos = separar(parte)
+        if not segmentos:
+            paragrafo.add_run(parte)
+        for segmento in segmentos:
+            if isinstance(segmento, Texto):
+                paragrafo.add_run(segmento.conteudo)
+                continue
+            omml = omml_da_formula(segmento.latex, segmento.destaque)
+            if omml is None:
+                delimitada = (
+                    f"\\[{segmento.latex}\\]"
+                    if segmento.destaque
+                    else f"\\({segmento.latex}\\)"
+                )
+                paragrafo.add_run(delimitada)
+            elif segmento.destaque:
+                # Em destaque: parágrafo próprio, e o texto seguinte abre outro.
+                if len(paragrafo._p) > (1 if paragrafo._p.pPr is not None else 0):
+                    paragrafo = documento.add_paragraph()
+                paragrafo._p.append(parse_xml(omml))
+                paragrafo = documento.add_paragraph()
+            else:
+                paragrafo._p.append(parse_xml(omml))
+    return paragrafo
+
+
 def _quebra_de_pagina(documento) -> None:
     documento.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
 
 
 def _item_da_prova(documento, item: ItemLido) -> None:
-    _paragrafo(documento, f"{item.posicao}. ", item.enunciado)
+    _paragrafo_modelo(documento, f"{item.posicao}. ", item.enunciado)
     if item.alternativas:
         for alternativa in item.alternativas:
-            _paragrafo(documento, f"{alternativa.letra}) ", alternativa.texto)
+            _paragrafo_modelo(documento, f"{alternativa.letra}) ", alternativa.texto)
     else:
         for _ in range(LINHAS_RESPOSTA_DISCURSIVA):
             _paragrafo(documento, _LINHA)
@@ -137,21 +172,21 @@ def _item_do_gabarito(documento, item: ItemGabarito) -> None:
     if item.letra is not None:
         _paragrafo(documento, "Resposta: ", item.letra)
     if item.justificativa_correta is not None:
-        _paragrafo(documento, "Justificativa: ", item.justificativa_correta)
+        _paragrafo_modelo(documento, "Justificativa: ", item.justificativa_correta)
     for invalidacao in item.invalidacoes:
         rotulo = f"{invalidacao.letra}) " if invalidacao.letra else "— "
-        _paragrafo(documento, rotulo, invalidacao.motivo)
+        _paragrafo_modelo(documento, rotulo, invalidacao.motivo)
     item_atual = None
     for aspecto in item.aspectos:
         if aspecto.item is not None and aspecto.item != item_atual:
             item_atual = aspecto.item
             _paragrafo(documento, f"Item {LETRAS_ITEM[aspecto.item - 1]})")
-        _paragrafo(documento, f"{aspecto.ordem}. ", aspecto.texto)
+        _paragrafo_modelo(documento, f"{aspecto.ordem}. ", aspecto.texto)
         _paragrafo(documento, "Fonte: ", _fonte_texto(aspecto.fonte))
         if aspecto.fonte.trecho_base is not None:
             _paragrafo(documento, "Trecho-base: ", aspecto.fonte.trecho_base)
     if item.objetivo_cognitivo is not None:
-        _paragrafo(documento, "Objetivo cognitivo: ", item.objetivo_cognitivo)
+        _paragrafo_modelo(documento, "Objetivo cognitivo: ", item.objetivo_cognitivo)
     for fonte in item.fontes:
         _paragrafo(documento, "Fonte: ", _fonte_texto(fonte))
         if fonte.trecho_base is not None:
@@ -193,9 +228,7 @@ def _auditoria(documento, auditoria: ResumoAuditoria) -> None:
     for questao in auditoria.questoes:
         _paragrafo(documento, f"Questão {questao.numero}")
         for achado in questao.achados:
-            _paragrafo(
-                documento, f"{achado.risco.value} — alternativa {achado.alvo}"
-            )
+            _paragrafo(documento, f"{achado.risco.value} — alternativa {achado.alvo}")
             if achado.localizacao is not None:
                 _paragrafo(documento, "Localização: ", achado.localizacao)
             if achado.trecho_fonte is not None:

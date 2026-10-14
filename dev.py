@@ -49,11 +49,14 @@ MAGENTA = "\033[95m"
 def log_info(msg):
     print(f"{BLUE}[INFO]{RESET} {msg}")
 
+
 def log_success(msg):
     print(f"{GREEN}[SUCCESS]{RESET} {msg}")
 
+
 def log_warning(msg):
     print(f"{YELLOW}[WARNING]{RESET} {msg}")
+
 
 def log_error(msg):
     print(f"{RED}[ERROR]{RESET} {msg}")
@@ -61,17 +64,20 @@ def log_error(msg):
 
 # --- Helpers ---
 
+
 def get_docker_compose_cmd():
     try:
-        res = subprocess.run(["docker", "compose", "version"],
-                             capture_output=True, check=False)
+        res = subprocess.run(
+            ["docker", "compose", "version"], capture_output=True, check=False
+        )
         if res.returncode == 0:
             return ["docker", "compose"]
     except FileNotFoundError:
         pass
     try:
-        res = subprocess.run(["docker-compose", "version"],
-                             capture_output=True, check=False)
+        res = subprocess.run(
+            ["docker-compose", "version"], capture_output=True, check=False
+        )
         if res.returncode == 0:
             return ["docker-compose"]
     except FileNotFoundError:
@@ -131,7 +137,7 @@ def is_frontend_running(pid):
 def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(0.3)
-        return s.connect_ex(('127.0.0.1', port)) == 0
+        return s.connect_ex(("127.0.0.1", port)) == 0
 
 
 def wait_for_port(port, timeout=15):
@@ -196,7 +202,7 @@ def kill_process_group_robust(pid, name):
 
 def print_last_lines(filepath, n, prefix, color):
     try:
-        with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
             for line in f.readlines()[-n:]:
                 sys.stdout.write(f"{color}{prefix}{RESET} {line}")
             sys.stdout.flush()
@@ -208,7 +214,7 @@ def print_last_lines(filepath, n, prefix, color):
 
 def follow_file(filepath, prefix, color):
     try:
-        with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
             f.seek(0, 2)
             while True:
                 pos = f.tell()
@@ -231,14 +237,19 @@ def follow_file(filepath, prefix, color):
 def ensure_frontend_deps() -> bool:
     """Garante bun instalado e frontend/node_modules presente. False = não dá para seguir."""
     if shutil.which("bun") is None:
-        log_error("bun não encontrado no PATH. Instale em https://bun.sh para rodar o frontend.")
+        log_error(
+            "bun não encontrado no PATH. Instale em https://bun.sh para rodar o frontend."
+        )
         return False
     if os.path.isdir(os.path.join(FRONTEND_DIR, "node_modules")):
         return True
     log_info("frontend/node_modules ausente. Rodando 'bun install'...")
     res = subprocess.run(
-        ["bun", "install"], cwd=FRONTEND_DIR,
-        capture_output=True, text=True, check=False,
+        ["bun", "install"],
+        cwd=FRONTEND_DIR,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if res.returncode != 0:
         log_error(f"Falha no 'bun install':\n{res.stderr}")
@@ -253,7 +264,9 @@ def start_frontend(state):
         log_warning("Frontend já está rodando!")
         return
     if is_port_in_use(FRONTEND_PORT):
-        log_error(f"Porta {FRONTEND_PORT} já está em uso! Não é possível iniciar o frontend.")
+        log_error(
+            f"Porta {FRONTEND_PORT} já está em uso! Não é possível iniciar o frontend."
+        )
         return
     if not ensure_frontend_deps():
         return
@@ -267,10 +280,20 @@ def start_frontend(state):
 
     with open(frontend_log, "w") as log_file:
         p = subprocess.Popen(
-            ["bun", "run", "dev", "--host", "0.0.0.0",
-             "--port", str(FRONTEND_PORT), "--strictPort"],
-            cwd=FRONTEND_DIR, env=frontend_env,
-            stdout=log_file, stderr=log_file,
+            [
+                "bun",
+                "run",
+                "dev",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                str(FRONTEND_PORT),
+                "--strictPort",
+            ],
+            cwd=FRONTEND_DIR,
+            env=frontend_env,
+            stdout=log_file,
+            stderr=log_file,
             start_new_session=True,
         )
         state["frontend_pid"] = p.pid
@@ -283,6 +306,7 @@ def start_frontend(state):
 
 
 # --- Core Commands ---
+
 
 def start_dev():
     state = load_state()
@@ -314,7 +338,9 @@ def start_dev():
         log_info(f"Porta {DB_PORT} já em uso. Verificando containers docker...")
         res = subprocess.run(
             compose_cmd + ["-f", COMPOSE_FILE, "ps", "--format", "json"],
-            capture_output=True, text=True, check=False
+            capture_output=True,
+            text=True,
+            check=False,
         )
         if "docencia" in res.stdout or "db" in res.stdout:
             log_success("Container do banco já está rodando.")
@@ -344,12 +370,17 @@ def start_dev():
     for tentativa in range(1, 11):
         migracao = subprocess.run(
             ["uv", "run", "alembic", "upgrade", "head"],
-            cwd=WORKSPACE_ROOT, env=backend_env_for_local_run(),
-            capture_output=True, text=True, check=False,
+            cwd=WORKSPACE_ROOT,
+            env=backend_env_for_local_run(),
+            capture_output=True,
+            text=True,
+            check=False,
         )
         if migracao.returncode == 0:
             break
-        log_info(f"Banco ainda não aceitou conexão (tentativa {tentativa}/10). Aguardando...")
+        log_info(
+            f"Banco ainda não aceitou conexão (tentativa {tentativa}/10). Aguardando..."
+        )
         time.sleep(2)
     if migracao is not None and migracao.returncode != 0:
         log_error(f"Falha ao aplicar migrações:\n{migracao.stderr}")
@@ -358,7 +389,9 @@ def start_dev():
 
     # --- 2. Backend (FastAPI via uv/uvicorn) ---
     if is_port_in_use(BACKEND_PORT):
-        log_error(f"Porta {BACKEND_PORT} já está em uso! Não é possível iniciar o backend.")
+        log_error(
+            f"Porta {BACKEND_PORT} já está em uso! Não é possível iniciar o backend."
+        )
     else:
         log_info("Iniciando backend (FastAPI/uvicorn) em background...")
 
@@ -367,19 +400,34 @@ def start_dev():
 
         with open(backend_log, "w") as log_file:
             p = subprocess.Popen(
-                ["uv", "run", "uvicorn", "backend.app.main:app",
-                 "--reload", "--host", "0.0.0.0", "--port", str(BACKEND_PORT)],
-                cwd=WORKSPACE_ROOT, env=backend_env,
-                stdout=log_file, stderr=log_file,
+                [
+                    "uv",
+                    "run",
+                    "uvicorn",
+                    "backend.app.main:app",
+                    "--reload",
+                    "--host",
+                    "0.0.0.0",
+                    "--port",
+                    str(BACKEND_PORT),
+                ],
+                cwd=WORKSPACE_ROOT,
+                env=backend_env,
+                stdout=log_file,
+                stderr=log_file,
                 start_new_session=True,
             )
             state["backend_pid"] = p.pid
-            log_success(f"Backend iniciado (PID group: {p.pid}). Logs: logs/backend.log")
+            log_success(
+                f"Backend iniciado (PID group: {p.pid}). Logs: logs/backend.log"
+            )
             log_info(f"Aguardando backend (porta {BACKEND_PORT}) ficar pronto...")
             if wait_for_port(BACKEND_PORT, timeout=60):
                 log_success(f"Backend pronto em http://localhost:{BACKEND_PORT}")
             else:
-                log_warning("Backend não respondeu após 60s. Verifique logs/backend.log")
+                log_warning(
+                    "Backend não respondeu após 60s. Verifique logs/backend.log"
+                )
 
     # --- 3. Frontend (React/Vite via bun) ---
     start_frontend(state)
@@ -443,13 +491,21 @@ def show_status():
     print(f"\n{BOLD}docencIA Dev Environment Status:{RESET}")
     print("-" * 60)
 
-    b_status = f"{GREEN}RUNNING{RESET} (PID: {b_pid})" if b_running else f"{RED}STOPPED{RESET}"
+    b_status = (
+        f"{GREEN}RUNNING{RESET} (PID: {b_pid})" if b_running else f"{RED}STOPPED{RESET}"
+    )
     print(f"Backend  (FastAPI {BACKEND_PORT}):     {b_status}")
 
-    f_status = f"{GREEN}RUNNING{RESET} (PID: {f_pid})" if f_running else f"{RED}STOPPED{RESET}"
+    f_status = (
+        f"{GREEN}RUNNING{RESET} (PID: {f_pid})" if f_running else f"{RED}STOPPED{RESET}"
+    )
     print(f"Frontend (Vite {FRONTEND_PORT}):       {f_status}")
 
-    db_status = f"{GREEN}RUNNING{RESET} (Port {DB_PORT})" if is_port_in_use(DB_PORT) else f"{RED}STOPPED{RESET}"
+    db_status = (
+        f"{GREEN}RUNNING{RESET} (Port {DB_PORT})"
+        if is_port_in_use(DB_PORT)
+        else f"{RED}STOPPED{RESET}"
+    )
     print(f"Database (Postgres+pgvector {DB_PORT}): {db_status}")
 
     print("-" * 60)
@@ -497,12 +553,18 @@ def stream_logs(service=None):
                 with open(path, "w"):
                     pass
 
-        print(f"{CYAN}--- Streaming logs do backend e do frontend (Ctrl+C para sair) ---{RESET}\n")
+        print(
+            f"{CYAN}--- Streaming logs do backend e do frontend (Ctrl+C para sair) ---{RESET}\n"
+        )
         print_last_lines(backend_path, 30, "[backend]", GREEN)
         print_last_lines(frontend_path, 30, "[frontend]", MAGENTA)
 
-        t1 = threading.Thread(target=follow_file, args=(backend_path, "[backend]", GREEN), daemon=True)
-        t2 = threading.Thread(target=follow_file, args=(frontend_path, "[frontend]", MAGENTA), daemon=True)
+        t1 = threading.Thread(
+            target=follow_file, args=(backend_path, "[backend]", GREEN), daemon=True
+        )
+        t2 = threading.Thread(
+            target=follow_file, args=(frontend_path, "[frontend]", MAGENTA), daemon=True
+        )
         t1.start()
         t2.start()
         try:

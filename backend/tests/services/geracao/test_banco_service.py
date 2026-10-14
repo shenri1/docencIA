@@ -122,7 +122,7 @@ def roteiro_do_plano(sessao, n_obj: int, n_disc: int = 0) -> list[dict]:
 
 
 # `_montar_plano` só lê p_f, p_m, p_d e k_alternativas da sessão.
-_SESSAO_PADRAO = SimpleNamespace(p_f=30, p_m=40, p_d=30, k_alternativas=5)
+_SESSAO_PADRAO = SimpleNamespace(p_f=30, p_m=40, p_d=30, k_alternativas=5, p_calculo=0)
 
 
 VARIACAO = "Que estrutura auxiliar garante a visita por camadas na busca em largura?"
@@ -1473,3 +1473,207 @@ def test_discursiva_dificil_persiste_aspectos_com_item(
     q4 = db_session.query(Questao).filter_by(numero=4).one()
     assert [(a.ordem, a.item) for a in q4.aspectos] == [(1, 1), (2, 2)]
     assert "a) " in q4.enunciado and "b) " in q4.enunciado
+
+
+# --- plano com questões de cálculo ---
+
+
+def test_plano_com_calculo_e_estavel(sessao_rascunho):
+    sessao_rascunho.p_calculo = 40
+    assert _montar_plano(sessao_rascunho, 10, 0) == _montar_plano(
+        sessao_rascunho, 10, 0
+    )
+
+
+def test_plano_sem_calculo_nao_tem_formato_calculo(sessao_rascunho):
+    plano = _montar_plano(sessao_rascunho, 10, 0)
+    assert all(i.formato is not FormatoItem.CALCULO for i in plano)
+
+
+def test_calculo_ocupa_posicoes_espalhadas(sessao_rascunho):
+    sessao_rascunho.p_f, sessao_rascunho.p_m, sessao_rascunho.p_d = 100, 0, 0
+    sessao_rascunho.p_calculo = 30
+    plano = _montar_plano(sessao_rascunho, 10, 0)
+    indices = {i for i, item in enumerate(plano) if item.formato is FormatoItem.CALCULO}
+    assert indices == {0, 3, 6}
+
+
+def test_rodizio_ignora_posicoes_de_calculo(sessao_rascunho):
+    sessao_rascunho.p_f, sessao_rascunho.p_m, sessao_rascunho.p_d = 0, 100, 0
+    sessao_rascunho.k_alternativas = 4
+    sessao_rascunho.p_calculo = 50
+    plano = _montar_plano(sessao_rascunho, 8, 0)
+    outros = [i.formato for i in plano if i.formato is not FormatoItem.CALCULO]
+    assert len(outros) == 4
+    assert outros == [
+        FormatoItem.PROPOSICAO,
+        FormatoItem.AFIRMATIVAS,
+        FormatoItem.PROPOSICAO,
+        FormatoItem.AFIRMATIVAS,
+    ]
+
+
+def test_calculo_nao_conta_na_configuracao_das_afirmativas(sessao_rascunho):
+    sessao_rascunho.p_f, sessao_rascunho.p_m, sessao_rascunho.p_d = 0, 100, 0
+    sessao_rascunho.p_calculo = 50
+    plano = _montar_plano(sessao_rascunho, 8, 0)
+    assert all(
+        i.configuracao is None for i in plano if i.formato is FormatoItem.CALCULO
+    )
+
+
+# --- formato CALCULO, violação de cálculo e recuo ---
+
+
+def _item_calculo(sessao):
+    plano = _montar_plano(sessao, 10, 0)
+    return {
+        "faixa": plano[4].faixa,  # média: CONTEXTO_MEDIA cobre o mínimo de palavras
+        "distribuicao": plano[4].distribuicao,
+        "formato": FormatoItem.CALCULO,
+        "configuracao": None,
+    }
+
+
+def _payload_da_questao(db):
+    from sqlalchemy import select as _select
+
+    from backend.app.domain import TipoEventoAuditoria
+    from backend.app.models.auditoria import RegistroAuditoria
+
+    return db.scalars(
+        _select(RegistroAuditoria.payload).where(
+            RegistroAuditoria.tipo_evento == TipoEventoAuditoria.QUESTAO_GERADA.value
+        )
+    ).one()
+
+
+def test_calculo_gera_com_alternativas_do_sistema(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    from backend.tests.services.geracao.duplos import corpo_calculo
+
+    preparar(db_session, armazenamento, sessao_rascunho)
+    provedor, produzida = _gerar_um(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        _item_calculo(sessao_rascunho),
+        [corpo_calculo(), corpo_calculo()],
+    )
+    questao = produzida.questao
+    assert questao.formato is FormatoItem.CALCULO
+    assert provedor.chamadas == 2
+    assert all(a.texto.startswith("\\(") for a in questao.alternativas)
+    assert "Dados:" in questao.enunciado
+    estrutura = questao.justificativa.estrutura_formato
+    assert [d["simbolo"] for d in estrutura["dados"]] == ["g", "h"]
+    assert estrutura["expressao"] == "sqrt(2 * g * h)"
+    payload = _payload_da_questao(db_session)
+    assert payload["formato_planejado"] == payload["formato"] == "calculo"
+    assert payload["motivo_recuo"] is None
+
+
+def test_violacao_de_calculo_vai_ao_critico_e_e_corrigida(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    from backend.tests.services.geracao.duplos import corpo_calculo
+
+    preparar(db_session, armazenamento, sessao_rascunho)
+    provedor, produzida = _gerar_um(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        _item_calculo(sessao_rascunho),
+        [corpo_calculo(expressao="__import__('os')"), corpo_calculo()],
+    )
+    questao = produzida.questao
+    assert questao.formato is FormatoItem.CALCULO
+    assert "[expressao_invalida] expressao" in provedor.requisicoes[1].usuario
+    assert "expressao_invalida" in {
+        v["regra"] for v in questao.revisao.violacoes_rascunho
+    }
+    assert _payload_da_questao(db_session)["motivo_recuo"] is None
+
+
+def test_calculo_que_sobra_recua_para_proposicao_com_os_mesmos_trechos(
+    db_session,
+    armazenamento,
+    embeddings_fake,
+    reranker_fake,
+    sessao_rascunho,
+    monkeypatch,
+):
+    from backend.app.services.geracao import busca_orientada
+    from backend.tests.services.geracao.duplos import corpo_calculo
+
+    buscar = busca_orientada.buscar
+    buscas = []
+
+    def contar(*args, **kwargs):
+        buscas.append(1)
+        return buscar(*args, **kwargs)
+
+    monkeypatch.setattr(busca_orientada, "buscar", contar)
+    preparar(db_session, armazenamento, sessao_rascunho)
+    invalido = corpo_calculo(expressao="__import__('os')")
+    provedor, produzida = _gerar_um(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        _item_calculo(sessao_rascunho),
+        [
+            invalido,
+            invalido,
+            corpo_questao(5, contexto=CONTEXTO_MEDIA),
+            corpo_questao(5, contexto=CONTEXTO_MEDIA),
+        ],
+    )
+    assert produzida.questao.formato is FormatoItem.PROPOSICAO
+    assert provedor.chamadas == 4
+    assert "<formato_proposicao>" in provedor.requisicoes[2].sistema
+    assert len(buscas) == 1
+    payload = _payload_da_questao(db_session)
+    assert payload["formato_planejado"] == "calculo"
+    assert payload["formato"] == "proposicao"
+    assert payload["motivo_recuo"] == "calculo"
+
+
+def test_insuficiencia_no_calculo_recua_com_motivo(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    provedor, produzida = _gerar_um(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        _item_calculo(sessao_rascunho),
+        [
+            corpo_insuficiencia("a fórmula"),
+            corpo_questao(5, contexto=CONTEXTO_MEDIA),
+            corpo_questao(5, contexto=CONTEXTO_MEDIA),
+        ],
+    )
+    assert produzida.questao.formato is FormatoItem.PROPOSICAO
+    assert _payload_da_questao(db_session)["motivo_recuo"] == "insuficiencia"
+
+
+def test_insuficiencia_na_proposicao_apos_recuo_continua_improdutiva(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    provedor, produzida = _gerar_um(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        _item_calculo(sessao_rascunho),
+        [corpo_insuficiencia("a fórmula"), corpo_insuficiencia("o tema")],
+    )
+    assert isinstance(produzida, Improdutiva)
+    assert provedor.chamadas == 2
+    assert "o tema" in produzida.motivo

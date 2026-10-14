@@ -236,6 +236,7 @@ MARCAS_FORMATO = {
     FormatoItem.PROPOSICAO: "<formato_proposicao>",
     FormatoItem.AFIRMATIVAS: "<formato_afirmativas>",
     FormatoItem.ASSERCAO_RAZAO: "<formato_assercao_razao>",
+    FormatoItem.CALCULO: "<formato_calculo>",
 }
 
 
@@ -252,6 +253,7 @@ MARCAS_QUALIDADE = {
     FormatoItem.PROPOSICAO: "<qualidade_alternativas>",
     FormatoItem.AFIRMATIVAS: "<formato_afirmativas>",
     FormatoItem.ASSERCAO_RAZAO: "<formato_assercao_razao>",
+    FormatoItem.CALCULO: "<formato_calculo>",
 }
 
 
@@ -337,3 +339,26 @@ def test_auditor_nao_recebe_notacao():
 def test_modulo_de_notacao_entra_no_hash_de_versao():
     nomes = [nome for nome, _ in carregar_modulos_versionados()]
     assert "comum/06_notacao.md" in nomes
+
+
+# --- formato CALCULO ---
+
+
+@pytest.mark.parametrize("tipo", [OBJ])
+def test_calculo_no_gerador_e_no_critico(tipo):
+    gerador = montar_sistema(tipo, params(), FormatoItem.CALCULO)
+    critico = montar_sistema_critico(tipo, params(), FormatoItem.CALCULO)
+    for sistema in (gerador, critico):
+        assert "<formato_calculo>" in sistema
+        assert "<formato_afirmativas>" not in sistema
+    assert "<exemplo_calculo>" in gerador
+
+
+def test_auditor_aceita_o_formato_calculo():
+    assert "<formato_calculo>" in montar_sistema_auditor(params(), FormatoItem.CALCULO)
+
+
+def test_modulos_de_calculo_entram_no_hash_de_versao():
+    nomes = [n for n, _ in carregar_modulos_versionados()]
+    assert "objetiva/formatos/calculo/01_formato.md" in nomes
+    assert "objetiva/formatos/calculo/02_exemplo.md" in nomes

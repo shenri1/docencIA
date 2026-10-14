@@ -792,3 +792,44 @@ def test_copia_na_variacao_guiada_ganha_nova_tentativa(
     segunda = provedor.requisicoes[1].usuario
     assert "Questão de partida" in segunda
     assert substituicao_service._AVISO_REPETICAO in segunda
+
+
+def test_substituicao_mantem_calculo_e_recalcula(
+    db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    from backend.tests.services.geracao.duplos import corpo_calculo
+
+    preparar(db_session, armazenamento, sessao_rascunho)
+    sessao_rascunho.p_calculo = 100
+    db_session.commit()
+    resumo = gerar_banco(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake([corpo_calculo(), corpo_calculo()]),
+        sessao_rascunho,
+        n_objetivas=1,
+        n_discursivas=0,
+        versao="v1",
+    )
+    banco = db_session.get(BancoQuestoes, resumo.banco_id)
+    original = next(q for q in banco.questoes if q.numero == 1)
+    assert original.formato is FormatoItem.CALCULO
+
+    outra = corpo_calculo(
+        comando="Com que rapidez o corpo atinge o chão nesse novo cenário?",
+        dados=[
+            {"simbolo": "g", "valor": 9.81, "unidade": "m/s**2"},
+            {"simbolo": "h", "valor": 8, "unidade": "m"},
+        ],
+    )
+    provedor = ProvedorLLMFake([outra, outra])
+    produzida = propor_substituicao(
+        db_session, embeddings_fake, reranker_fake, provedor, docente, banco, 1
+    )
+    candidata = produzida.questao
+    assert candidata.formato is FormatoItem.CALCULO
+    assert candidata.justificativa.estrutura_formato["dados"][1]["valor"] == 8
+    assert {a.texto for a in candidata.alternativas} != {
+        a.texto for a in original.alternativas
+    }

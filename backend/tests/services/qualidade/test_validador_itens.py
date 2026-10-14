@@ -723,3 +723,91 @@ def test_discursiva_contexto_dentro_do_enunciado_nao_duplica():
         contexto=contexto,
     )
     assert len(_notacao(validar_discursiva(item))) == 1
+
+
+# --- FORMULA_FORA_DO_TRECHO e NUMERO_NO_TEXTO ---
+
+
+def _regras_calculo(**campos):
+    return [
+        v.regra
+        for v in validar_objetiva(item_com(formato=FormatoItem.CALCULO, **campos))
+    ]
+
+
+def test_formula_fora_do_trecho():
+    regras_ = _regras_calculo(
+        formula_citada="v = sqrt(2gh)",
+        texto_dos_trechos=["A velocidade final é v = raiz de 2gh."],
+    )
+    assert regras_.count(RegraQualidade.FORMULA_FORA_DO_TRECHO) == 1
+
+
+def test_formula_no_trecho_com_espacos_diferentes_nao_gera():
+    regras_ = _regras_calculo(
+        formula_citada="v  =  sqrt(2gh)",
+        texto_dos_trechos=["Vale v = sqrt(2gh) para queda."],
+    )
+    assert RegraQualidade.FORMULA_FORA_DO_TRECHO not in regras_
+
+
+def test_formula_sem_trechos_nao_mede():
+    assert RegraQualidade.FORMULA_FORA_DO_TRECHO not in _regras_calculo(
+        formula_citada="v = x"
+    )
+
+
+@pytest.mark.parametrize(
+    "texto",
+    ["A altura é 9,8 m.", "A altura é 9.8 m.", "Com 9,81 m de queda."],
+)
+def test_numero_do_dado_no_texto(texto):
+    regras_ = _regras_calculo(
+        contexto=texto,
+        comando="Calcule.",
+        dados_calculo=[("g", 9.8, "m/s**2"), ("h", 9.81, "m")],
+    )
+    assert RegraQualidade.NUMERO_NO_TEXTO in regras_
+
+
+def test_numero_que_nao_e_de_dado_nao_conta():
+    regras_ = _regras_calculo(
+        contexto="Há 3 tanques e 2 etapas.",
+        comando="Calcule.",
+        dados_calculo=[("n", 2.0, ""), ("h", 5.0, "m")],
+    )
+    assert RegraQualidade.NUMERO_NO_TEXTO not in regras_
+
+
+def test_inteiro_com_unidade_so_casa_seguido_da_unidade():
+    dados = [("d", 2.0, "m")]
+    assert RegraQualidade.NUMERO_NO_TEXTO not in _regras_calculo(
+        contexto="São 2 etapas.", comando="Calcule.", dados_calculo=dados
+    )
+    assert RegraQualidade.NUMERO_NO_TEXTO in _regras_calculo(
+        contexto="Anda 2 m de altura.", comando="Calcule.", dados_calculo=dados
+    )
+
+
+def test_dado_sem_unidade_com_tres_digitos_casa():
+    assert RegraQualidade.NUMERO_NO_TEXTO in _regras_calculo(
+        contexto="A constante vale 273.",
+        comando="Calcule.",
+        dados_calculo=[("T", 273.0, "")],
+    )
+
+
+def test_numero_decimal_nao_casa_dentro_de_outro_numero():
+    assert RegraQualidade.NUMERO_NO_TEXTO not in _regras_calculo(
+        contexto="Vale 9,81 m.", comando="Calcule.", dados_calculo=[("g", 9.8, "m")]
+    )
+
+
+def test_calculo_nao_aplica_regras_de_alternativa():
+    base = objetiva([r"\(9{,}90\)", r"\(4{,}95\)", r"\(19{,}8\)", r"\(7{,}00\)"])
+    item = replace(base, formato=FormatoItem.CALCULO, comando="Qual o valor?")
+    regras_ = {v.regra for v in validar_objetiva(item)}
+    assert not regras_ & {
+        RegraQualidade.ALTERNATIVA_ROTULO,
+        RegraQualidade.TAMANHO_ALTERNATIVA,
+    }

@@ -42,6 +42,7 @@ def roteiro_com_subtemas(n: int) -> list[dict]:
         p_m=SESSAO["p_m"],
         p_d=SESSAO["p_d"],
         k_alternativas=SESSAO["k_alternativas"],
+        p_calculo=0,
     )
     return roteiro_do_plano(sessao, n)
 

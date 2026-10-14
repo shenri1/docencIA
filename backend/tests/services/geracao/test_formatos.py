@@ -253,3 +253,44 @@ def test_pedido_descreve_a_configuracao():
         A, (V, X, V), 5
     )
     assert "exatamente 5 alternativas" in texto_pedido_formato(P, None, 5)
+
+
+# --- CALCULO ---
+
+
+def test_pedido_do_formato_calculo_conta_os_erros():
+    from backend.app.domain import FormatoItem
+    from backend.app.services.geracao.formatos import texto_pedido_formato
+
+    assert "3 erros típicos" in texto_pedido_formato(FormatoItem.CALCULO, None, 4)
+
+
+def test_montar_objetiva_despacha_calculo():
+    from types import SimpleNamespace
+
+    from backend.app.domain import FormatoItem
+    from backend.app.services.geracao.formatos import montar_objetiva
+
+    saida = SimpleNamespace(
+        contexto="Um objeto cai.",
+        comando="Qual a velocidade?",
+        dados=[
+            SimpleNamespace(simbolo="g", valor=9.8, unidade="m/s**2"),
+            SimpleNamespace(simbolo="h", valor=5.0, unidade="m"),
+        ],
+        formula_citada="v = sqrt(2gh)",
+        expressao="sqrt(2 * g * h)",
+        unidade_resultado="m/s",
+        erros=[
+            SimpleNamespace(descricao="a", expressao="sqrt(g * h)"),
+            SimpleNamespace(descricao="b", expressao="sqrt(2 * g * h) / 2"),
+            SimpleNamespace(descricao="c", expressao="sqrt(2 * g * h) * 2"),
+        ],
+        objetivo_cognitivo="aplicar",
+        fontes=[],
+        tema="t",
+        subtema="s",
+        nivel_bloom="aplicar",
+    )
+    montada = montar_objetiva(saida, FormatoItem.CALCULO, None, 4, 1)
+    assert montada.formato is FormatoItem.CALCULO

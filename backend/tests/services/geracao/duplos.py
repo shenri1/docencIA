@@ -203,3 +203,36 @@ def corpo_discursiva_itens(n_itens: int, **sobrescritas) -> dict:
     }
     questao.update(sobrescritas)
     return {"resultado": questao}
+
+
+def corpo_calculo(k: int = 5, **sobrescritas) -> dict:
+    """Saída do Gerador no formato CALCULO: g = 9,8 m/s², h = 5 m, correta
+    9,90 m/s. Até K = 5 há erros típicos com valores distintos em m/s."""
+    erros_possiveis = [
+        ("esquece o fator 2 dentro da raiz", "sqrt(g * h)"),
+        ("divide o resultado por 2", "sqrt(2 * g * h) / 2"),
+        ("multiplica o resultado por 2", "sqrt(2 * g * h) * 2"),
+        ("põe o fator 2 fora da raiz", "2 * sqrt(g * h)"),
+    ]
+    questao = {
+        "tipo": "questao",
+        "contexto": CONTEXTO_MEDIA,
+        "comando": "Qual a velocidade ao chegar ao solo, dadas a altura h e a gravidade g?",
+        "dados": [
+            {"simbolo": "g", "valor": 9.8, "unidade": "m/s**2"},
+            {"simbolo": "h", "valor": 5, "unidade": "m"},
+        ],
+        "formula_citada": "v = sqrt(2gh)",
+        "expressao": "sqrt(2 * g * h)",
+        "unidade_resultado": "m/s",
+        "erros": [
+            {"descricao": d, "expressao": e} for d, e in erros_possiveis[: k - 1]
+        ],
+        "nivel_bloom": "aplicar",
+        "tema": "Queda livre",
+        "subtema": "Velocidade final",
+        "objetivo_cognitivo": "aplicar a fórmula da velocidade de queda",
+        "fontes": [_FONTE],
+    }
+    questao.update(sobrescritas)
+    return {"resultado": questao}

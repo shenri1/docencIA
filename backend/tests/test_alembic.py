@@ -332,13 +332,15 @@ def test_semente_cria_admin_do_env_e_ativa_prompt(monkeypatch):
         assert (nome, perfil) == ("Admin", "ADMINISTRADOR")
         assert verificar_senha("senhaforte123", senha_hash)
         # A 1.0.0 é semeada pela e1a4c8f02b77, a 2.0.0 pela b7d2e9f4a1c6,
-        # a 2.1.0 pela c5e1f8a3b7d9 e a 2.2.0 pela d8a4f1c6e3b2
-        #que fica ativa; rodar de novo não duplica nenhuma.
+        # a 2.1.0 pela c5e1f8a3b7d9, a 2.2.0 pela d8a4f1c6e3b2
+        # e a 2.3.0 pela e9c3a6d2f8b1, que fica ativa;
+        # rodar de novo não duplica nenhuma.
         assert [tuple(p) for p in prompts] == [
             ("1.0.0", False),
             ("2.0.0", False),
             ("2.1.0", False),
-            ("2.2.0", True),
+            ("2.2.0", False),
+            ("2.3.0", True),
         ]
     finally:
         eng.dispose()
@@ -594,7 +596,7 @@ def test_migracao_19_ativa_o_prompt_2_1():
 def test_migracao_20_ativa_o_prompt_2_2():
     cfg, eng = _banco_ate("c5e1f8a3b7d9")
     try:
-        command.upgrade(cfg, "head")
+        command.upgrade(cfg, "d8a4f1c6e3b2")
         with eng.connect() as conn:
             ativos = (
                 conn.execute(text("SELECT versao FROM prompts_mestres WHERE ativo"))
@@ -608,5 +610,94 @@ def test_migracao_20_ativa_o_prompt_2_2():
             )
         assert ativos == ["2.2.0"]
         assert existentes[-3:] == ["2.0.0", "2.1.0", "2.2.0"]
+    finally:
+        eng.dispose()
+
+
+def test_migracao_calculo_aceita_formato_calculo():
+    from sqlalchemy.exc import IntegrityError
+
+    cfg, eng = _banco_ate("d8a4f1c6e3b2")
+    try:
+        command.upgrade(cfg, "head")
+        with eng.begin() as conn:
+            docente_id = conn.execute(
+                text(
+                    "INSERT INTO docentes (nome, credencial_institucional, "
+                    "senha_hash, perfil) VALUES ('Ana', 'ana21', 'x', 'DOCENTE') "
+                    "RETURNING id"
+                )
+            ).scalar_one()
+            sessao_id = conn.execute(
+                text(
+                    "INSERT INTO sessoes_geracao (docente_id, disciplina, periodo, "
+                    "k_alternativas, p_f, p_m, p_d, p_calculo, estado) VALUES "
+                    "(:d, 'Física', '2026.2', 5, 30, 40, 30, 30, "
+                    "'MATERIAIS_CONFIRMADOS') RETURNING id"
+                ),
+                {"d": docente_id},
+            ).scalar_one()
+            banco_id = conn.execute(
+                text(
+                    "INSERT INTO bancos_questoes (sessao_id, versao, estado, n_alvo, "
+                    "n_alvo_objetivas, n_alvo_discursivas, n_atual) VALUES "
+                    "(:s, 'v1', 'ABERTO', 1, 1, 0, 1) RETURNING id"
+                ),
+                {"s": sessao_id},
+            ).scalar_one()
+            conn.execute(
+                text(
+                    "INSERT INTO questoes (banco_id, numero, tipo, enunciado, "
+                    "nivel_bloom, faixa_dificuldade, estado, formato) VALUES "
+                    "(:b, 1, 'OBJETIVA', 'Calcule.', 'APLICAR', 'MEDIA', 'ATIVA', "
+                    "'CALCULO')"
+                ),
+                {"b": banco_id},
+            )
+        with eng.connect() as conn:
+            assert (
+                conn.execute(text("SELECT formato FROM questoes")).scalar_one()
+                == "CALCULO"
+            )
+            padrao = conn.execute(
+                text(
+                    "SELECT column_default FROM information_schema.columns "
+                    "WHERE table_name='sessoes_geracao' AND column_name='p_calculo'"
+                )
+            ).scalar_one()
+            assert padrao == "0"
+        with pytest.raises(IntegrityError), eng.begin() as conn:
+            conn.execute(
+                text("UPDATE sessoes_geracao SET p_calculo = 101 WHERE id = :s"),
+                {"s": sessao_id},
+            )
+    finally:
+        eng.dispose()
+
+
+def test_migracao_21_ativa_o_prompt_2_3_e_desfaz_a_coluna():
+    cfg, eng = _banco_ate("d8a4f1c6e3b2")
+    try:
+        command.upgrade(cfg, "head")
+        with eng.connect() as conn:
+            ativos = (
+                conn.execute(text("SELECT versao FROM prompts_mestres WHERE ativo"))
+                .scalars()
+                .all()
+            )
+        assert ativos == ["2.3.0"]
+        command.downgrade(cfg, "d8a4f1c6e3b2")
+        with eng.connect() as conn:
+            colunas = (
+                conn.execute(
+                    text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name='sessoes_geracao'"
+                    )
+                )
+                .scalars()
+                .all()
+            )
+        assert "p_calculo" not in colunas
     finally:
         eng.dispose()

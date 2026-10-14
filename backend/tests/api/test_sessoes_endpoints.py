@@ -65,3 +65,36 @@ def test_obter_sessao_inexistente_retorna_404(client):
     resp = client.get("/sessoes/9999", headers=_auth(client))
     assert resp.status_code == 404
     assert resp.json()["codigo"] == "SESSAO_NAO_ENCONTRADA"
+
+
+def test_p_calculo_padrao_e_zero(client):
+    resp = client.post("/sessoes", json=PAYLOAD, headers=_auth(client))
+    assert resp.status_code == 201
+    assert resp.json()["p_calculo"] == 0
+
+
+def test_p_calculo_valido_volta_na_resposta(client):
+    resp = client.post(
+        "/sessoes",
+        json={**PAYLOAD, "p_calculo": 30, "k_alternativas": 5},
+        headers=_auth(client),
+    )
+    assert resp.status_code == 201
+    assert resp.json()["p_calculo"] == 30
+
+
+def test_p_calculo_fora_de_0_a_100_responde_422(client):
+    resp = client.post(
+        "/sessoes", json={**PAYLOAD, "p_calculo": 101}, headers=_auth(client)
+    )
+    assert resp.status_code == 422
+
+
+def test_p_calculo_com_k_acima_de_5_responde_422_com_o_limite(client):
+    resp = client.post(
+        "/sessoes",
+        json={**PAYLOAD, "p_calculo": 30, "k_alternativas": 7},
+        headers=_auth(client),
+    )
+    assert resp.status_code == 422
+    assert "no máximo 5" in resp.text

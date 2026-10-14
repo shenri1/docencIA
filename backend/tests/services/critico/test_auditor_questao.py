@@ -161,3 +161,73 @@ def test_achados_de_forma_vem_antes_dos_do_modelo(
     )
     assert resultado.achados[0].risco is RiscoAuditoria.ASSIMETRIA_FORMA
     assert resultado.achados[-1].risco is RiscoAuditoria.CORRETA_NAO_UNICA
+
+
+# --- reverificação do cálculo, sem LLM ---
+
+
+def _questao_de_calculo(db, armazenamento, sessao, adulterar=False):
+    from backend.app.domain import FormatoItem
+    from backend.app.models.banco import Alternativa
+    from backend.app.services.calculo_item.montagem import montar_calculo
+    from backend.tests.services.calculo_item.test_montagem import _saida
+
+    questao = preparar_questao(db, armazenamento, sessao)
+    montada = montar_calculo(_saida(), k=4, numero=1)
+    questao.formato = FormatoItem.CALCULO
+    questao.enunciado = montada.enunciado
+    for alternativa in list(questao.alternativas):
+        db.delete(alternativa)
+    db.flush()
+    for i, a in enumerate(montada.alternativas):
+        letra = "ABCD"[i]
+        correta = letra == montada.letra_correta
+        texto = r"\(9{,}99\)" if adulterar and correta else a.texto
+        db.add(
+            Alternativa(
+                questao_id=questao.id,
+                letra=letra,
+                texto=texto,
+                correta=correta,
+                e_gemeo_malvado=False,
+            )
+        )
+    questao.justificativa.estrutura_formato = montada.estrutura_formato
+    db.commit()
+    db.expire_all()
+    return questao
+
+
+def test_calculo_integro_nao_gera_achado_e_manda_a_estrutura(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    questao = _questao_de_calculo(db_session, armazenamento, sessao_rascunho)
+    provedor = ProvedorLLMFake([sem_achado()])
+    resultado = auditar(
+        db_session, embeddings_fake, reranker_fake, provedor, sessao_rascunho, questao
+    )
+    assert RiscoAuditoria.CALCULO_DIVERGENTE not in [a.risco for a in resultado.achados]
+    assert "Estrutura do cálculo" in provedor.requisicoes[0].usuario
+    assert "sqrt(2 * g * h)" in provedor.requisicoes[0].usuario
+    assert resultado.forma_aplicavel is False
+
+
+def test_calculo_adulterado_gera_achado_calculo_divergente(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    questao = _questao_de_calculo(
+        db_session, armazenamento, sessao_rascunho, adulterar=True
+    )
+    resultado = auditar(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        ProvedorLLMFake([sem_achado()]),
+        sessao_rascunho,
+        questao,
+    )
+    divergentes = [
+        a for a in resultado.achados if a.risco is RiscoAuditoria.CALCULO_DIVERGENTE
+    ]
+    assert len(divergentes) == 1
+    assert divergentes[0].localizacao is None

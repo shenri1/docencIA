@@ -10,6 +10,9 @@ import { useCriarSessao } from "./api";
 
 const K_MIN = 2;
 const K_MAX = 11;
+// Espelha MAX_K_COM_CALCULO de backend/app/schemas/sessao.py. Conveniência:
+// a API continua sendo a autoridade.
+const K_MAX_COM_CALCULO = 5;
 
 export function NovaSessao() {
   const ultima = useOrientacoesDaUltimaSessao();
@@ -31,6 +34,7 @@ function FormularioNovaSessao({ trazidas }: { trazidas: string[] }) {
   const [pF, setPF] = useState("10");
   const [pM, setPM] = useState("60");
   const [pD, setPD] = useState("30");
+  const [pCalculo, setPCalculo] = useState("0");
   const [tentou, setTentou] = useState(false);
   const [orientacoes, setOrientacoes] = useState<string[]>(trazidas.length ? trazidas : [""]);
   const trocarOrientacao = (i: number, valor: string) =>
@@ -42,6 +46,9 @@ function FormularioNovaSessao({ trazidas }: { trazidas: string[] }) {
   const f = inteiroEntre(pF, 0, 100);
   const m = inteiroEntre(pM, 0, 100);
   const d = inteiroEntre(pD, 0, 100);
+  const calculo = inteiroEntre(pCalculo, 0, 100);
+  const calculoExigeKMenor =
+    calculo !== null && calculo > 0 && kValido !== null && kValido > K_MAX_COM_CALCULO;
   const percentuaisValidos = f !== null && m !== null && d !== null;
   const soma = percentuaisValidos ? somaDosPercentuais(f, m, d) : null;
   // Conveniência de formato: quem decide a soma é a API.
@@ -61,6 +68,7 @@ function FormularioNovaSessao({ trazidas }: { trazidas: string[] }) {
     evento.preventDefault();
     setTentou(true);
     if (Object.values(erros).some(Boolean) || !somaFecha) return;
+    if (calculo === null || calculoExigeKMenor) return;
     criar.mutate(
       {
         disciplina: disciplina.trim(),
@@ -71,6 +79,7 @@ function FormularioNovaSessao({ trazidas }: { trazidas: string[] }) {
         p_f: f!,
         p_m: m!,
         p_d: d!,
+        p_calculo: calculo,
         orientacoes: orientacoes.map((t) => t.trim()).filter(Boolean),
       },
       {
@@ -175,6 +184,24 @@ function FormularioNovaSessao({ trazidas }: { trazidas: string[] }) {
           </p>
         </fieldset>
 
+        <div className="flex flex-col gap-2">
+          <Campo
+            rotulo="Questões de cálculo (%)"
+            ajuda="Percentual das objetivas que são de cálculo numérico. O sistema calcula as alternativas; use 0 para disciplinas sem cálculo."
+            type="number"
+            min={0}
+            max={100}
+            value={pCalculo}
+            onChange={(e) => setPCalculo(e.target.value)}
+            erro={tentou ? erroPercentual(calculo) : null}
+          />
+          {calculoExigeKMenor && (
+            <p role="alert" className="font-grotesca text-detalhe text-descartar">
+              Questões de cálculo exigem no máximo {K_MAX_COM_CALCULO} alternativas.
+            </p>
+          )}
+        </div>
+
         <fieldset className="flex flex-col gap-3">
           <legend className="font-grotesca text-rotulo-lg">
             Como você costuma elaborar provas
@@ -222,7 +249,7 @@ function FormularioNovaSessao({ trazidas }: { trazidas: string[] }) {
           <Link to="/sessoes" className="botao botao-fantasma">
             Cancelar
           </Link>
-          <Botao type="submit" disabled={!somaFecha || criar.isPending}>
+          <Botao type="submit" disabled={!somaFecha || calculoExigeKMenor || criar.isPending}>
             {criar.isPending ? "Criando…" : "Criar sessão e continuar"}
           </Botao>
         </div>

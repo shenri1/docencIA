@@ -555,8 +555,16 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
           { soma },
         );
       }
+      if ((dados.p_calculo ?? 0) > 0 && dados.k_alternativas > 5) {
+        return erro(
+          422,
+          "questões de cálculo exigem no máximo 5 alternativas",
+          "VALIDACAO",
+        );
+      }
       const sessao: SessaoFalsa = {
         ...dados,
+        p_calculo: dados.p_calculo ?? 0,
         id: estado.sessoes.length + 1,
         estado: "rascunho",
         materiais: [],

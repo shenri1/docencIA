@@ -32,6 +32,7 @@ export function umaSessao(sobrescrever: Partial<Sessao> = {}): Sessao {
     p_f: 10,
     p_m: 60,
     p_d: 30,
+    p_calculo: 0,
     estado: "rascunho",
     ...sobrescrever,
   };

@@ -99,4 +99,9 @@ describe("CartaoQuestao", () => {
     render(<CartaoQuestao questao={umaQuestao()} orientacoes={[]} />);
     expect(screen.queryByText(/Orientações:/)).not.toBeInTheDocument();
   });
+
+  it("mostra o rótulo do formato de cálculo", () => {
+    render(<CartaoQuestao questao={umaQuestao({ formato: "calculo" })} />);
+    expect(screen.getByText("Cálculo")).toBeInTheDocument();
+  });
 });

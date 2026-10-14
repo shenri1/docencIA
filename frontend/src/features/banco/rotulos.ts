@@ -26,4 +26,5 @@ export const ROTULO_FORMATO: Record<Questao["formato"], string | null> = {
   proposicao: null,
   afirmativas: "Afirmativas",
   assercao_razao: "Asserção-razão",
+  calculo: "Cálculo",
 };

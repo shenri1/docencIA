@@ -1038,7 +1038,7 @@ export interface components {
          *     valor é também o nome da pasta do formato em `prompt/objetiva/formatos/`.
          * @enum {string}
          */
-        FormatoItem: "proposicao" | "afirmativas" | "assercao_razao";
+        FormatoItem: "proposicao" | "afirmativas" | "assercao_razao" | "calculo";
         /** GabaritoResposta */
         GabaritoResposta: {
             /** Prova Id */
@@ -1564,7 +1564,7 @@ export interface components {
          * @description Regras de forma, e, medidas sem LLM.
          * @enum {string}
          */
-        RegraQualidade: "tamanho_alternativa" | "correta_longa" | "termo_absoluto" | "mencao_fonte" | "gemeos_insuficientes" | "gemeo_na_correta" | "comando_ausente" | "aspectos_repetidos" | "invalidacao_letra_invalida" | "letra_citada_em_texto" | "contexto_curto" | "alternativa_rotulo" | "alternativa_generica" | "comando_negativo" | "pontuacao_incoerente" | "assercao_citacao" | "opiniao_pessoal" | "notacao_invalida";
+        RegraQualidade: "tamanho_alternativa" | "correta_longa" | "termo_absoluto" | "mencao_fonte" | "gemeos_insuficientes" | "gemeo_na_correta" | "comando_ausente" | "aspectos_repetidos" | "invalidacao_letra_invalida" | "letra_citada_em_texto" | "contexto_curto" | "alternativa_rotulo" | "alternativa_generica" | "comando_negativo" | "pontuacao_incoerente" | "assercao_citacao" | "opiniao_pessoal" | "notacao_invalida" | "expressao_invalida" | "dimensao_incoerente" | "distratores_coincidentes" | "formula_fora_do_trecho" | "numero_no_texto";
         /** RejeicaoResposta */
         RejeicaoResposta: {
             /** Numero */
@@ -1728,7 +1728,7 @@ export interface components {
          *     terceiro é medido por `validar_objetiva` e nunca vem dele.
          * @enum {string}
          */
-        RiscoAuditoria: "correta_nao_unica" | "distrator_indefensavel" | "assimetria_forma";
+        RiscoAuditoria: "correta_nao_unica" | "distrator_indefensavel" | "assimetria_forma" | "calculo_divergente";
         /** SessaoCriar */
         SessaoCriar: {
             /**
@@ -1772,6 +1772,12 @@ export interface components {
              */
             p_d: number;
             /**
+             * P Calculo
+             * @description Percentual de objetivas de cálculo numérico.
+             * @default 0
+             */
+            p_calculo: number;
+            /**
              * Orientacoes
              * @description Orientações de estilo para todas as questões da sessão.
              */
@@ -1800,6 +1806,11 @@ export interface components {
             p_m: number;
             /** P D */
             p_d: number;
+            /**
+             * P Calculo
+             * @description Percentual de objetivas de cálculo.
+             */
+            p_calculo: number;
             /** @description Estado atual da sessão. */
             estado: components["schemas"]["EstadoSessao"];
         };

@@ -78,6 +78,7 @@ describe("Nova sessão — parâmetros", () => {
       p_f: 10,
       p_m: 60,
       p_d: 30,
+      p_calculo: 0,
       orientacoes: [],
     });
   });
@@ -205,5 +206,43 @@ describe("Nova sessão — orientações", () => {
     await user.click(screen.getByRole("button", { name: "Remover orientação 5" }));
     expect(screen.queryByLabelText("Orientação 5")).not.toBeInTheDocument();
     expect(acrescentar).toBeEnabled();
+  });
+});
+
+describe("Nova sessão — questões de cálculo", () => {
+  it("abre com 0% de cálculo", async () => {
+    abrir();
+    expect(await screen.findByLabelText("Questões de cálculo (%)")).toHaveValue(0);
+  });
+
+  it("com cálculo e K acima de 5, avisa o limite e bloqueia o envio", async () => {
+    const { user } = abrir();
+    await trocar(user, "Questões de cálculo (%)", "30");
+    await trocar(user, "Alternativas por questão (K)", "7");
+
+    expect(
+      screen.getByText("Questões de cálculo exigem no máximo 5 alternativas."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Criar sessão e continuar" })).toBeDisabled();
+  });
+
+  it("envia p_calculo no corpo", async () => {
+    let corpo: { p_calculo?: number } | null = null;
+    const { user } = abrir();
+    server.use(
+      http.post(`${API}/sessoes`, async ({ request }) => {
+        corpo = (await request.json()) as { p_calculo?: number };
+        return HttpResponse.json(umaSessao({ id: 43 }), { status: 201 });
+      }),
+    );
+
+    await trocar(user, "Disciplina", "Física");
+    await trocar(user, "Período letivo", "2026.2");
+    await trocar(user, "Alternativas por questão (K)", "4");
+    await trocar(user, "Questões de cálculo (%)", "30");
+    await user.click(screen.getByRole("button", { name: "Criar sessão e continuar" }));
+
+    await waitFor(() => expect(corpo).not.toBeNull());
+    expect(corpo!.p_calculo).toBe(30);
   });
 });

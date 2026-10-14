@@ -5,4 +5,5 @@ export const ROTULO_RISCO: Record<RiscoAuditoria, string> = {
   correta_nao_unica: "Mais de uma alternativa pode estar correta",
   distrator_indefensavel: "Alternativa errada fácil de eliminar",
   assimetria_forma: "Alternativa destoa em forma ou tamanho",
+  calculo_divergente: "Alternativa diverge do cálculo gravado",
 };

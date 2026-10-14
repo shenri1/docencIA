@@ -3032,7 +3032,8 @@
         "enum": [
           "proposicao",
           "afirmativas",
-          "assercao_razao"
+          "assercao_razao",
+          "calculo"
         ],
         "title": "FormatoItem",
         "description": ". Atribuído pelo plano do banco, nunca escolhido pelo modelo. O\nvalor é também o nome da pasta do formato em `prompt/objetiva/formatos/`."
@@ -4206,7 +4207,12 @@
           "pontuacao_incoerente",
           "assercao_citacao",
           "opiniao_pessoal",
-          "notacao_invalida"
+          "notacao_invalida",
+          "expressao_invalida",
+          "dimensao_incoerente",
+          "distratores_coincidentes",
+          "formula_fora_do_trecho",
+          "numero_no_texto"
         ],
         "title": "RegraQualidade",
         "description": "Regras de forma, e, medidas sem LLM."
@@ -4552,7 +4558,8 @@
         "enum": [
           "correta_nao_unica",
           "distrator_indefensavel",
-          "assimetria_forma"
+          "assimetria_forma",
+          "calculo_divergente"
         ],
         "title": "RiscoAuditoria",
         "description": ". Os dois primeiros são juízo semântico e vêm do modelo; o\nterceiro é medido por `validar_objetiva` e nunca vem dele."
@@ -4624,6 +4631,14 @@
             "minimum": 0.0,
             "title": "P D",
             "description": "Percentual de questões difíceis."
+          },
+          "p_calculo": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "P Calculo",
+            "description": "Percentual de objetivas de cálculo numérico.",
+            "default": 0
           },
           "orientacoes": {
             "items": {
@@ -4701,6 +4716,11 @@
             "type": "integer",
             "title": "P D"
           },
+          "p_calculo": {
+            "type": "integer",
+            "title": "P Calculo",
+            "description": "Percentual de objetivas de cálculo."
+          },
           "estado": {
             "$ref": "#/components/schemas/EstadoSessao",
             "description": "Estado atual da sessão."
@@ -4717,6 +4737,7 @@
           "p_f",
           "p_m",
           "p_d",
+          "p_calculo",
           "estado"
         ],
         "title": "SessaoResposta"

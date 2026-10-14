@@ -10,6 +10,7 @@ chamada, cada tipo com o seu plano e a sua persistência.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -86,6 +87,8 @@ from backend.app.services.qualidade.validador_itens import (
     validar_objetiva,
 )
 from backend.app.services.sessao_service import exigir_indice_confirmado
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -294,6 +297,7 @@ def _persistir(
     estado: EstadoQuestao,
     orientacoes: Sequence[OrientacaoDocente] = (),
     motivo_recuo: str | None = None,
+    violacoes_recuo: Sequence[Violacao] = (),
 ) -> Questao:
     # `final` é a forma montada da versão revisada. Antes de qualquer db.add: fonte inválida levanta sem deixar objeto
     # pendente na sessão. Só a versão revisada vira FonteInterna.
@@ -428,6 +432,9 @@ def _persistir(
             # por que o formato planejado não saiu ("insuficiencia"
             # ou "calculo"); None quando saiu.
             "motivo_recuo": motivo_recuo,
+            # O que impediu o cálculo de montar depois do crítico. Só o enum: o
+            # detalhe (símbolo, operação, unidade) vai para o log da aplicação.
+            "violacoes_recuo": [v.regra.value for v in violacoes_recuo],
         },
     )
     db.commit()
@@ -471,6 +478,7 @@ def _produzir_questao(
     if tipo is TipoQuestao.OBJETIVA and formato is not FormatoItem.PROPOSICAO:
         tentativas.append((FormatoItem.PROPOSICAO, None))
     motivo_recuo: str | None = None
+    violacoes_recuo: list[Violacao] = []
     k = sessao.k_alternativas
 
     for indice, (formato, configuracao) in enumerate(tentativas):
@@ -554,6 +562,15 @@ def _produzir_questao(
         if final is None:
             if not ultima:
                 motivo_recuo = "calculo"
+                violacoes_recuo = bloqueio_final
+                # A tentativa recuada não é persistida: sem isto, o porquê some.
+                _log.warning(
+                    "questão %s do banco %s não montou em %s e recuou: %s",
+                    numero,
+                    banco.id,
+                    formato.value,
+                    "; ".join(f"{v.alvo}: {v.detalhe}" for v in bloqueio_final),
+                )
                 continue
             return Improdutiva(
                 numero=numero,
@@ -577,6 +594,7 @@ def _produzir_questao(
             estado,
             orientacoes,
             motivo_recuo,
+            violacoes_recuo,
         )
         return Produzida(questao=questao, violacoes_final=violacoes_final)
     raise AssertionError("a última tentativa sempre retorna")  # pragma: no cover

@@ -1573,6 +1573,7 @@ def test_calculo_gera_com_alternativas_do_sistema(
     payload = _payload_da_questao(db_session)
     assert payload["formato_planejado"] == payload["formato"] == "calculo"
     assert payload["motivo_recuo"] is None
+    assert payload["violacoes_recuo"] == []
 
 
 def test_violacao_de_calculo_vai_ao_critico_e_e_corrigida(
@@ -1605,6 +1606,7 @@ def test_calculo_que_sobra_recua_para_proposicao_com_os_mesmos_trechos(
     reranker_fake,
     sessao_rascunho,
     monkeypatch,
+    caplog,
 ):
     from backend.app.services.geracao import busca_orientada
     from backend.tests.services.geracao.duplos import corpo_calculo
@@ -1640,6 +1642,12 @@ def test_calculo_que_sobra_recua_para_proposicao_com_os_mesmos_trechos(
     assert payload["formato_planejado"] == "calculo"
     assert payload["formato"] == "proposicao"
     assert payload["motivo_recuo"] == "calculo"
+    # A tentativa de cálculo não é persistida: o porquê fica no evento (só o
+    # enum, ) e o detalhe no log da aplicação.
+    assert payload["violacoes_recuo"] == ["expressao_invalida"]
+    aviso = [r for r in caplog.records if "não montou" in r.getMessage()]
+    assert len(aviso) == 1
+    assert "expressao" in aviso[0].getMessage()
 
 
 def test_insuficiencia_no_calculo_recua_com_motivo(
@@ -1659,7 +1667,9 @@ def test_insuficiencia_no_calculo_recua_com_motivo(
         ],
     )
     assert produzida.questao.formato is FormatoItem.PROPOSICAO
-    assert _payload_da_questao(db_session)["motivo_recuo"] == "insuficiencia"
+    payload = _payload_da_questao(db_session)
+    assert payload["motivo_recuo"] == "insuficiencia"
+    assert payload["violacoes_recuo"] == []
 
 
 def test_insuficiencia_na_proposicao_apos_recuo_continua_improdutiva(

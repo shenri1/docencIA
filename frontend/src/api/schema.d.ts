@@ -1564,7 +1564,7 @@ export interface components {
          * @description Regras de forma, e, medidas sem LLM.
          * @enum {string}
          */
-        RegraQualidade: "tamanho_alternativa" | "correta_longa" | "termo_absoluto" | "mencao_fonte" | "gemeos_insuficientes" | "gemeo_na_correta" | "comando_ausente" | "aspectos_repetidos" | "invalidacao_letra_invalida" | "letra_citada_em_texto" | "contexto_curto" | "alternativa_rotulo" | "alternativa_generica" | "comando_negativo" | "pontuacao_incoerente" | "assercao_citacao" | "opiniao_pessoal";
+        RegraQualidade: "tamanho_alternativa" | "correta_longa" | "termo_absoluto" | "mencao_fonte" | "gemeos_insuficientes" | "gemeo_na_correta" | "comando_ausente" | "aspectos_repetidos" | "invalidacao_letra_invalida" | "letra_citada_em_texto" | "contexto_curto" | "alternativa_rotulo" | "alternativa_generica" | "comando_negativo" | "pontuacao_incoerente" | "assercao_citacao" | "opiniao_pessoal" | "notacao_invalida";
         /** RejeicaoResposta */
         RejeicaoResposta: {
             /** Numero */

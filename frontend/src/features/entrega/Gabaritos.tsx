@@ -5,6 +5,7 @@ import { Botao } from "../../components/Botao";
 import { letraDoItem } from "../../lib/aspectos";
 import { ListaAspectos } from "../banco/ListaAspectos";
 import { type Modalidade, useGabarito } from "./api";
+import { TextoComFormulas } from "../../components/TextoComFormulas";
 
 type Versao = "A" | "B";
 type FonteGabarito = ItemGabarito["fontes"][number];
@@ -139,8 +140,10 @@ function TabelaSimples({ gabarito }: { gabarito: Gabarito }) {
                 <ul>
                   {item.aspectos.map((aspecto) => (
                     <li key={aspecto.ordem}>
-                      {aspecto.item ? `${letraDoItem(aspecto.item)}) ` : ""}
-                      {aspecto.texto}
+                      <TextoComFormulas
+                        como="span"
+                        texto={`${aspecto.item ? `${letraDoItem(aspecto.item)}) ` : ""}${aspecto.texto}`}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -177,13 +180,13 @@ function ItemComentado({ item, versao }: { item: ItemGabarito; versao: string })
         {item.objetivo_cognitivo && (
           <p className="font-grotesca text-detalhe">
             <span className="font-semibold">Objetivo cognitivo: </span>
-            {item.objetivo_cognitivo}
+            <TextoComFormulas como="span" texto={item.objetivo_cognitivo} />
           </p>
         )}
         {item.justificativa_correta && (
           <div className="flex flex-col gap-1">
             <h3 className="font-grotesca text-detalhe font-semibold">Por que a correta é correta</h3>
-            <p className="font-serifa">{item.justificativa_correta}</p>
+            <TextoComFormulas className="font-serifa" texto={item.justificativa_correta} />
           </div>
         )}
 
@@ -201,9 +204,10 @@ function ItemComentado({ item, versao }: { item: ItemGabarito; versao: string })
             <ul className="flex flex-col gap-1 font-serifa">
               {item.invalidacoes.map((invalidacao, i) => (
                 <li key={i}>
-                  {invalidacao.letra
-                    ? `${invalidacao.letra}) ${invalidacao.motivo}`
-                    : invalidacao.motivo}
+                  <TextoComFormulas
+                    como="span"
+                    texto={`${invalidacao.letra ? `${invalidacao.letra}) ` : ""}${invalidacao.motivo}`}
+                  />
                 </li>
               ))}
             </ul>

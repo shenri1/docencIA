@@ -3,6 +3,7 @@ import type { ProvasMontadas } from "../../api/tipos";
 import { Alerta } from "../../components/Alerta";
 import { ROTULO_FAIXA, ROTULO_TIPO_QUESTAO } from "../banco/rotulos";
 import { useProva, useProvasDoBanco } from "./api";
+import { TextoComFormulas } from "../../components/TextoComFormulas";
 
 /** M10: verificação e as duas provas lado a lado. */
 export function VerProvas({
@@ -117,13 +118,13 @@ function ColunaProva({
                   <span className="chip ml-auto">Também na Prova {outra}</span>
                 )}
               </header>
-              <p className="whitespace-pre-line font-serifa text-corpo-lg">{item.enunciado}</p>
+              <TextoComFormulas className="font-serifa text-corpo-lg" texto={item.enunciado} />
               {item.alternativas.length > 0 && (
                 <ol className="flex flex-col gap-1 font-serifa">
                   {item.alternativas.map((alternativa) => (
                     <li key={alternativa.letra} className="flex gap-2">
                       <span className="tabular">{alternativa.letra})</span>
-                      <span>{alternativa.texto}</span>
+                      <TextoComFormulas como="span" texto={alternativa.texto} />
                     </li>
                   ))}
                 </ol>

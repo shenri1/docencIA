@@ -8,6 +8,7 @@ import { useMarcoSessao } from "../sessoes/api";
 import { bancoMaisRecente } from "../sessoes/marco";
 import { type Progresso, useAuditoriaEmLotes, useQuestoesDoBanco, useResumoAuditoria } from "./api";
 import { ROTULO_RISCO } from "./rotulos";
+import { TextoComFormulas } from "../../components/TextoComFormulas";
 
 /** a auditoria do banco mais recente da sessão. M4 é comando, não marco. */
 export function Auditoria({ sessaoId }: { sessaoId: string }) {
@@ -227,7 +228,8 @@ function QuestaoComAchados({
               </p>
             )}
             <p className="font-grotesca text-detalhe">
-              Orientação (o sistema não executa): {achado.proposta_ajuste}
+              Orientação (o sistema não executa):{" "}
+              <TextoComFormulas como="span" texto={achado.proposta_ajuste} />
             </p>
           </div>
         ))}

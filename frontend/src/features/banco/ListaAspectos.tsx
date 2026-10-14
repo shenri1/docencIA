@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { agruparPorItem, letraDoItem } from "../../lib/aspectos";
+import { TextoComFormulas } from "../../components/TextoComFormulas";
 
 interface Aspecto {
   ordem: number;
@@ -27,9 +28,11 @@ export function ListaAspectos<T extends Aspecto>({
           <ol className="flex flex-col gap-3">
             {grupo.aspectos.map((aspecto) => (
               <li key={aspecto.ordem} className="flex flex-col gap-1">
-                <span className="font-serifa">
-                  {aspecto.ordem}. {aspecto.texto}
-                </span>
+                <TextoComFormulas
+                  como="span"
+                  className="font-serifa"
+                  texto={`${aspecto.ordem}. ${aspecto.texto}`}
+                />
                 {fonte(aspecto)}
               </li>
             ))}

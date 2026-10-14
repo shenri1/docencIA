@@ -5,6 +5,7 @@ import { IconeAviso, IconeErro, IconeInfo, IconeOk } from "../../components/Icon
 import { textoOrientacao } from "../orientacoes/texto";
 import { ListaAspectos } from "./ListaAspectos";
 import { ROTULO_BLOOM, ROTULO_FAIXA, ROTULO_FORMATO, ROTULO_TIPO_QUESTAO } from "./rotulos";
+import { TextoComFormulas } from "../../components/TextoComFormulas";
 
 type FonteQuestao = Questao["fontes"][number];
 
@@ -60,7 +61,7 @@ export function CartaoQuestao({ questao, marcada = false, acoes, apontadas, orie
         </span>
       </header>
 
-      <p className="whitespace-pre-line font-serifa text-corpo-lg">{questao.enunciado}</p>
+      <TextoComFormulas className="font-serifa text-corpo-lg" texto={questao.enunciado} />
 
       {questao.tipo === "objetiva" ? (
         <ol className="flex flex-col gap-2">
@@ -72,7 +73,7 @@ export function CartaoQuestao({ questao, marcada = false, acoes, apontadas, orie
                 className={`flex flex-wrap gap-2 font-serifa ${correta ? "font-semibold text-manter" : ""}`}
               >
                 <span className="tabular">{letra})</span>
-                <span>{texto}</span>
+                <TextoComFormulas como="span" texto={texto} />
                 {correta && (
                   <span className="flex items-center gap-1 font-grotesca text-detalhe">
                     <IconeOk />

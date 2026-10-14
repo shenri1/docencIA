@@ -1,0 +1,24 @@
+[
+  {"nome": "sem formula", "texto": "Um texto comum.", "segmentos": [{"tipo": "texto", "conteudo": "Um texto comum."}]},
+  {"nome": "linha", "texto": "Seja \\(x^2\\) o valor.", "segmentos": [
+    {"tipo": "texto", "conteudo": "Seja "},
+    {"tipo": "formula", "latex": "x^2", "destaque": false},
+    {"tipo": "texto", "conteudo": " o valor."}]},
+  {"nome": "destaque entre paragrafos", "texto": "Antes.\n\\[\\int_0^1 x\\,dx\\]\nDepois.", "segmentos": [
+    {"tipo": "texto", "conteudo": "Antes.\n"},
+    {"tipo": "formula", "latex": "\\int_0^1 x\\,dx", "destaque": true},
+    {"tipo": "texto", "conteudo": "\nDepois."}]},
+  {"nome": "duas na mesma linha", "texto": "\\(a\\) e \\(b\\)", "segmentos": [
+    {"tipo": "formula", "latex": "a", "destaque": false},
+    {"tipo": "texto", "conteudo": " e "},
+    {"tipo": "formula", "latex": "b", "destaque": false}]},
+  {"nome": "colada em pontuacao", "texto": "Vale \\(x\\), \\(y\\).", "segmentos": [
+    {"tipo": "texto", "conteudo": "Vale "},
+    {"tipo": "formula", "latex": "x", "destaque": false},
+    {"tipo": "texto", "conteudo": ", "},
+    {"tipo": "formula", "latex": "y", "destaque": false},
+    {"tipo": "texto", "conteudo": "."}]},
+  {"nome": "preco em reais", "texto": "O custo é R$ 50,00 por mês.", "segmentos": [{"tipo": "texto", "conteudo": "O custo é R$ 50,00 por mês."}]},
+  {"nome": "delimitador sem par", "texto": "Abre \\(x^2 e não fecha.", "segmentos": [{"tipo": "texto", "conteudo": "Abre \\(x^2 e não fecha."}]},
+  {"nome": "formula vazia fica texto", "texto": "Vazia \\(\\) aqui.", "segmentos": [{"tipo": "texto", "conteudo": "Vazia \\(\\) aqui."}]}
+]

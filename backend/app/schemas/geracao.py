@@ -235,6 +235,42 @@ def montar_schema_discursiva(n_itens: int | None = None) -> type[BaseModel]:
     return _resultado(f"ResultadoDiscursiva{n_itens}Itens", questao)
 
 
+class DadoGerado(BaseModel):
+    # Identificador Python ASCII: o avaliador o recusa se não for (SIMBOLO_VALIDO).
+    simbolo: str
+    valor: float
+    # Sintaxe do pint ("m/s**2", "mol/L"); vazio para grandeza sem dimensão.
+    unidade: str
+
+
+class ErroTipicoGerado(BaseModel):
+    descricao: str
+    expressao: str
+
+
+def montar_schema_calculo(k: int) -> type[BaseModel]:
+    """Sem `alternativas`, `letra_correta` nem invalidações: o sistema
+    calcula e escreve. `erros` tem K − 1 itens, um por distrator."""
+    _validar_k(k)
+    questao = create_model(
+        f"QuestaoCalculo{k}",
+        tipo=(Literal["questao"], ...),
+        contexto=(str, ...),
+        comando=(str, ...),
+        dados=(list[DadoGerado], Field(min_length=1)),
+        formula_citada=(str, ...),
+        expressao=(str, ...),
+        unidade_resultado=(str, ...),
+        erros=(list[ErroTipicoGerado], Field(min_length=k - 1, max_length=k - 1)),
+        objetivo_cognitivo=(str, ...),
+        fontes=(list[FonteGerada], Field(min_length=1)),
+        tema=(str, ...),
+        subtema=(str, ...),
+        nivel_bloom=(Literal[BLOOM_OBJETIVA], ...),
+    )
+    return _resultado(f"ResultadoCalculo{k}", questao)
+
+
 def montar_schema(
     tipo: TipoQuestao,
     k: int,
@@ -248,4 +284,6 @@ def montar_schema(
         return montar_schema_afirmativas(k, configuracao)
     if formato is FormatoItem.ASSERCAO_RAZAO:
         return montar_schema_assercao_razao()
+    if formato is FormatoItem.CALCULO:
+        return montar_schema_calculo(k)
     return montar_schema_objetiva(k)

@@ -1,7 +1,10 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from backend.app.domain import EstadoSessao
 from backend.app.schemas.orientacao import TextoOrientacao
+
+# oito erros típicos distintos para K = 11 é irreal.
+MAX_K_COM_CALCULO = 5
 
 
 class SessaoCriar(BaseModel):
@@ -21,11 +24,27 @@ class SessaoCriar(BaseModel):
     p_f: int = Field(..., ge=0, le=100, description="Percentual de questões fáceis.")
     p_m: int = Field(..., ge=0, le=100, description="Percentual de questões médias.")
     p_d: int = Field(..., ge=0, le=100, description="Percentual de questões difíceis.")
+    p_calculo: int = Field(
+        default=0,
+        ge=0,
+        le=100,
+        description="Percentual de objetivas de cálculo numérico.",
+    )
     orientacoes: list[TextoOrientacao] = Field(
         default_factory=list,
         max_length=5,
         description="Orientações de estilo para todas as questões da sessão.",
     )
+
+    @model_validator(mode="after")
+    def _calculo_exige_k_pequeno(self) -> "SessaoCriar":
+        if self.p_calculo > 0 and self.k_alternativas > MAX_K_COM_CALCULO:
+            raise ValueError(
+                f"questões de cálculo exigem no máximo {MAX_K_COM_CALCULO} "
+                f"alternativas (recebido {self.k_alternativas}): sem isso não há "
+                f"{self.k_alternativas - 1} erros típicos distintos"
+            )
+        return self
 
 
 class SessaoResposta(BaseModel):
@@ -40,4 +59,7 @@ class SessaoResposta(BaseModel):
     p_f: int
     p_m: int
     p_d: int
+    p_calculo: int = Field(
+        ..., description="Percentual de objetivas de cálculo."
+    )
     estado: EstadoSessao = Field(..., description="Estado atual da sessão.")

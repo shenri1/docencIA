@@ -34,6 +34,7 @@ class SessaoGeracao(Base):
     __tablename__ = "sessoes_geracao"
     __table_args__ = (
         CheckConstraint("p_f + p_m + p_d = 100", name="distribuicao_soma_100"),
+        CheckConstraint("p_calculo BETWEEN 0 AND 100", name="calculo_entre_0_e_100"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -48,6 +49,7 @@ class SessaoGeracao(Base):
     p_f: Mapped[int] = mapped_column(Integer)
     p_m: Mapped[int] = mapped_column(Integer)
     p_d: Mapped[int] = mapped_column(Integer)
+    p_calculo: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     provedor_llm_id: Mapped[int | None] = mapped_column(
         ForeignKey("provedores_llm.id"), index=True

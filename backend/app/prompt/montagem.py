@@ -44,6 +44,7 @@ _QUALIDADE_POR_FORMATO = {
     FormatoItem.PROPOSICAO: "objetiva/formatos/proposicao/02_qualidade_alternativas.md",
     FormatoItem.AFIRMATIVAS: "objetiva/formatos/afirmativas/01_formato.md",
     FormatoItem.ASSERCAO_RAZAO: "objetiva/formatos/assercao_razao/01_formato.md",
+    FormatoItem.CALCULO: "objetiva/formatos/calculo/01_formato.md",
 }
 
 

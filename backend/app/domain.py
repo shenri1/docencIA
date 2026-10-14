@@ -135,6 +135,8 @@ class FormatoItem(str, Enum):
     PROPOSICAO = "proposicao"
     AFIRMATIVAS = "afirmativas"
     ASSERCAO_RAZAO = "assercao_razao"
+    # cálculo numérico, montado e calculado pelo sistema.
+    CALCULO = "calculo"
 
 
 class EstadoProva(str, Enum):
@@ -176,6 +178,12 @@ class RegraQualidade(str, Enum):
     OPINIAO_PESSOAL = "opiniao_pessoal"
     #.
     NOTACAO_INVALIDA = "notacao_invalida"
+    #.
+    EXPRESSAO_INVALIDA = "expressao_invalida"
+    DIMENSAO_INCOERENTE = "dimensao_incoerente"
+    DISTRATORES_COINCIDENTES = "distratores_coincidentes"
+    FORMULA_FORA_DO_TRECHO = "formula_fora_do_trecho"
+    NUMERO_NO_TEXTO = "numero_no_texto"
 
 
 class RiscoAuditoria(str, Enum):
@@ -185,6 +193,8 @@ class RiscoAuditoria(str, Enum):
     CORRETA_NAO_UNICA = "correta_nao_unica"
     DISTRATOR_INDEFENSAVEL = "distrator_indefensavel"
     ASSIMETRIA_FORMA = "assimetria_forma"
+    # a reverificação sem LLM não reproduz a alternativa gravada.
+    CALCULO_DIVERGENTE = "calculo_divergente"
 
 
 class Marco(str, Enum):

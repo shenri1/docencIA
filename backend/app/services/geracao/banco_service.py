@@ -51,6 +51,7 @@ from backend.app.services.calculo_distribuicao_service import (
     DistribuicaoQuestoes,
     calcular_distribuicao,
 )
+from backend.app.services.calculo_item.montagem import CalculoNaoMontavel
 from backend.app.services.critico.agente_critico_service import (
     ResultadoRevisao,
     item_discursivo_de,
@@ -64,6 +65,10 @@ from backend.app.services.geracao.agente_gerador_service import (
 from backend.app.services.geracao.ancoras import selecionar_ancoras
 from backend.app.services.geracao.busca_orientada import trechos_com_orientacoes
 from backend.app.services.geracao.contexto import resolver_fontes
+from backend.app.services.geracao.plano_calculo import (
+    contagens_de_calculo,
+    posicoes_de_calculo,
+)
 from backend.app.services.geracao.formatos import (
     atribuir_configuracao,
     atribuir_formato,
@@ -152,7 +157,19 @@ def _montar_plano(
         if n == 0:
             continue
         distribuicao = calcular_distribuicao(n, sessao.p_f, sessao.p_m, sessao.p_d)
+        calculo: dict[FaixaDificuldade, int] = {}
+        if tipo is TipoQuestao.OBJETIVA and sessao.p_calculo > 0:
+            itens = list(distribuicao.itens())
+            calculo = dict(
+                zip(
+                    (faixa for faixa, _ in itens),
+                    contagens_de_calculo(n, sessao.p_calculo, [q for _, q in itens]),
+                    strict=True,
+                )
+            )
         for faixa, quantidade in distribuicao.itens():
+            posicoes = posicoes_de_calculo(quantidade, calculo.get(faixa, 0))
+            nao_calculo = 0
             for posicao in range(quantidade):
                 numero = len(plano) + 1
                 if tipo is TipoQuestao.DISCURSIVA:
@@ -166,7 +183,16 @@ def _montar_plano(
                         )
                     )
                     continue
-                formato = atribuir_formato(faixa, posicao, k)
+                if posicao in posicoes:
+                    # Espalhadas pela faixa; fora do rodízio e dos ordinais.
+                    plano.append(
+                        ItemPlano(
+                            numero, tipo, faixa, distribuicao, FormatoItem.CALCULO, None
+                        )
+                    )
+                    continue
+                formato = atribuir_formato(faixa, nao_calculo, k)
+                nao_calculo += 1
                 ordinal = ordinais.get(formato, 0)
                 ordinais[formato] = ordinal + 1
                 plano.append(
@@ -238,6 +264,15 @@ def _montar(tipo: TipoQuestao, saida, formato, configuracao, k, numero):
     return montar_discursiva(saida)
 
 
+def _montar_ou_bloqueio(tipo, saida, formato, configuracao, k, numero):
+    """(montada, []) ou (None, violações que impediram a montagem). Só o
+    formato CALCULO levanta: nos outros a montagem é total."""
+    try:
+        return _montar(tipo, saida, formato, configuracao, k, numero), []
+    except CalculoNaoMontavel as exc:
+        return None, exc.violacoes
+
+
 def _validar(tipo: TipoQuestao, montada, trechos, faixa) -> list[Violacao]:
     if tipo is TipoQuestao.OBJETIVA:
         return validar_objetiva(item_objetivo_de(montada, trechos, faixa))
@@ -258,6 +293,7 @@ def _persistir(
     violacoes_final: list[Violacao],
     estado: EstadoQuestao,
     orientacoes: Sequence[OrientacaoDocente] = (),
+    motivo_recuo: str | None = None,
 ) -> Questao:
     # `final` é a forma montada da versão revisada. Antes de qualquer db.add: fonte inválida levanta sem deixar objeto
     # pendente na sessão. Só a versão revisada vira FonteInterna.
@@ -389,6 +425,9 @@ def _persistir(
             "n_orientacoes": len(orientacoes),
             "com_cruzamento": any(o.cruzar_com for o in orientacoes),
             "orientacoes_ids": [o.id for o in orientacoes],
+            # por que o formato planejado não saiu ("insuficiencia"
+            # ou "calculo"); None quando saiu.
+            "motivo_recuo": motivo_recuo,
         },
     )
     db.commit()
@@ -424,34 +463,18 @@ def _produzir_questao(
     trechos = trechos_com_orientacoes(
         db, embeddings, reranker, sessao, ancora, orientacoes
     )
-    resultado = gerar_questao(
-        db,
-        embeddings,
-        reranker,
-        provedor,
-        sessao,
-        ancora,
-        faixa,
-        numero,
-        distribuicao,
-        tipo=tipo,
-        evitar=evitar,
-        formato=formato,
-        configuracao=configuracao,
-        n_itens=n_itens,
-        trechos=trechos,
-        orientacoes=orientacoes,
-        partida=partida,
-    )
     formato_planejado = formato
-    if (
-        resultado.questao is None
-        and tipo is TipoQuestao.OBJETIVA
-        and formato is not FormatoItem.PROPOSICAO
-    ):
-        # A âncora do número é fixa: insistir no mesmo formato falharia em toda
-        # retomada. Recua uma vez, com os mesmos trechos, sem novo rerank.
-        formato, configuracao = FormatoItem.PROPOSICAO, None
+    # Até duas tentativas: o formato planejado e, se ele não sair, a proposição
+    # com os mesmos trechos. A âncora do número é fixa: insistir no mesmo formato
+    # falharia em toda retomada.
+    tentativas = [(formato, configuracao)]
+    if tipo is TipoQuestao.OBJETIVA and formato is not FormatoItem.PROPOSICAO:
+        tentativas.append((FormatoItem.PROPOSICAO, None))
+    motivo_recuo: str | None = None
+    k = sessao.k_alternativas
+
+    for indice, (formato, configuracao) in enumerate(tentativas):
+        ultima = indice == len(tentativas) - 1
         resultado = gerar_questao(
             db,
             embeddings,
@@ -465,74 +488,98 @@ def _produzir_questao(
             tipo=tipo,
             evitar=evitar,
             formato=formato,
-            trechos=resultado.trechos,
+            configuracao=configuracao,
+            n_itens=n_itens,
+            trechos=trechos,
             orientacoes=orientacoes,
             partida=partida,
         )
-    if resultado.questao is None:
-        return Improdutiva(
-            numero=numero,
-            localizacao=resultado.localizacao_ancora,
-            motivo=resultado.motivo_insuficiencia or "sem motivo declarado",
+        trechos = resultado.trechos
+        if resultado.questao is None:
+            if not ultima:
+                motivo_recuo = "insuficiencia"
+                continue
+            return Improdutiva(
+                numero=numero,
+                localizacao=resultado.localizacao_ancora,
+                motivo=resultado.motivo_insuficiencia or "sem motivo declarado",
+            )
+        rascunho, bloqueio = _montar_ou_bloqueio(
+            tipo, resultado.questao, formato, configuracao, k, numero
         )
-    k = sessao.k_alternativas
-    rascunho = _montar(tipo, resultado.questao, formato, configuracao, k, numero)
-    if pergunta_original is not None and enunciado_repetido(
-        rascunho.pergunta, pergunta_original
-    ):
-        # Medido no rascunho: revisar uma cópia gastaria o crítico à toa.
-        return Improdutiva(
-            numero=numero,
-            localizacao=resultado.localizacao_ancora,
-            motivo="o rascunho repetiu o enunciado da questão original",
-            repetida=True,
+        if rascunho is not None:
+            if pergunta_original is not None and enunciado_repetido(
+                rascunho.pergunta, pergunta_original
+            ):
+                # Medido no rascunho: revisar uma cópia gastaria o crítico à toa.
+                return Improdutiva(
+                    numero=numero,
+                    localizacao=resultado.localizacao_ancora,
+                    motivo="o rascunho repetiu o enunciado da questão original",
+                    repetida=True,
+                )
+            # o determinístico mede, o semântico revisa com essa medida
+            # como feedback, e o determinístico mede de novo, sempre sobre a
+            # forma montada.
+            violacoes_rascunho = _validar(tipo, rascunho, trechos, faixa)
+        else:
+            # Cálculo que não monta: o que impediu vai ao crítico.
+            violacoes_rascunho = bloqueio
+        revisao = revisar_questao(
+            provedor,
+            sessao,
+            trechos,
+            resultado.questao,
+            violacoes_rascunho,
+            faixa,
+            distribuicao,
+            tipo=tipo,
+            formato=formato,
+            configuracao=configuracao,
+            n_itens=n_itens,
+            orientacoes=orientacoes,
         )
-
-    # o determinístico mede, o semântico revisa com essa medida como
-    # feedback, e o determinístico mede de novo — sempre sobre a forma montada.
-    violacoes_rascunho = _validar(tipo, rascunho, resultado.trechos, faixa)
-    revisao = revisar_questao(
-        provedor,
-        sessao,
-        resultado.trechos,
-        resultado.questao,
-        violacoes_rascunho,
-        faixa,
-        distribuicao,
-        tipo=tipo,
-        formato=formato,
-        configuracao=configuracao,
-        n_itens=n_itens,
-        orientacoes=orientacoes,
-    )
-    if revisao.questao is None:
-        # O crítico concluiu que o material não sustenta a questão: 
-        # funcionando. Nada é persistido, e a retomada tenta de novo.
-        return Improdutiva(
-            numero=numero,
-            localizacao=resultado.localizacao_ancora,
-            motivo="revisão: "
-            + (revisao.motivo_insuficiencia or "sem motivo declarado"),
+        if revisao.questao is None:
+            # O crítico concluiu que o material não sustenta a questão: 
+            # funcionando. Nada é persistido, e a retomada tenta de novo.
+            return Improdutiva(
+                numero=numero,
+                localizacao=resultado.localizacao_ancora,
+                motivo="revisão: "
+                + (revisao.motivo_insuficiencia or "sem motivo declarado"),
+            )
+        final, bloqueio_final = _montar_ou_bloqueio(
+            tipo, revisao.questao, formato, configuracao, k, numero
         )
-
-    final = _montar(tipo, revisao.questao, formato, configuracao, k, numero)
-    violacoes_final = _validar(tipo, final, resultado.trechos, faixa)
-    questao = _persistir(
-        db,
-        banco,
-        numero,
-        tipo,
-        faixa,
-        final,
-        formato_planejado,
-        resultado,
-        revisao,
-        violacoes_rascunho,
-        violacoes_final,
-        estado,
-        orientacoes,
-    )
-    return Produzida(questao=questao, violacoes_final=violacoes_final)
+        if final is None:
+            if not ultima:
+                motivo_recuo = "calculo"
+                continue
+            return Improdutiva(
+                numero=numero,
+                localizacao=resultado.localizacao_ancora,
+                motivo="não montou: "
+                + "; ".join(f"{v.alvo}: {v.detalhe}" for v in bloqueio_final),
+            )
+        violacoes_final = _validar(tipo, final, trechos, faixa)
+        questao = _persistir(
+            db,
+            banco,
+            numero,
+            tipo,
+            faixa,
+            final,
+            formato_planejado,
+            resultado,
+            revisao,
+            violacoes_rascunho,
+            violacoes_final,
+            estado,
+            orientacoes,
+            motivo_recuo,
+        )
+        return Produzida(questao=questao, violacoes_final=violacoes_final)
+    raise AssertionError("a última tentativa sempre retorna")  # pragma: no cover
 
 
 def produzir_questao(

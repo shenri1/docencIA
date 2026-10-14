@@ -417,6 +417,11 @@ def montar_objetiva(
         return montar_afirmativas(saida, configuracao, k, numero)
     if formato is FormatoItem.ASSERCAO_RAZAO:
         return montar_assercao_razao(saida, configuracao, numero)
+    if formato is FormatoItem.CALCULO:
+        # Import tardio: montagem.py importa deste módulo (QuestaoMontada).
+        from backend.app.services.calculo_item.montagem import montar_calculo
+
+        return montar_calculo(saida, k, numero)
     return montar_proposicao(saida)
 
 
@@ -490,6 +495,13 @@ def texto_pedido_formato(formato: FormatoItem, configuracao, k: int) -> str:
         return (
             f"Formato: asserção-razão. Nesta questão, {_PEDIDO_ASSERCAO[configuracao]}. "
             "O sistema monta o comando e as alternativas."
+        )
+    if formato is FormatoItem.CALCULO:
+        return (
+            "Formato: cálculo numérico. Proponha os dados (com unidade), a fórmula "
+            f"copiada do trecho, a expressão e {k - 1} erros típicos, cada um com a "
+            "expressão que o aluno resolveria. Não escreva o valor do resultado, o "
+            "valor dos dados no texto nem as alternativas: o sistema calcula e monta."
         )
     return f"Formato: proposição, com exatamente {k} alternativas."
 

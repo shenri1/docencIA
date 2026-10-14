@@ -148,6 +148,12 @@ class ItemObjetivo:
     comando: str | None = None
     # Asserção e razão, só em ASSERCAO_RAZAO.
     assercoes: list[str] | None = None
+    # Só no formato CALCULO.
+    formula_citada: str | None = None
+    # (símbolo, valor, unidade), com o valor já arredondado.
+    dados_calculo: list[tuple[str, float, str]] | None = None
+    # Texto dos trechos ENVIADOS ao modelo, não só das fontes que ele citou.
+    texto_dos_trechos: list[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -487,6 +493,70 @@ def _assercao_citacao(item: ItemObjetivo) -> list[Violacao]:
     ]
 
 
+def _espacos(texto: str) -> str:
+    return " ".join(texto.split())
+
+
+def _formula_fora_do_trecho(item: ItemObjetivo) -> list[Violacao]:
+    """R2 medido sem LLM: a fórmula copiada tem de estar num trecho enviado.
+    Só registra: a fórmula pode estar no material com outra grafia."""
+    if item.formula_citada is None or item.texto_dos_trechos is None:
+        return []
+    citada = _espacos(item.formula_citada)
+    if any(citada in _espacos(t) for t in item.texto_dos_trechos):
+        return []
+    return [
+        Violacao(
+            RegraQualidade.FORMULA_FORA_DO_TRECHO,
+            "formula_citada",
+            f"“{citada}” não aparece em nenhum trecho enviado",
+        )
+    ]
+
+
+def _variantes_do_numero(valor: float) -> set[str]:
+    texto = f"{valor:g}"
+    return {texto, texto.replace(".", ",")}
+
+
+def _padrao_do_numero(numero: str, unidade: str) -> re.Pattern[str] | None:
+    """Com unidade, o número só casa seguido do primeiro átomo dela ("2 etapas"
+    não é "2 m"); sem unidade, só o decimal ou o de três dígitos ou mais: o
+    inteiro pequeno ("2 etapas") não diverge de nada."""
+    base = rf"(?<![\d.,]){re.escape(numero)}(?![\d]|[.,]\d)"
+    atomo = re.match(r"[A-Za-zµΩ°]+", unidade.strip())
+    if unidade.strip():
+        if atomo is None:
+            return None
+        return re.compile(rf"{base}\s*{re.escape(atomo.group())}(?![A-Za-z])")
+    forte = "." in numero or "," in numero or len(numero.lstrip("-")) >= 3
+    return re.compile(base) if forte else None
+
+
+def _numero_no_texto(item: ItemObjetivo) -> list[Violacao]:
+    """O enunciado é montado dos dados: se o modelo repete um valor no texto, o
+    texto pode divergir do que o sistema calculou. Só registra."""
+    if item.dados_calculo is None:
+        return []
+    violacoes = []
+    for alvo, texto in (("contexto", item.contexto), ("comando", item.comando)):
+        if not texto:
+            continue
+        for simbolo, valor, unidade in item.dados_calculo:
+            for numero in sorted(_variantes_do_numero(valor)):
+                padrao = _padrao_do_numero(numero, unidade)
+                if padrao is not None and padrao.search(texto):
+                    violacoes.append(
+                        Violacao(
+                            RegraQualidade.NUMERO_NO_TEXTO,
+                            alvo,
+                            f"repete o valor de {simbolo} ({numero}); cite o símbolo",
+                        )
+                    )
+                    break
+    return violacoes
+
+
 def _notacao(alvo: str, texto: str) -> list[Violacao]:
     """Não conserta: o crítico reemite, e o que sobrar aparece crua ao docente."""
 
@@ -561,6 +631,8 @@ def validar_objetiva(item: ItemObjetivo) -> list[Violacao]:
         *_comando_negativo(item),
         *_assercao_citacao(item),
         *_notacao_objetiva(item),
+        *_formula_fora_do_trecho(item),
+        *_numero_no_texto(item),
     ]
 
 

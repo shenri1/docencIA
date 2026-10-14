@@ -169,7 +169,7 @@ class RerankerOllamaLogprobs:
             ),
             "logprobs": True,
             "top_logprobs": _TOP_LOGPROBS,
-            "options": {"num_predict": 1, "temperature": 0},
+            "options": {"num_predict": 1, "temperature": 0, "num_gpu": 0},
         }
         motivo = "sem resposta"
         for tentativa in range(_TENTATIVAS):

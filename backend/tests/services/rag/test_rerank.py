@@ -160,6 +160,20 @@ def test_prompt_traz_consulta_documento_e_instrucao():
     assert "<Instruct>: Retrieve passages" in vistos[0]
 
 
+def test_reranker_roda_so_no_processador():
+    vistos: list[dict] = []
+
+    def responder(request: httpx.Request) -> httpx.Response:
+        import json
+
+        vistos.append(json.loads(request.content)["options"])
+        return httpx.Response(200, json=resposta_logprobs(-0.1, -2.0))
+
+    reranker = RerankerOllamaLogprobs(CFG, cliente=cliente_com(responder))
+    reranker.reordenar("q", ["d"], top_n=1)
+    assert vistos[0]["num_gpu"] == 0
+
+
 def test_fake_preserva_a_ordem_de_entrada():
     assert RerankerFake().reordenar("q", ["a", "b", "c"], top_n=2) == [
         (0, 1.0),

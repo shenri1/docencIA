@@ -20,6 +20,7 @@ def n_afirmativas(k: int) -> int:
     """3 afirmativas dão 7 combinações não vazias; acima de K = 7, 4 dão 15."""
     return 3 if k <= 7 else 4
 
+
 # Letra é posição, atribuída pelo código. Com `letra` e `correta` na mão do
 # modelo, nada impedia letra duplicada (que quebra a unique constraint no meio
 # do laço) nem zero ou duas corretas.
@@ -125,7 +126,9 @@ def montar_schema_objetiva(k: int) -> type[BaseModel]:
     )
 
 
-def montar_schema_afirmativas(k: int, configuracao: tuple[bool, ...]) -> type[BaseModel]:
+def montar_schema_afirmativas(
+    k: int, configuracao: tuple[bool, ...]
+) -> type[BaseModel]:
     """Campos nomeados, não lista: fixar o valor por posição numa lista
     exigiria `prefixItems`, que não foi medido no Ollama. `verdadeira` vem
     antes do texto: o modelo escreve a afirmativa já sabendo o que ela deve ser."""

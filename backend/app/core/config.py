@@ -131,7 +131,11 @@ class Settings(BaseSettings):
                 nome
                 for nome, valor, default in (
                     ("SECRET_KEY", self.secret_key, _SECRET_KEY_DEV_DEFAULT),
-                    ("PSEUDONIMO_KEY", self.pseudonimo_key, _PSEUDONIMO_KEY_DEV_DEFAULT),
+                    (
+                        "PSEUDONIMO_KEY",
+                        self.pseudonimo_key,
+                        _PSEUDONIMO_KEY_DEV_DEFAULT,
+                    ),
                 )
                 if valor == default
             ]

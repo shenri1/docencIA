@@ -116,6 +116,4 @@ def verificar_integridade(db: Session) -> None:
     ativo = obter_ativo(db)
     em_disco = _hash_em_disco()
     if ativo.hash_modulos != em_disco:
-        raise PromptDivergenteException(
-            gravado=ativo.hash_modulos, em_disco=em_disco
-        )
+        raise PromptDivergenteException(gravado=ativo.hash_modulos, em_disco=em_disco)

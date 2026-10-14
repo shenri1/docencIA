@@ -114,7 +114,9 @@ def registrar_relatorio(
         evento=evento,
         n_final=impacto.n_final,
         contagem_por_faixa={
-            tipo.value: {faixa.value: c for faixa, c in dados.contagem_por_faixa.items()}
+            tipo.value: {
+                faixa.value: c for faixa, c in dados.contagem_por_faixa.items()
+            }
             for tipo, dados in impacto.por_tipo.items()
         },
         desvio_observado={

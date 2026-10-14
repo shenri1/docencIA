@@ -29,9 +29,7 @@ class BancoCriar(BaseModel):
     versao: str = Field(..., max_length=50, description="Identificador do banco.")
     # o cliente gera em lotes curtos para nenhuma
     # requisição passar do timeout do navegador ou do proxy.
-    apos: int = Field(
-        0, ge=0, description="Só números do plano maiores que este."
-    )
+    apos: int = Field(0, ge=0, description="Só números do plano maiores que este.")
     limite: int | None = Field(
         None,
         ge=1,
@@ -63,7 +61,9 @@ class ViolacaoResposta(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     regra: RegraQualidade = Field(..., description="Regra /020b violada.")
-    alvo: str = Field(..., description='Letra da alternativa, "enunciado" ou "questao".')
+    alvo: str = Field(
+        ..., description='Letra da alternativa, "enunciado" ou "questao".'
+    )
     detalhe: str = Field(..., description="O que foi medido.")
 
 
@@ -195,7 +195,9 @@ class QuestaoResposta(BaseModel):
     nivel_bloom: NivelBloom
     tema: str | None
     enunciado: str
-    fontes: list[FonteResposta] = Field(..., description="Rastreabilidade.")
+    fontes: list[FonteResposta] = Field(
+        ..., description="Rastreabilidade."
+    )
     violacoes: list[ViolacaoResposta] = Field(
         ..., description="Violações que sobreviveram à revisão."
     )

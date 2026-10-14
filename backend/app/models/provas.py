@@ -44,9 +44,7 @@ class Prova(Base):
     # prometeu que "inconsistência de estado" viraria comparação de inteiros:
     # é esta coluna contra BancoQuestoes.revisao. `sessao_id` continua sendo o
     # que a UniqueConstraint usa, e é preenchido de banco.sessao_id.
-    banco_id: Mapped[int] = mapped_column(
-        ForeignKey("bancos_questoes.id"), index=True
-    )
+    banco_id: Mapped[int] = mapped_column(ForeignKey("bancos_questoes.id"), index=True)
     revisao_banco: Mapped[int] = mapped_column(Integer)
     n_objetivas: Mapped[int] = mapped_column(Integer)
     n_discursivas: Mapped[int] = mapped_column(Integer)
@@ -114,7 +112,10 @@ class ExportacaoDocx(Base):
         # Exportar de novo na mesma revisão devolve o registro existente: o
         # arquivo é reproduzível, e uma segunda linha só duplicaria histórico.
         UniqueConstraint(
-            "banco_id", "revisao_banco", "tipo", name="exportacao_por_banco_revisao_tipo"
+            "banco_id",
+            "revisao_banco",
+            "tipo",
+            name="exportacao_por_banco_revisao_tipo",
         ),
     )
 

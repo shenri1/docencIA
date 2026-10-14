@@ -95,7 +95,9 @@ def _pergunta(questao: Questao) -> str:
     """O enunciado sem o contexto. Variação que reaproveita o cenário
     e pergunta outra coisa não é cópia. Questão anterior à etapa, sem contexto
     gravado, compara o enunciado inteiro."""
-    estrutura = questao.justificativa.estrutura_formato if questao.justificativa else None
+    estrutura = (
+        questao.justificativa.estrutura_formato if questao.justificativa else None
+    )
     contexto = (estrutura or {}).get("contexto") or ""
     if contexto.strip():
         return questao.enunciado.removeprefix(f"{contexto}\n\n")
@@ -105,7 +107,9 @@ def _pergunta(questao: Questao) -> str:
 def _formato_da_original(questao: Questao):
     """(formato, configuração, n_itens) da original. Questão anterior à 
     é proposição sem itens."""
-    estrutura = (questao.justificativa.estrutura_formato if questao.justificativa else None) or {}
+    estrutura = (
+        questao.justificativa.estrutura_formato if questao.justificativa else None
+    ) or {}
     configuracao = None
     if questao.formato is FormatoItem.AFIRMATIVAS:
         configuracao = tuple(a["verdadeira"] for a in estrutura["afirmativas"])
@@ -161,7 +165,12 @@ def propor_substituicao(
         # uma insuficiência deixa o registro de que o docente pediu e o material
         # não sustentou. O teto, se acumular, é checado aqui, antes da GPU.
         nova = criar_orientacao_questao(
-            db, docente, banco, numero, direcao.cruzar_com, direcao.o_que_mudar,
+            db,
+            docente,
+            banco,
+            numero,
+            direcao.cruzar_com,
+            direcao.o_que_mudar,
             direcao.acumular,
         )
         # Vigentes primeiro, na ordem de criação, e a da variação por último.
@@ -217,9 +226,7 @@ def aceitar_substituicao(
     # Aceitar move a revisão do banco: com provas já montadas sobre ele, elas
     # ficariam desatualizadas e a exportação bloquearia de vez. Proposta e
     # rejeição não mexem no banco e seguem permitidas.
-    montadas = list(
-        db.scalars(select(Prova.versao).where(Prova.banco_id == banco.id))
-    )
+    montadas = list(db.scalars(select(Prova.versao).where(Prova.banco_id == banco.id)))
     if montadas:
         raise SubstituicaoAposMontagemException(sorted(montadas))
     candidata = _questao_por_numero(db, banco, numero, (EstadoQuestao.CANDIDATA,))

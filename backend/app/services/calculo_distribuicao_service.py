@@ -40,9 +40,7 @@ class DistribuicaoQuestoes:
         ]
 
 
-def calcular_distribuicao(
-    n: int, p_f: int, p_m: int, p_d: int
-) -> DistribuicaoQuestoes:
+def calcular_distribuicao(n: int, p_f: int, p_m: int, p_d: int) -> DistribuicaoQuestoes:
     """Método do maior resto, com desempate por dificuldade."""
     if p_f + p_m + p_d != 100 or min(p_f, p_m, p_d) < 0:
         # Guarda de pré-condição, não duplicação da impede que um

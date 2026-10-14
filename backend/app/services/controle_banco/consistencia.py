@@ -41,9 +41,7 @@ def _problemas_objetiva(questao: Questao, k: int, rotulo: str) -> list[str]:
     if len(letras) != k:
         problemas.append(f"{rotulo}: {len(letras)} alternativas, esperado {k}")
     elif letras != list(LETRAS[:k]):
-        problemas.append(
-            f"{rotulo}: letras {''.join(letras)}, esperado {LETRAS[:k]}"
-        )
+        problemas.append(f"{rotulo}: letras {''.join(letras)}, esperado {LETRAS[:k]}")
     corretas = [a.letra for a in questao.alternativas if a.correta]
     if len(corretas) != 1:
         problemas.append(f"{rotulo}: {len(corretas)} alternativas corretas, esperado 1")
@@ -155,9 +153,7 @@ def verificar_consistencia(db: Session, banco: BancoQuestoes) -> None:
         (TipoQuestao.OBJETIVA, banco.n_alvo_objetivas),
         (TipoQuestao.DISCURSIVA, banco.n_alvo_discursivas),
     ):
-        ocupantes = [
-            q for q in questoes if q.tipo is tipo and q.estado in _OCUPANTES
-        ]
+        ocupantes = [q for q in questoes if q.tipo is tipo and q.estado in _OCUPANTES]
         if len(ocupantes) > n_alvo:
             problemas.append(
                 f"{len(ocupantes)} questões do tipo {tipo.value} ocupam número, "

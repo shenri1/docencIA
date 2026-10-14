@@ -769,7 +769,7 @@ class SobreposicaoInevitavelException(DomainException):
 
     def __init__(self, subtema: str, quantas: int, limite: int) -> None:
         super().__init__(
-            f"O subtema \"{subtema}\" ficaria com {quantas} questões nas duas "
+            f'O subtema "{subtema}" ficaria com {quantas} questões nas duas '
             f"provas, acima do limite de {limite}. Reduza N ou substitua questões "
             "desse subtema.",
             subtema=subtema,

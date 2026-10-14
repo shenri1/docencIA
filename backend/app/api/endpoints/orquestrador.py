@@ -43,7 +43,9 @@ def comando(
     armazenamento: ArmazenamentoArquivos = Depends(get_armazenamento),
     embeddings: Embeddings = Depends(get_embeddings),
     reranker: Reranker = Depends(get_reranker),
-    obter_provedor: Callable[[], ProvedorLLMService] = Depends(get_provedor_sob_demanda),
+    obter_provedor: Callable[[], ProvedorLLMService] = Depends(
+        get_provedor_sob_demanda
+    ),
 ) -> ResultadoComandoResposta:
     # Longa no M2 e no auditar, como as rotas de origem: a retomada delas é o
     # que torna um timeout de proxy não destrutivo.

@@ -26,6 +26,7 @@ def criar_sessao(db: Session, docente: Docente, dados: SessaoCriar) -> SessaoGer
         p_f=dados.p_f,
         p_m=dados.p_m,
         p_d=dados.p_d,
+        p_calculo=dados.p_calculo,
         estado=EstadoSessao.RASCUNHO,
     )
     db.add(sessao)

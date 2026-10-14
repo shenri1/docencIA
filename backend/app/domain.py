@@ -174,6 +174,8 @@ class RegraQualidade(str, Enum):
     PONTUACAO_INCOERENTE = "pontuacao_incoerente"
     ASSERCAO_CITACAO = "assercao_citacao"
     OPINIAO_PESSOAL = "opiniao_pessoal"
+    #.
+    NOTACAO_INVALIDA = "notacao_invalida"
 
 
 class RiscoAuditoria(str, Enum):

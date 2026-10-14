@@ -11,6 +11,7 @@ Auditar não muda nada. A única escrita desta etapa é `INSERT` em
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from decimal import ROUND_HALF_EVEN, Decimal
 
@@ -35,6 +36,7 @@ from backend.app.services.calculo_distribuicao_service import (
     DistribuicaoQuestoes,
     calcular_distribuicao,
 )
+from backend.app.services.calculo_item.reverificacao import reverificar
 from backend.app.services.controle_banco.consistencia import verificar_consistencia
 from backend.app.services.geracao.contexto import formatar_trechos, parametros_da_sessao
 from backend.app.services.log_auditoria import registrar_evento
@@ -136,6 +138,30 @@ def achados_de_forma(item: ItemObjetivo) -> list[Achado]:
     ]
 
 
+def _estrutura_de_calculo(questao: Questao) -> dict:
+    justificativa = questao.justificativa
+    return (justificativa.estrutura_formato if justificativa else None) or {}
+
+
+def _achados_de_calculo(questao: Questao) -> list[Achado]:
+    """Reverificação sem LLM: recalcula a estrutura gravada e compara
+    com as alternativas. Divergência vira achado, nunca exceção."""
+    gravadas = [
+        (a.letra, a.texto, a.correta)
+        for a in sorted(questao.alternativas, key=lambda a: a.letra)
+    ]
+    return [
+        Achado(
+            risco=RiscoAuditoria.CALCULO_DIVERGENTE,
+            alvo=letra,
+            localizacao=None,
+            trecho_fonte=None,
+            proposta_ajuste=f"{detalhe} — substitua a questão.",
+        )
+        for letra, detalhe in reverificar(_estrutura_de_calculo(questao), gravadas)
+    ]
+
+
 @dataclass(frozen=True)
 class AuditoriaQuestao:
     achados: list[Achado]
@@ -159,12 +185,21 @@ def _montar_usuario(questao: Questao, trechos: list[TrechoRecuperado]) -> str:
         f"{a.letra}) {a.texto}" + ("   <- CORRETA" if a.correta else "")
         for a in alternativas
     ]
+    calculo = ""
+    if questao.formato is FormatoItem.CALCULO:
+        calculo = (
+            "\n\nEstrutura do cálculo (gravada):\n"
+            + json.dumps(_estrutura_de_calculo(questao), ensure_ascii=False, indent=2)
+            + "\nJulgue se a expressão resolve o que o enunciado pede e se algum "
+            "erro típico é, na verdade, uma resposta defensável."
+        )
     return (
         "Trechos disponíveis:\n"
         + formatar_trechos(trechos)
         + f"\n\nQuestão {questao.numero}\nEnunciado: {questao.enunciado}\n"
         + "\n".join(linhas)
         + f"\n\nAlternativa correta: {correta}"
+        + calculo
         + "\n\nAudite esta questão e devolva os achados. Lista vazia se não "
         "houver problema."
     )
@@ -194,6 +229,8 @@ def auditar_questao(
     localizacoes = [t.localizacao for t in trechos]
 
     achados = achados_de_forma(item_de_questao(questao, trechos))
+    if questao.formato is FormatoItem.CALCULO:
+        achados.extend(_achados_de_calculo(questao))
 
     resposta = provedor.gerar(
         sessao.id,

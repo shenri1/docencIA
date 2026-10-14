@@ -60,6 +60,9 @@ def item_objetivo_de(
     faixa: FaixaDificuldade | None = None,
 ) -> ItemObjetivo:
     """Mesma regra da persistência: letra por posição, correta pela letra."""
+    calculo = (
+        montada.estrutura_formato if montada.formato is FormatoItem.CALCULO else None
+    )
     return ItemObjetivo(
         enunciado=montada.enunciado,
         alternativas=[
@@ -81,6 +84,13 @@ def item_objetivo_de(
         contexto=montada.contexto,
         comando=montada.comando,
         assercoes=montada.assercoes,
+        formula_citada=calculo["formula_citada"] if calculo else None,
+        dados_calculo=(
+            [(d["simbolo"], d["valor"], d["unidade"]) for d in calculo["dados"]]
+            if calculo
+            else None
+        ),
+        texto_dos_trechos=[t.texto for t in trechos] if calculo else None,
     )
 
 

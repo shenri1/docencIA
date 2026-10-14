@@ -346,26 +346,47 @@ def test_semente_cria_admin_do_env_e_ativa_prompt(monkeypatch):
         eng.dispose()
 
 
-def test_semente_promove_conta_existente_sem_trocar_a_senha(monkeypatch):
-    _admin_do_env(monkeypatch, credencial="ana", senha="outrasenha123")
+def _cadastrar_ana(eng, senha: str) -> None:
+    from backend.app.core.security import hash_senha
+
+    with eng.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO docentes (nome, credencial_institucional, "
+                "senha_hash, perfil) VALUES ('Ana', 'ana', :h, 'DOCENTE')"
+            ),
+            {"h": hash_senha(senha)},
+        )
+
+
+def _perfil_da_ana(eng) -> str:
+    with eng.connect() as conn:
+        return conn.execute(
+            text("SELECT perfil FROM docentes WHERE credencial_institucional = 'ana'")
+        ).scalar_one()
+
+
+def test_semente_promove_conta_existente_quando_a_senha_confere(monkeypatch):
+    _admin_do_env(monkeypatch, credencial="ana", senha="senhadaana123")
     cfg, eng = _banco_ate("d8b3f6a2c914")
     try:
-        with eng.begin() as conn:
-            conn.execute(
-                text(
-                    "INSERT INTO docentes (nome, credencial_institucional, "
-                    "senha_hash, perfil) VALUES ('Ana', 'ana', 'hash-antigo', 'DOCENTE')"
-                )
-            )
+        _cadastrar_ana(eng, "senhadaana123")
         command.upgrade(cfg, "head")
+        assert _perfil_da_ana(eng) == "ADMINISTRADOR"
+    finally:
+        eng.dispose()
 
-        with eng.connect() as conn:
-            linha = conn.execute(
-                text(
-                    "SELECT perfil, senha_hash FROM docentes WHERE credencial_institucional = 'ana'"
-                )
-            ).one()
-        assert tuple(linha) == ("ADMINISTRADOR", "hash-antigo")
+
+def test_semente_recusa_promover_conta_de_outra_senha(monkeypatch):
+    # Quem se cadastrou antes com a credencial do administrador não vira
+    # administrador: a senha da conta tem de ser a ADMIN_SENHA.
+    _admin_do_env(monkeypatch, credencial="ana", senha="senhadooperador1")
+    cfg, eng = _banco_ate("d8b3f6a2c914")
+    try:
+        _cadastrar_ana(eng, "senhadoatacante1")
+        with pytest.raises(ValueError, match="ADMIN_CREDENCIAL"):
+            command.upgrade(cfg, "head")
+        assert _perfil_da_ana(eng) == "DOCENTE"
     finally:
         eng.dispose()
 

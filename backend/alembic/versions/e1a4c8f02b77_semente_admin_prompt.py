@@ -6,9 +6,11 @@ Esta migração fecha esse ciclo.
 
 Administrador: vem de ADMIN_CREDENCIAL, ADMIN_NOME e ADMIN_SENHA (ver
 .env.example). Sem os três, não cria ninguém e avisa — a senha nunca mora no
-repositório. Credencial já cadastrada é só promovida, sem trocar a senha. Senha
-fora da regra do cadastro faz a migração falhar: configuração errada não passa
-quieta.
+repositório. Credencial já cadastrada só é promovida se a senha da conta for a
+ADMIN_SENHA — o cadastro é público, e quem registrasse antes a credencial do
+administrador viraria administrador; senha diferente faz a migração falhar.
+Senha fora da regra do cadastro também faz a migração falhar: configuração
+errada não passa quieta.
 
 Prompt: se não houver versão ativa, registra e ativa a 1.0.0 com os módulos em
 disco. Disciplina e período do texto gravado são marcadores, porque a geração
@@ -34,7 +36,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import settings
-from backend.app.core.security import hash_senha
+from backend.app.core.security import hash_senha, verificar_senha
 from backend.app.models.prompt_provedor import PromptMestre
 from backend.app.prompt.parametros import ParametrosGeracao
 from backend.app.schemas.identidade import DocenteCriar
@@ -71,13 +73,20 @@ def _semear_admin(conexao: sa.Connection) -> None:
         return
 
     existente = conexao.execute(
-        sa.text("SELECT id FROM docentes WHERE credencial_institucional = :c"),
+        sa.text(
+            "SELECT id, senha_hash FROM docentes WHERE credencial_institucional = :c"
+        ),
         {"c": credencial},
-    ).scalar()
+    ).first()
     if existente is not None:
+        if not verificar_senha(senha, existente.senha_hash):
+            raise ValueError(
+                "ADMIN_CREDENCIAL já pertence a uma conta cuja senha não é a "
+                "ADMIN_SENHA; escolha outra credencial ou use a senha da conta."
+            )
         conexao.execute(
             sa.text("UPDATE docentes SET perfil = 'ADMINISTRADOR' WHERE id = :i"),
-            {"i": existente},
+            {"i": existente.id},
         )
         return
 

@@ -170,8 +170,12 @@ def backend_env_for_local_run():
     válido só na rede interna dos containers. Rodando o backend localmente
     (fora do Docker) contra o Postgres publicado em localhost:5432, o host
     precisa virar "localhost" — senão a resolução de nome falha.
+
+    AMBIENTE vira "desenvolvimento" se o .env não disser outra coisa: o
+    .env.example não o define, para o Compose recusar as chaves de exemplo.
     """
     env = load_env_file()
+    env.setdefault("AMBIENTE", "desenvolvimento")
     db_url = env.get("DATABASE_URL")
     if db_url:
         env["DATABASE_URL"] = db_url.replace("@db:", "@localhost:")

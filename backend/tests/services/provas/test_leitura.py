@@ -34,3 +34,16 @@ def test_permutacao_qualquer():
 
 def test_discursiva_nao_tem_letra():
     assert letras_na_prova(item_falso(None, tipo=TipoQuestao.DISCURSIVA)) == {}
+
+
+def test_contexto_vem_da_estrutura_do_formato():
+    from backend.app.services.provas.leitura import _contexto
+
+    com = SimpleNamespace(
+        justificativa=SimpleNamespace(estrutura_formato={"contexto": "C"})
+    )
+    sem_estrutura = SimpleNamespace(justificativa=SimpleNamespace(estrutura_formato=None))
+    sem_justificativa = SimpleNamespace(justificativa=None)
+    assert _contexto(com) == "C"
+    assert _contexto(sem_estrutura) is None
+    assert _contexto(sem_justificativa) is None

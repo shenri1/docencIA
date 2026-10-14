@@ -20,8 +20,10 @@ import zipfile
 from dataclasses import dataclass
 
 import docx
-from docx.enum.text import WD_BREAK
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK, WD_LINE_SPACING
 from docx.oxml import parse_xml
+from docx.oxml.ns import qn
+from docx.shared import Pt, RGBColor, Twips
 
 from backend.app.services.critico.auditor_service import ResumoAuditoria
 from backend.app.services.exportacao.notacao_omml import omml_da_formula
@@ -32,7 +34,23 @@ from backend.app.services.provas.leitura import ItemLido, ProvaLida
 from backend.app.services.provas.verificacao import Verificacao
 
 LINHAS_RESPOSTA_DISCURSIVA = 8
-_LINHA = "_" * 90
+# Padrão fixo, das boas práticas de formatação de provas.
+FONTE = "Arial"
+TAMANHO_TEXTO = Pt(12)
+TAMANHO_APOIO = Pt(10)
+TAMANHO_TITULO = Pt(14)
+# Em twips, não em cm: Cm(21) passa por EMU e arredonda para 11905.
+_A4 = (Twips(11906), Twips(16838))
+_MARGENS = {
+    "top": Twips(1701),
+    "left": Twips(1701),
+    "bottom": Twips(1134),
+    "right": Twips(1134),
+}
+# Cabem na área útil (16 cm) em Arial 12: cada sublinhado ≈ 0,235 cm.
+_LINHA = "_" * 66
+_LINHA_CAMPO = "_" * 50
+_ATRIBUTOS_DE_FONTE = ("ascii", "hAnsi", "eastAsia", "cs")
 # Menor data que o formato zip representa.
 _DATA_FIXA = (1980, 1, 1, 0, 0, 0)
 
@@ -41,6 +59,9 @@ _DATA_FIXA = (1980, 1, 1, 0, 0, 0)
 class Cabecalho:
     disciplina: str
     periodo: str
+    # o único dado de identificação que o sistema tem. Instituição e
+    # curso são do cabeçalho institucional, que o docente insere no Word.
+    professor: str
     versao_banco: str
     revisao_banco: int
 
@@ -67,56 +88,150 @@ def _salvar(documento) -> bytes:
     return normalizar_zip(buffer.getvalue())
 
 
-def _paragrafo(documento, *partes: str):
+def _fonte_explicita(estilo) -> None:
+    """Arial nos quatro atributos e sem os de tema: com `w:asciiTheme` presente,
+    o Word ignora `w:ascii`."""
+    fontes = estilo.element.get_or_add_rPr().get_or_add_rFonts()
+    for atributo in list(fontes.attrib):
+        if "heme" in atributo:  # asciiTheme, hAnsiTheme, eastAsiaTheme, cstheme
+            del fontes.attrib[atributo]
+    for atributo in _ATRIBUTOS_DE_FONTE:
+        fontes.set(qn(f"w:{atributo}"), FONTE)
+
+
+def _aplicar_padrao(documento) -> None:
+    secao = documento.sections[0]
+    secao.page_width, secao.page_height = _A4
+    secao.top_margin = _MARGENS["top"]
+    secao.left_margin = _MARGENS["left"]
+    secao.bottom_margin = _MARGENS["bottom"]
+    secao.right_margin = _MARGENS["right"]
+
+    normal = documento.styles["Normal"]
+    _fonte_explicita(normal)
+    normal.font.size = TAMANHO_TEXTO
+    formato = normal.paragraph_format
+    formato.space_before = Pt(0)
+    formato.space_after = Pt(6)
+    formato.line_spacing_rule = WD_LINE_SPACING.SINGLE
+
+    titulo = documento.styles["Heading 1"]
+    _fonte_explicita(titulo)
+    titulo.font.size = TAMANHO_TITULO
+    titulo.font.bold = True
+    titulo.font.color.rgb = RGBColor(0, 0, 0)
+    cor = titulo.element.rPr.find(qn("w:color"))
+    for atributo in ("w:themeColor", "w:themeShade", "w:themeTint"):
+        cor.attrib.pop(qn(atributo), None)
+
+
+def separar_contexto(enunciado: str, contexto: str | None) -> tuple[str | None, str]:
+    """Mesma regra de `substituicao_service._pergunta`: o enunciado montado é
+    `contexto + "\\n\\n" + pergunta`. Sem esse prefixo exato, nada é
+    separado e o enunciado sai inteiro."""
+    if contexto and contexto.strip() and enunciado.startswith(f"{contexto}\n\n"):
+        return contexto, enunciado[len(contexto) + 2 :]
+    return None, enunciado
+
+
+def _paragrafo(documento, *partes: str, tamanho=None):
     """Um parágrafo com um run por parte: o texto persistido fica num run só,
     sem concatenação que o transforme."""
     paragrafo = documento.add_paragraph()
     for parte in partes:
-        paragrafo.add_run(parte)
+        run = paragrafo.add_run(parte)
+        if tamanho is not None:
+            run.font.size = tamanho
     return paragrafo
 
 
-def _paragrafo_modelo(documento, *partes: str):
+def _paragrafo_modelo(
+    documento, rotulo: str, texto: str, *, tamanho=None, alinhamento=None, recuo=None
+) -> list:
     """Como `_paragrafo`, mas o texto escrito pelo modelo pode ter fórmula
 O texto persistido não é reescrito: fórmula que não converte sai
-    crua, com o delimitador. Trecho-base e rótulos do sistema usam `_paragrafo`."""
+    crua, com o delimitador. O rótulo ("3. ", "A) ") é texto do sistema e não
+    recebe `tamanho`. Fórmula em destaque abre parágrafos extras: a formatação
+    vale para todos. A fórmula OMML sai no tamanho do `Normal` (limite
+    conhecido)."""
     paragrafo = documento.add_paragraph()
-    for parte in partes:
-        segmentos = separar(parte)
-        if not segmentos:
-            paragrafo.add_run(parte)
-        for segmento in segmentos:
-            if isinstance(segmento, Texto):
-                paragrafo.add_run(segmento.conteudo)
-                continue
-            omml = omml_da_formula(segmento.latex, segmento.destaque)
-            if omml is None:
-                delimitada = (
-                    f"\\[{segmento.latex}\\]"
-                    if segmento.destaque
-                    else f"\\({segmento.latex}\\)"
-                )
-                paragrafo.add_run(delimitada)
-            elif segmento.destaque:
-                # Em destaque: parágrafo próprio, e o texto seguinte abre outro.
-                if len(paragrafo._p) > (1 if paragrafo._p.pPr is not None else 0):
-                    paragrafo = documento.add_paragraph()
-                paragrafo._p.append(parse_xml(omml))
-                paragrafo = documento.add_paragraph()
-            else:
-                paragrafo._p.append(parse_xml(omml))
-    return paragrafo
+    criados = [paragrafo]
+
+    def _novo() -> None:
+        nonlocal paragrafo
+        paragrafo = documento.add_paragraph()
+        criados.append(paragrafo)
+
+    def _texto(conteudo: str) -> None:
+        run = paragrafo.add_run(conteudo)
+        if tamanho is not None:
+            run.font.size = tamanho
+
+    if rotulo:
+        paragrafo.add_run(rotulo)
+    segmentos = separar(texto)
+    if not segmentos:
+        _texto(texto)
+    for segmento in segmentos:
+        if isinstance(segmento, Texto):
+            _texto(segmento.conteudo)
+            continue
+        omml = omml_da_formula(segmento.latex, segmento.destaque)
+        if omml is None:
+            _texto(
+                f"\\[{segmento.latex}\\]"
+                if segmento.destaque
+                else f"\\({segmento.latex}\\)"
+            )
+        elif segmento.destaque:
+            # Em destaque: parágrafo próprio, e o texto seguinte abre outro.
+            if len(paragrafo._p) > (1 if paragrafo._p.pPr is not None else 0):
+                _novo()
+            paragrafo._p.append(parse_xml(omml))
+            _novo()
+        else:
+            paragrafo._p.append(parse_xml(omml))
+    for p in criados:
+        if alinhamento is not None:
+            p.alignment = alinhamento
+        if recuo is not None:
+            p.paragraph_format.left_indent = recuo
+    return criados
 
 
 def _quebra_de_pagina(documento) -> None:
     documento.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
 
 
+_RECUO_ALTERNATIVA = Twips(283)  # 0,5 cm
+
+
 def _item_da_prova(documento, item: ItemLido) -> None:
-    _paragrafo_modelo(documento, f"{item.posicao}. ", item.enunciado)
+    justificado = WD_ALIGN_PARAGRAPH.JUSTIFY
+    contexto, resto = separar_contexto(item.enunciado, item.contexto)
+    if contexto is None:
+        _paragrafo_modelo(
+            documento, f"{item.posicao}. ", item.enunciado, alinhamento=justificado
+        )
+    else:
+        # O contexto é o texto de apoio: 10 pt. O "\n\n" que o separa
+        # vira a quebra entre os dois parágrafos; o texto não muda.
+        _paragrafo_modelo(
+            documento,
+            f"{item.posicao}. ",
+            contexto,
+            tamanho=TAMANHO_APOIO,
+            alinhamento=justificado,
+        )
+        _paragrafo_modelo(documento, "", resto, alinhamento=justificado)
     if item.alternativas:
         for alternativa in item.alternativas:
-            _paragrafo_modelo(documento, f"{alternativa.letra}) ", alternativa.texto)
+            _paragrafo_modelo(
+                documento,
+                f"{alternativa.letra}) ",
+                alternativa.texto,
+                recuo=_RECUO_ALTERNATIVA,
+            )
     else:
         for _ in range(LINHAS_RESPOSTA_DISCURSIVA):
             _paragrafo(documento, _LINHA)
@@ -128,6 +243,7 @@ def renderizar_conteudo_puro(
     """Provas A e B, sem gabarito e sem fontes internas. Não tem como vazar: a
     `ProvaLida` não tem campo para nada disso."""
     documento = docx.Document()
+    _aplicar_padrao(documento)
     for indice, prova in enumerate((prova_a, prova_b)):
         if indice:
             _quebra_de_pagina(documento)
@@ -135,8 +251,11 @@ def renderizar_conteudo_puro(
             f"{cabecalho.disciplina} — {cabecalho.periodo} — Prova {prova.versao}",
             level=1,
         )
-        _paragrafo(documento, "Nome: ", _LINHA)
+        _paragrafo(documento, "Professor: ", cabecalho.professor)
+        _paragrafo(documento, "Aluno: ", _LINHA_CAMPO)
+        _paragrafo(documento, "Matrícula: ", "_" * 20)
         _paragrafo(documento, "Data: ", "____/____/________")
+        _paragrafo(documento, "Nota: ", "_" * 10)
         for item in prova.itens:
             _item_da_prova(documento, item)
     return _salvar(documento)
@@ -184,13 +303,20 @@ def _item_do_gabarito(documento, item: ItemGabarito) -> None:
         _paragrafo_modelo(documento, f"{aspecto.ordem}. ", aspecto.texto)
         _paragrafo(documento, "Fonte: ", _fonte_texto(aspecto.fonte))
         if aspecto.fonte.trecho_base is not None:
-            _paragrafo(documento, "Trecho-base: ", aspecto.fonte.trecho_base)
+            _paragrafo(
+                documento,
+                "Trecho-base: ",
+                aspecto.fonte.trecho_base,
+                tamanho=TAMANHO_APOIO,
+            )
     if item.objetivo_cognitivo is not None:
         _paragrafo_modelo(documento, "Objetivo cognitivo: ", item.objetivo_cognitivo)
     for fonte in item.fontes:
         _paragrafo(documento, "Fonte: ", _fonte_texto(fonte))
         if fonte.trecho_base is not None:
-            _paragrafo(documento, "Trecho-base: ", fonte.trecho_base)
+            _paragrafo(
+                documento, "Trecho-base: ", fonte.trecho_base, tamanho=TAMANHO_APOIO
+            )
 
 
 def _verificacao(documento, verificacao: Verificacao) -> None:
@@ -232,7 +358,12 @@ def _auditoria(documento, auditoria: ResumoAuditoria) -> None:
             if achado.localizacao is not None:
                 _paragrafo(documento, "Localização: ", achado.localizacao)
             if achado.trecho_fonte is not None:
-                _paragrafo(documento, "Trecho: ", achado.trecho_fonte)
+                _paragrafo(
+                    documento,
+                    "Trecho: ",
+                    achado.trecho_fonte,
+                    tamanho=TAMANHO_APOIO,
+                )
             _paragrafo(documento, "Proposta de ajuste: ", achado.proposta_ajuste)
 
 
@@ -246,6 +377,7 @@ def renderizar_metadados(
     """Gabaritos comentados (que já trazem as fontes internas), verificação
     pós-montagem e auditori. Este arquivo NÃO vai para o aluno."""
     documento = docx.Document()
+    _aplicar_padrao(documento)
     documento.add_heading(
         f"{cabecalho.disciplina} — {cabecalho.periodo} — Metadados", level=1
     )

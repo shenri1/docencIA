@@ -16,7 +16,11 @@ from backend.app.services.exportacao.renderizacao import (
 from backend.app.services.provas.leitura import AlternativaLida, ItemLido, ProvaLida
 
 CABECALHO = Cabecalho(
-    disciplina="Algoritmos", periodo="2026.2", versao_banco="v1", revisao_banco=3
+    disciplina="Algoritmos",
+    periodo="2026.2",
+    professor="Ana Souza",
+    versao_banco="v1",
+    revisao_banco=3,
 )
 
 
@@ -40,7 +44,9 @@ def prova(versao: str, itens: list[ItemLido]) -> ProvaLida:
     )
 
 
-def objetiva(posicao: int, enunciado: str, textos: list[str]) -> ItemLido:
+def objetiva(
+    posicao: int, enunciado: str, textos: list[str], contexto: str | None = None
+) -> ItemLido:
     return ItemLido(
         posicao=posicao,
         numero=posicao,
@@ -50,6 +56,7 @@ def objetiva(posicao: int, enunciado: str, textos: list[str]) -> ItemLido:
         alternativas=[
             AlternativaLida(letra, texto) for letra, texto in zip("ABCDE", textos)
         ],
+        contexto=contexto,
     )
 
 
@@ -506,3 +513,214 @@ def test_gabarito_interpreta_justificativa_mas_nao_o_trecho_base():
     )
     assert "<m:f>" in xml and "<m:sSup>" in xml
     assert r"A fórmula \(x\) do material." in xml
+
+
+# --- formatação da prova ---
+
+import re
+
+import pytest
+from docx.oxml.ns import qn
+from docx.shared import Pt
+
+
+def _parte(dados: bytes, nome: str) -> str:
+    with zipfile.ZipFile(io.BytesIO(dados)) as z:
+        return z.read(nome).decode("utf-8")
+
+
+def _os_dois_docx():
+    a = prova("A", [objetiva(1, "x", ["a", "b", "c", "d", "e"])])
+    b = prova("B", [objetiva(1, "y", ["a", "b", "c", "d", "e"])])
+    return (
+        renderizar_conteudo_puro(CABECALHO, a, b),
+        renderizar_metadados(
+            CABECALHO,
+            gabarito("A", [item_objetivo()]),
+            gabarito("B", [item_objetivo()]),
+            VERIFICACAO,
+            auditoria(),
+        ),
+    )
+
+
+@pytest.mark.parametrize("indice", [0, 1])
+def test_pagina_a4_com_margens_3_e_2(indice):
+    xml = _documento_xml(_os_dois_docx()[indice])
+    assert re.search(r'<w:pgSz w:w="11906" w:h="16838"', xml)
+    margens = re.search(r"<w:pgMar [^>]*/>", xml).group(0)
+    for lado, valor in (("top", 1701), ("left", 1701), ("bottom", 1134), ("right", 1134)):
+        assert f'w:{lado}="{valor}"' in margens
+
+
+@pytest.mark.parametrize("indice", [0, 1])
+def test_estilos_em_arial_sem_tema(indice):
+    documento = docx.Document(io.BytesIO(_os_dois_docx()[indice]))
+    for nome in ("Normal", "Heading 1"):
+        fontes = documento.styles[nome].element.rPr.rFonts
+        for atributo in ("ascii", "hAnsi", "eastAsia", "cs"):
+            assert fontes.get(qn(f"w:{atributo}")) == "Arial", (nome, atributo)
+        assert not [a for a in fontes.attrib if "heme" in a], nome
+    normal = documento.styles["Normal"]
+    assert normal.font.size == Pt(12)
+    assert normal.paragraph_format.space_before == Pt(0)
+    assert normal.paragraph_format.space_after == Pt(6)
+    titulo = documento.styles["Heading 1"]
+    assert titulo.font.size == Pt(14)
+    assert titulo.font.bold is True
+    cor = titulo.element.rPr.find(qn("w:color"))
+    assert cor is not None
+    assert cor.get(qn("w:val")) == "000000"
+    assert cor.get(qn("w:themeColor")) is None
+
+
+def test_cabecalho_de_pagina_vazio():
+    for dados in _os_dois_docx():
+        with zipfile.ZipFile(io.BytesIO(dados)) as z:
+            for nome in z.namelist():
+                if nome.startswith("word/header"):
+                    assert "<w:t" not in z.read(nome).decode("utf-8")
+
+
+def test_identificacao_em_cada_prova():
+    textos = paragrafos(_os_dois_docx()[0])
+    for rotulo in ("Professor: Ana Souza", "Aluno: ", "Matrícula: ", "Data: ", "Nota: "):
+        assert sum(1 for t in textos if t.startswith(rotulo)) == 2, rotulo
+    assert not any(t.startswith("Nome: ") for t in textos)
+
+
+def test_linhas_cabem_na_largura_util():
+    """Arial 12: sublinhado ≈ 0,235 cm; área útil = 21 − 3 − 2 = 16 cm."""
+    from backend.app.services.exportacao.renderizacao import _LINHA, _LINHA_CAMPO
+
+    largura_util_cm = 16.0
+    largura_sublinhado_cm = 0.556 * 12 / 72 * 2.54
+    assert len(_LINHA) * largura_sublinhado_cm < largura_util_cm
+    assert (
+        len("Matrícula: ") * 0.25 + len(_LINHA_CAMPO) * largura_sublinhado_cm
+        < largura_util_cm
+    )
+
+
+# --- contexto em 10 pt, enunciado justificado, alternativas com recuo ---
+
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Twips
+
+from backend.app.services.exportacao.renderizacao import separar_contexto
+
+CONTEXTO = "Uma rede de sensores envia leituras a cada 5 s para um servidor central."
+COMANDO = "Qual estrutura organiza as leituras na ordem de chegada?"
+
+
+def _paragrafos_doc(dados: bytes):
+    return docx.Document(io.BytesIO(dados)).paragraphs
+
+
+def _prova_um_item(item):
+    return renderizar_conteudo_puro(CABECALHO, prova("A", [item]), prova("B", [item]))
+
+
+def test_separar_contexto():
+    assert separar_contexto(f"{CONTEXTO}\n\n{COMANDO}", CONTEXTO) == (CONTEXTO, COMANDO)
+    assert separar_contexto(COMANDO, None) == (None, COMANDO)
+    assert separar_contexto(COMANDO, "") == (None, COMANDO)
+    assert separar_contexto(f"Outro.\n\n{COMANDO}", CONTEXTO) == (
+        None,
+        f"Outro.\n\n{COMANDO}",
+    )
+
+
+def test_contexto_em_10_e_resto_em_12_justificados():
+    item = objetiva(3, f"{CONTEXTO}\n\n{COMANDO}", list("abcde"), contexto=CONTEXTO)
+    ps = _paragrafos_doc(_prova_um_item(item))
+    i = next(i for i, p in enumerate(ps) if p.text == f"3. {CONTEXTO}")
+    contexto, comando = ps[i], ps[i + 1]
+    assert comando.text == COMANDO
+    # o texto volta igual, com a quebra de parágrafo no lugar do "\n\n".
+    assert (
+        contexto.text.removeprefix("3. ") + "\n\n" + comando.text
+        == f"{CONTEXTO}\n\n{COMANDO}"
+    )
+    assert contexto.runs[0].font.size is None  # o número fica em 12
+    assert all(r.font.size == Pt(10) for r in contexto.runs[1:])
+    assert all(r.font.size is None for r in comando.runs)
+    assert contexto.alignment == comando.alignment == WD_ALIGN_PARAGRAPH.JUSTIFY
+
+
+def test_questao_sem_contexto_toda_em_12():
+    item = objetiva(1, COMANDO, list("abcde"))
+    ps = _paragrafos_doc(_prova_um_item(item))
+    enunciado = next(p for p in ps if p.text == f"1. {COMANDO}")
+    assert all(r.font.size is None for r in enunciado.runs)
+    assert enunciado.alignment == WD_ALIGN_PARAGRAPH.JUSTIFY
+
+
+def test_enunciado_sem_o_prefixo_sai_inteiro_em_12():
+    enunciado = f"Cenário reescrito.\n\n{COMANDO}"
+    item = objetiva(1, enunciado, list("abcde"), contexto=CONTEXTO)
+    textos = paragrafos(_prova_um_item(item))
+    assert f"1. {enunciado}" in textos
+
+
+def test_contexto_vazio_e_ignorado():
+    item = objetiva(1, COMANDO, list("abcde"), contexto="")
+    textos = paragrafos(_prova_um_item(item))
+    assert f"1. {COMANDO}" in textos
+    assert "1. " not in textos
+
+
+def test_contexto_com_formula_em_destaque():
+    contexto = r"A posição é dada por \[x = x_0 + v t\] em metros."
+    item = objetiva(1, f"{contexto}\n\n{COMANDO}", list("abcde"), contexto=contexto)
+    dados = _prova_um_item(item)
+    assert "<m:oMathPara" in _documento_xml(dados)
+    ps = _paragrafos_doc(dados)
+    inicio = next(i for i, p in enumerate(ps) if p.text.startswith("1. A posição"))
+    fim = next(i for i, p in enumerate(ps) if p.text == COMANDO)
+    for p in ps[inicio:fim]:
+        assert p.alignment == WD_ALIGN_PARAGRAPH.JUSTIFY
+        assert all(r.font.size == Pt(10) for r in p.runs if r.text and r.text != "1. ")
+
+
+def test_alternativas_a_esquerda_com_recuo():
+    item = objetiva(1, COMANDO, ["fila", "pilha", "vetor", "grafo", "árvore"])
+    ps = _paragrafos_doc(_prova_um_item(item))
+    alternativa = next(p for p in ps if p.text == "A) fila")
+    assert alternativa.alignment is None
+    assert alternativa.paragraph_format.left_indent == Twips(283)
+
+
+def test_metadados_trecho_base_em_10_e_sem_justificar():
+    dados = renderizar_metadados(
+        CABECALHO,
+        gabarito("A", [item_objetivo()]),
+        gabarito("B", [item_objetivo()]),
+        VERIFICACAO,
+        auditoria(),
+    )
+    ps = _paragrafos_doc(dados)
+    trechos = [p for p in ps if p.text.startswith("Trecho-base: ")]
+    assert trechos
+    assert all(r.font.size == Pt(10) for p in trechos for r in p.runs)
+    assert all(p.alignment is None for p in ps)
+
+
+def test_metadados_trecho_da_auditoria_em_10():
+    achado = Achado(
+        risco=RiscoAuditoria.CORRETA_NAO_UNICA,
+        alvo="C",
+        localizacao="página 7",
+        trecho_fonte="o material também sustenta C",
+        proposta_ajuste="Reescreva C.",
+    )
+    dados = renderizar_metadados(
+        CABECALHO,
+        gabarito("A", [item_objetivo()]),
+        gabarito("B", [item_objetivo()]),
+        VERIFICACAO,
+        auditoria([QuestaoAuditada(7, [achado])], auditadas=10),
+    )
+    trechos = [p for p in _paragrafos_doc(dados) if p.text.startswith("Trecho: ")]
+    assert trechos
+    assert all(r.font.size == Pt(10) for p in trechos for r in p.runs)

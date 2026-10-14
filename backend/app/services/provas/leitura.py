@@ -34,6 +34,20 @@ _CARREGAR_ITENS = (
     .selectinload(ItemProva.questao)
     .selectinload(Questao.alternativas)
 )
+# o contexto mora na justificativa; carregado junto, sem uma consulta
+# por questão.
+_CARREGAR_JUSTIFICATIVAS = (
+    selectinload(Prova.itens)
+    .selectinload(ItemProva.questao)
+    .selectinload(Questao.justificativa)
+)
+
+
+def _contexto(questao: Questao) -> str | None:
+    estrutura = (
+        questao.justificativa.estrutura_formato if questao.justificativa else None
+    )
+    return (estrutura or {}).get("contexto")
 
 
 @dataclass(frozen=True)
@@ -52,6 +66,9 @@ class ItemLido:
     enunciado: str
     # Vazia na discursiva.
     alternativas: list[AlternativaLida]
+    # o cenário, para o DOCX pôr em 10 pt. É parte do
+    # enunciado, que o aluno já vê; não é gabarito.
+    contexto: str | None = None
 
 
 @dataclass(frozen=True)
@@ -76,7 +93,7 @@ def obter_prova(db: Session, docente: Docente, prova_id: int) -> Prova:
     prova = db.get(
         Prova,
         prova_id,
-        options=[_CARREGAR_ITENS],
+        options=[_CARREGAR_ITENS, _CARREGAR_JUSTIFICATIVAS],
     )
     if prova is None or prova.sessao.docente_id != docente.id:
         raise ProvaNaoEncontradaException(prova_id)
@@ -129,6 +146,7 @@ def ler_prova(db: Session, docente: Docente, prova_id: int) -> ProvaLida:
                 faixa_dificuldade=item.questao.faixa_dificuldade,
                 enunciado=item.questao.enunciado,
                 alternativas=_alternativas_lidas(item),
+                contexto=_contexto(item.questao),
             )
             for item in sorted(prova.itens, key=lambda i: i.posicao)
         ],
@@ -152,7 +170,7 @@ def provas_do_banco(db: Session, banco: BancoQuestoes) -> ProvasMontadas:
     por_versao = {
         prova.versao: prova
         for prova in db.scalars(
-            select(Prova).where(Prova.banco_id == banco.id).options(_CARREGAR_ITENS)
+            select(Prova).where(Prova.banco_id == banco.id).options(_CARREGAR_ITENS, _CARREGAR_JUSTIFICATIVAS)
         )
     }
     prova_a, prova_b = por_versao.get(VERSAO_A), por_versao.get(VERSAO_B)

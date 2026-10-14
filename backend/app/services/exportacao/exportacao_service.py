@@ -85,6 +85,7 @@ def exportar(
     cabecalho = Cabecalho(
         disciplina=sessao.disciplina,
         periodo=sessao.periodo,
+        professor=docente.nome,
         versao_banco=banco.versao,
         revisao_banco=banco.revisao,
     )

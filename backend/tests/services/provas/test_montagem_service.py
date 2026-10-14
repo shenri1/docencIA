@@ -210,3 +210,22 @@ def test_provas_do_banco_nao_faz_uma_consulta_por_item(
         provas_do_banco(db_session, banco)
 
     assert len(consultas) <= 12, f"{len(consultas)} SELECTs para 20 itens"
+
+
+def test_ler_prova_traz_o_contexto_gravado(db_session, docente, sessao_rascunho):
+    from backend.app.services.provas.leitura import ler_prova
+
+    banco = banco_congelado(db_session, docente, sessao_rascunho)
+    for questao in banco.questoes:
+        if questao.numero % 2:
+            questao.justificativa.estrutura_formato = {
+                "contexto": f"Cenário {questao.numero}."
+            }
+    db_session.commit()
+    montadas = montar_provas(db_session, docente, banco, 10, 0, banco.revisao)
+
+    prova = ler_prova(db_session, docente, montadas.prova_a_id)
+
+    for item in prova.itens:
+        esperado = f"Cenário {item.numero}." if item.numero % 2 else None
+        assert item.contexto == esperado

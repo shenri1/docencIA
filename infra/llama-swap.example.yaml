@@ -1,0 +1,36 @@
+# Exemplo de configuração do llama-swap para as medições.
+# Roda no host, fora do Compose. Copie para fora do repositório, ajuste os
+# caminhos dos GGUF e suba:  llama-swap --config llama-swap.yaml --listen :8081
+#
+# O llama-swap carrega um llama-server por modelo e troca conforme o campo
+# `model` da requisição. Os `aliases` repetem as tags de provedores_llm, então
+# a cadeia de fallback funciona sem mexer no banco.
+#
+# O contexto (-c) é por processo: 8192 casa com LLM_NUM_CTX. Registre as flags
+# usadas na tabela de medição — é isso que torna a medição reprodutível.
+healthCheckTimeout: 300
+
+models:
+  "qwen3.5-9b":
+    aliases: ["qwen3.5:9b"]
+    cmd: >
+      llama-server --port ${PORT}
+      -m C:/modelos/Qwen3.5-9B-Q4_K_M.gguf
+      -c 8192 -ngl 99 --flash-attn on --jinja
+    ttl: 600
+
+  "qwen3-4b":
+    aliases: ["qwen3:4b"]
+    cmd: >
+      llama-server --port ${PORT}
+      -m C:/modelos/Qwen3-4B-Q4_K_M.gguf
+      -c 8192 -ngl 99 --flash-attn on --jinja
+    ttl: 600
+
+  "qwen3-1.7b":
+    aliases: ["qwen3:1.7b"]
+    cmd: >
+      llama-server --port ${PORT}
+      -m C:/modelos/Qwen3-1.7B-Q4_K_M.gguf
+      -c 8192 -ngl 99 --flash-attn on --jinja
+    ttl: 600

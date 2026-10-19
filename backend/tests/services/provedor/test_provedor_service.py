@@ -315,3 +315,15 @@ def test_falha_da_cadeia_sem_sessao_ainda_levanta_falha_do_provedor_e_registra()
 
     assert len(db.adicionados) == 1
     assert db.adicionados[0].ator is None
+
+
+def test_fabrica_escolhe_o_cliente_pelo_protocolo_configurado(monkeypatch):
+    from backend.app.core.config import settings
+    from backend.app.services.provedor.llama_server import ClienteLlamaServer
+    from backend.app.services.provedor.ollama import ClienteOllama
+
+    prov = provedor(1, "p", 1)
+    monkeypatch.setattr(settings, "llm_protocolo", "ollama")
+    assert isinstance(mod.criar_cliente(prov), ClienteOllama)
+    monkeypatch.setattr(settings, "llm_protocolo", "llama-server")
+    assert isinstance(mod.criar_cliente(prov), ClienteLlamaServer)

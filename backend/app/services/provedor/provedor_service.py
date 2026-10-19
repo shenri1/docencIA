@@ -27,6 +27,7 @@ from backend.app.services.provedor.consumo import (
     RegistradorConsumoDb,
 )
 from backend.app.services.provedor.contrato import ClienteLLM
+from backend.app.services.provedor.llama_server import ClienteLlamaServer
 from backend.app.services.provedor.ollama import ClienteOllama
 from backend.app.services.provedor.tipos import ConfigLLM, RequisicaoLLM, RespostaLLM
 
@@ -35,9 +36,12 @@ _BACKOFF_BASE_S = 0.5
 FabricaCliente = Callable[[ProvedorLLM], ClienteLLM]
 
 
-def criar_cliente_ollama(provedor: ProvedorLLM) -> ClienteLLM:
+def criar_cliente(provedor: ProvedorLLM) -> ClienteLLM:
     cfg = ConfigLLM.das_settings()
-    return ClienteOllama(
+    classe = (
+        ClienteLlamaServer if settings.llm_protocolo == "llama-server" else ClienteOllama
+    )
+    return classe(
         provedor_id=provedor.id,
         modelo=provedor.modelo,
         # endpoint NULL significa "usar a configuração do ambiente", o que
@@ -134,5 +138,5 @@ def criar_provedor_service(db: Session) -> ProvedorLLMService:
     return ProvedorLLMService(
         db=db,
         registrador=RegistradorConsumoDb(db),
-        fabrica=criar_cliente_ollama,
+        fabrica=criar_cliente,
     )

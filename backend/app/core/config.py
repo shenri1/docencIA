@@ -91,6 +91,10 @@ class Settings(BaseSettings):
     # Usado quando ProvedorLLM.endpoint é NULL. No Compose vira
     # http://host.docker.internal:11434.
     llm_base_url: str = "http://localhost:11434"
+    # Protocolo do servidor em llm_base_url: "ollama" (/api/chat) ou
+    # "llama-server" (/v1/chat/completions; serve também o llama-swap). Só vale
+    # para a geração: embeddings e rerank seguem no Ollama.
+    llm_protocolo: Literal["ollama", "llama-server"] = "ollama"
     # O default do Ollama é 4096 e ele TRUNCA o prompt em silêncio para caber.
     # O prompt do Gerador carrega prompt mestre + 8 trechos do RAG + schema.
     llm_num_ctx: int = 8192

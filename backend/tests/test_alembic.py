@@ -450,7 +450,7 @@ def test_migracao_qwen35_ida_e_volta(monkeypatch):
             ("ollama-qwen3-4b", "qwen3:4b", 2),
             ("ollama-qwen3-1.7b", "qwen3:1.7b", 3),
         ]
-        command.upgrade(cfg, "head")
+        command.upgrade(cfg, "a3f9c2e7d415")
         assert _cadeia(eng) == cadeia_nova
 
         with eng.begin() as conn:
@@ -479,8 +479,37 @@ def test_migracao_qwen35_ida_e_volta(monkeypatch):
         ]
 
         # Subir de novo reativa a linha que o downgrade só desativou.
-        command.upgrade(cfg, "head")
+        command.upgrade(cfg, "a3f9c2e7d415")
         assert _cadeia(eng) == cadeia_nova
+    finally:
+        eng.dispose()
+
+
+def test_migracao_qwen25_ida_e_volta(monkeypatch):
+    """O 3b entra na frente e empurra a cadeia; o downgrade só o desativa e
+    devolve as prioridades da a3f9c2e7d415."""
+    _admin_do_env(monkeypatch, credencial=None, nome=None, senha=None)
+    cfg, eng = _banco_ate("e9c3a6d2f8b1")
+    try:
+        cadeia_9b = [
+            ("ollama-qwen3.5-9b", "qwen3.5:9b", 1),
+            ("ollama-qwen3-4b", "qwen3:4b", 2),
+            ("ollama-qwen3-1.7b", "qwen3:1.7b", 3),
+        ]
+        cadeia_3b = [
+            ("ollama-qwen2.5-3b", "qwen2.5:3b-instruct", 1),
+            ("ollama-qwen3.5-9b", "qwen3.5:9b", 2),
+            ("ollama-qwen3-4b", "qwen3:4b", 3),
+            ("ollama-qwen3-1.7b", "qwen3:1.7b", 4),
+        ]
+        assert _cadeia(eng) == cadeia_9b
+        command.upgrade(cfg, "f2c8a4d1b6e7")
+        assert _cadeia(eng) == cadeia_3b
+        command.downgrade(cfg, "e9c3a6d2f8b1")
+        assert _cadeia(eng) == cadeia_9b
+        # Subir de novo reativa a linha que o downgrade só desativou.
+        command.upgrade(cfg, "f2c8a4d1b6e7")
+        assert _cadeia(eng) == cadeia_3b
     finally:
         eng.dispose()
 

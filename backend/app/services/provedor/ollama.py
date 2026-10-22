@@ -8,6 +8,7 @@ sessão de banco.
 from __future__ import annotations
 
 import atexit
+import logging
 
 import httpx
 from pydantic import ValidationError
@@ -22,6 +23,11 @@ from backend.app.services.provedor.tipos import (
     RespostaLLM,
     UsoTokens,
 )
+
+_log = logging.getLogger(__name__)
+# Quanto do fim de uma resposta cortada vai para o log: é onde aparece a
+# repetição que levou ao teto.
+CAUDA_NO_LOG = 400
 
 # Um cliente por (URL, timeout), reusado entre chamadas. Criar um httpx.Client
 # por requisição vaza pool de conexões e descritores de arquivo. O timeout faz
@@ -110,6 +116,8 @@ class ClienteOllama:
         dados = resposta.json()
         if dados.get("done_reason") == "length":
             # Cada chamada tem o seu teto: o PADRAO só vale quando ela não diz.
+            cauda = ((dados.get("message") or {}).get("content") or "")[-CAUDA_NO_LOG:]
+            _log.warning("%s: resposta cortada; final: %r", self.modelo, cauda)
             raise RespostaLLMInvalidaException(
                 f"resposta cortada pelo limite de {corpo['options']['num_predict']} "
                 "tokens de saída — aumente o teto da chamada (GERACAO_MAX_TOKENS, "

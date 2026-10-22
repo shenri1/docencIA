@@ -233,3 +233,18 @@ def test_resposta_cortada_diz_o_teto_e_as_variaveis_certas():
     assert "1024" in mensagem
     assert "AUDITORIA_MAX_TOKENS" in mensagem
     assert "LLM_MAX_TOKENS_PADRAO" not in mensagem
+
+
+def test_resposta_cortada_registra_o_final_no_log(caplog):
+    """O final da resposta cortada é onde aparece a repetição que levou ao teto."""
+
+    def responder(_request: httpx.Request) -> httpx.Response:
+        corpo = resposta_ok({"enunciado": "x"}, done_reason="length")
+        corpo["message"]["content"] = '{"fontes": [' + '{"a": 1}, ' * 200
+        return httpx.Response(200, json=corpo)
+
+    with pytest.raises(RespostaLLMInvalidaException):
+        cliente_com(responder).gerar(requisicao())
+    aviso = [r for r in caplog.records if "cortada" in r.getMessage()]
+    assert len(aviso) == 1
+    assert '{"a": 1}, ' in aviso[0].getMessage()

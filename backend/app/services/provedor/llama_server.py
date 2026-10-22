@@ -92,6 +92,8 @@ class ClienteLlamaServer:
         escolha = escolhas[0] if escolhas else {}
 
         if escolha.get("finish_reason") == "length":
+            cauda = ((escolha.get("message") or {}).get("content") or "")[-400:]
+            _metricas.warning("%s: resposta cortada; final: %r", corpo["model"], cauda)
             raise RespostaLLMInvalidaException(
                 f"resposta cortada pelo limite de {teto} "
                 "tokens de saída — aumente o teto da chamada (GERACAO_MAX_TOKENS, "

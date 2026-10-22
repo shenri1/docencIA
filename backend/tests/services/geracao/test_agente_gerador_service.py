@@ -88,15 +88,17 @@ def test_insuficiencia_volta_sem_questao_e_com_motivo(
     assert resultado.localizacao_ancora == ancora.localizacao
 
 
-def test_rascunho_com_fonte_inventada_nao_e_rejeitado_na_geracao(
+def test_schema_so_aceita_fonte_dos_trechos_enviados(
     db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
 ):
-    """Só a versão revisada vira FonteInterna: o crítico ainda pode corrigir
-    a citação, então rejeitar aqui jogaria fora uma questão recuperável."""
+    """O identificador da fonte é enum dos trechos desta chamada: com o
+    qwen2.5:3b, "P1, página 10" e materiais que não vieram derrubavam a questão
+    em `resolver_fontes`. Agora a decodificação restrita não os produz."""
+    import pytest
+    from pydantic import ValidationError
+
     ancora = preparar(db_session, armazenamento, embeddings_fake, sessao_rascunho)
-    provedor = ProvedorLLMFake(
-        [corpo_questao(sessao_rascunho.k_alternativas, identificador="P9")]
-    )
+    provedor = ProvedorLLMFake([corpo_questao(sessao_rascunho.k_alternativas)])
     resultado = gerar_questao(
         db_session,
         embeddings_fake,
@@ -108,7 +110,14 @@ def test_rascunho_com_fonte_inventada_nao_e_rejeitado_na_geracao(
         numero=1,
         distribuicao=DISTRIBUICAO,
     )
-    assert resultado.questao.fontes[0].identificador_material == "P9"
+    esquema = provedor.requisicoes[0].formato
+    enviados = {t.identificador_curto for t in resultado.trechos}
+    esquema.model_validate(corpo_questao(sessao_rascunho.k_alternativas))
+    with pytest.raises(ValidationError):
+        esquema.model_validate(
+            corpo_questao(sessao_rascunho.k_alternativas, identificador="P9")
+        )
+    assert "P9" not in enviados
 
 
 def test_o_texto_da_ancora_vira_a_consulta_do_rag(

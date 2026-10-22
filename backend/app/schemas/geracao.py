@@ -6,6 +6,7 @@ a estrutura é imposta, não esperada. Sem a restrição, o modelo
 entrega 1 invalidação para 4 distratores.
 """
 
+from collections.abc import Sequence
 from typing import Literal
 
 from pydantic import BaseModel, Field, create_model
@@ -45,6 +46,38 @@ class FonteGerada(BaseModel):
     trecho_base: str
 
 
+# Teto das listas que o modelo preenche sem contagem fixa. Sem teto, modelo
+# pequeno repete o item até estourar o limite de tokens e a resposta sai cortada.
+MAX_FONTES = 3
+MAX_DADOS = 8
+
+
+def modelo_fonte(identificadores: Sequence[str] | None) -> type[BaseModel]:
+    """Com os identificadores dos trechos enviados, `identificador_material` vira
+    enum, imposto pela decodificação restrita como a `letra_correta`. Medido com o
+    qwen2.5:3b: sem isso, o modelo escreve o rótulo inteiro do trecho ("P1,
+    página 10") ou um material que não veio, e a fonte é recusada. Sem
+    identificadores (testes, chamadas antigas), fica o texto livre."""
+    if identificadores is None:
+        return FonteGerada
+    unicos = tuple(sorted(set(identificadores)))
+    if not unicos:
+        raise ValueError("identificadores não pode ser vazio: sem trecho não há geração")
+    return create_model(
+        "FonteRestrita",
+        identificador_material=(Literal[unicos], ...),
+        localizacao=(str, ...),
+        trecho_base=(str, ...),
+    )
+
+
+def _fontes(identificadores: Sequence[str] | None):
+    return (
+        list[modelo_fonte(identificadores)],
+        Field(min_length=1, max_length=MAX_FONTES),
+    )
+
+
 class InsuficienciaFonte(BaseModel):
     """É resultado, não exceção: no laço do banco, recusar-se a
     inventar é comportamento correto."""
@@ -67,7 +100,9 @@ def _resultado(nome: str, questao: type[BaseModel]) -> type[BaseModel]:
     )
 
 
-def montar_schema_objetiva(k: int) -> type[BaseModel]:
+def montar_schema_objetiva(
+    k: int, identificadores: Sequence[str] | None = None
+) -> type[BaseModel]:
     """Devolve um modelo com um único campo `resultado`, união discriminada
     entre questão gerada e insuficiência de fonte."""
     _validar_k(k)
@@ -114,7 +149,7 @@ def montar_schema_objetiva(k: int) -> type[BaseModel]:
         # Enum das k primeiras letras: exatamente uma correta vira restrição
         # da decodificação, como o NivelBloom, em vez de regra a validar.
         letra_correta=(Literal[tuple(LETRAS[:k])], ...),
-        fontes=(list[FonteGerada], Field(min_length=1)),
+        fontes=_fontes(identificadores),
         justificativa=(justificativa, ...),
     )
     return create_model(
@@ -127,7 +162,9 @@ def montar_schema_objetiva(k: int) -> type[BaseModel]:
 
 
 def montar_schema_afirmativas(
-    k: int, configuracao: tuple[bool, ...]
+    k: int,
+    configuracao: tuple[bool, ...],
+    identificadores: Sequence[str] | None = None,
 ) -> type[BaseModel]:
     """Campos nomeados, não lista: fixar o valor por posição numa lista
     exigiria `prefixItems`, que não foi medido no Ollama. `verdadeira` vem
@@ -160,12 +197,14 @@ def montar_schema_afirmativas(
         tema=(str, ...),
         subtema=(str, ...),
         objetivo_cognitivo=(str, ...),
-        fontes=(list[FonteGerada], Field(min_length=1)),
+        fontes=_fontes(identificadores),
     )
     return _resultado(f"ResultadoAfirmativas{rotulo}", questao)
 
 
-def montar_schema_assercao_razao() -> type[BaseModel]:
+def montar_schema_assercao_razao(
+    identificadores: Sequence[str] | None = None,
+) -> type[BaseModel]:
     """O comando e as alternativas são texto fixo do sistema. A configuração
     vai no pedido: verdadeiro ou falso de uma proposição não é campo da saída."""
     questao = create_model(
@@ -180,7 +219,7 @@ def montar_schema_assercao_razao() -> type[BaseModel]:
         tema=(str, ...),
         subtema=(str, ...),
         objetivo_cognitivo=(str, ...),
-        fontes=(list[FonteGerada], Field(min_length=1)),
+        fontes=_fontes(identificadores),
     )
     return _resultado("ResultadoAssercaoRazao", questao)
 
@@ -216,15 +255,46 @@ class ItemDiscursivoGerado(BaseModel):
     aspectos_esperados: list[AspectoGerado] = Field(min_length=1, max_length=3)
 
 
-def montar_schema_discursiva(n_itens: int | None = None) -> type[BaseModel]:
-    if n_itens is None:
+def _aspecto(identificadores: Sequence[str] | None) -> type[BaseModel]:
+    if identificadores is None:
+        return AspectoGerado
+    return create_model(
+        "AspectoRestrito",
+        texto=(str, ...),
+        fonte=(modelo_fonte(identificadores), ...),
+    )
+
+
+def montar_schema_discursiva(
+    n_itens: int | None = None, identificadores: Sequence[str] | None = None
+) -> type[BaseModel]:
+    if n_itens is None and identificadores is None:
         return ResultadoGeracaoDiscursiva
+    aspecto = _aspecto(identificadores)
+    if n_itens is None:
+        questao = create_model(
+            "QuestaoDiscursivaRestrita",
+            tipo=(Literal["questao_discursiva"], ...),
+            contexto=(str, ...),
+            comando=(str, ...),
+            nivel_bloom=(NivelBloom, ...),
+            tema=(str, ...),
+            subtema=(str, ...),
+            objetivo_cognitivo=(str, ...),
+            aspectos_esperados=(list[aspecto], Field(min_length=2, max_length=5)),
+        )
+        return _resultado("ResultadoDiscursivaRestrita", questao)
+    item = create_model(
+        f"ItemDiscursivo{n_itens}",
+        comando=(str, ...),
+        aspectos_esperados=(list[aspecto], Field(min_length=1, max_length=3)),
+    )
     questao = create_model(
         f"QuestaoDiscursiva{n_itens}Itens",
         tipo=(Literal["questao_discursiva"], ...),
         contexto=(str, ...),
         itens=(
-            list[ItemDiscursivoGerado],
+            list[item],
             Field(min_length=n_itens, max_length=n_itens),
         ),
         nivel_bloom=(NivelBloom, ...),
@@ -248,7 +318,9 @@ class ErroTipicoGerado(BaseModel):
     expressao: str
 
 
-def montar_schema_calculo(k: int) -> type[BaseModel]:
+def montar_schema_calculo(
+    k: int, identificadores: Sequence[str] | None = None
+) -> type[BaseModel]:
     """Sem `alternativas`, `letra_correta` nem invalidações: o sistema
     calcula e escreve. `erros` tem K − 1 itens, um por distrator."""
     _validar_k(k)
@@ -257,13 +329,13 @@ def montar_schema_calculo(k: int) -> type[BaseModel]:
         tipo=(Literal["questao"], ...),
         contexto=(str, ...),
         comando=(str, ...),
-        dados=(list[DadoGerado], Field(min_length=1)),
+        dados=(list[DadoGerado], Field(min_length=1, max_length=MAX_DADOS)),
         formula_citada=(str, ...),
         expressao=(str, ...),
         unidade_resultado=(str, ...),
         erros=(list[ErroTipicoGerado], Field(min_length=k - 1, max_length=k - 1)),
         objetivo_cognitivo=(str, ...),
-        fontes=(list[FonteGerada], Field(min_length=1)),
+        fontes=_fontes(identificadores),
         tema=(str, ...),
         subtema=(str, ...),
         nivel_bloom=(Literal[BLOOM_OBJETIVA], ...),
@@ -277,13 +349,14 @@ def montar_schema(
     formato: FormatoItem = FormatoItem.PROPOSICAO,
     configuracao: tuple[bool, ...] | str | None = None,
     n_itens: int | None = None,
+    identificadores: Sequence[str] | None = None,
 ) -> type[BaseModel]:
     if tipo is TipoQuestao.DISCURSIVA:
-        return montar_schema_discursiva(n_itens)
+        return montar_schema_discursiva(n_itens, identificadores)
     if formato is FormatoItem.AFIRMATIVAS:
-        return montar_schema_afirmativas(k, configuracao)
+        return montar_schema_afirmativas(k, configuracao, identificadores)
     if formato is FormatoItem.ASSERCAO_RAZAO:
-        return montar_schema_assercao_razao()
+        return montar_schema_assercao_razao(identificadores)
     if formato is FormatoItem.CALCULO:
-        return montar_schema_calculo(k)
-    return montar_schema_objetiva(k)
+        return montar_schema_calculo(k, identificadores)
+    return montar_schema_objetiva(k, identificadores)

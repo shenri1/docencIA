@@ -497,8 +497,9 @@ def test_revisao_que_nao_corrige_mantem_a_violacao(
 def test_fonte_persistida_vem_da_revisao_mesmo_com_rascunho_invalido(
     db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
 ):
-    """Só a revisada vira FonteInterna. Um P9 no rascunho que o crítico corrige
-    não pode derrubar a questão."""
+    """Só a revisada vira FonteInterna: a citação do rascunho, que o crítico
+    corrigiu, não é gravada. (Material fora dos trechos já não chega: o schema
+    restringe o identificador.)"""
     preparar(db_session, armazenamento, sessao_rascunho)
     revisada = corpo_questao(
         5,
@@ -510,7 +511,17 @@ def test_fonte_persistida_vem_da_revisao_mesmo_com_rascunho_invalido(
             }
         ],
     )
-    provedor = ProvedorLLMFake([corpo_questao(5, identificador="P9"), revisada])
+    rascunho = corpo_questao(
+        5,
+        fontes=[
+            {
+                "identificador_material": "P1",
+                "localizacao": "página 1",
+                "trecho_base": "Trecho citado pelo rascunho.",
+            }
+        ],
+    )
+    provedor = ProvedorLLMFake([rascunho, revisada])
     resumo = gerar(
         db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor
     )

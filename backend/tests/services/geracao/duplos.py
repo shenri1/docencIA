@@ -1,11 +1,15 @@
 """Duplos para a geração. Nenhum toca a rede."""
 
+from pydantic import ValidationError
+
+from backend.app.exceptions import RespostaLLMInvalidaException
 from backend.app.services.provedor.tipos import RespostaLLM, UsoTokens
 
 
 class ProvedorLLMFake:
     """Executa um roteiro: cada item é o dicionário que o modelo "devolveria".
-    Exceções no roteiro são levantadas."""
+    Exceções no roteiro são levantadas. Item fora do schema da requisição vira
+    `RespostaLLMInvalidaException`, como nos clientes reais."""
 
     def __init__(self, roteiro: list) -> None:
         self.roteiro = list(roteiro)
@@ -22,8 +26,12 @@ class ProvedorLLMFake:
         item = self.roteiro.pop(0)
         if isinstance(item, Exception):
             raise item
+        try:
+            conteudo = requisicao.formato.model_validate(item)
+        except ValidationError as exc:
+            raise RespostaLLMInvalidaException(str(exc)) from exc
         return RespostaLLM(
-            conteudo=requisicao.formato.model_validate(item),
+            conteudo=conteudo,
             uso=UsoTokens(entrada=1000, saida=500),
             provedor_id=1,
             modelo="fake",

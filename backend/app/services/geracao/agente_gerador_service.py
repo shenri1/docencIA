@@ -150,8 +150,14 @@ def gerar_questao(
                 orientacoes,
                 partida,
             ),
+            # Fonte só entre os materiais destes trechos.
             formato=montar_schema(
-                tipo, sessao.k_alternativas, formato, configuracao, n_itens
+                tipo,
+                sessao.k_alternativas,
+                formato,
+                configuracao,
+                n_itens,
+                [t.identificador_curto for t in trechos],
             ),
             temperatura=settings.geracao_temperatura,
             max_tokens=settings.geracao_max_tokens,

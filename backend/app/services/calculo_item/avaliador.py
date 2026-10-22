@@ -17,6 +17,10 @@ import pint
 from backend.app.domain import RegraQualidade
 
 UREG = pint.UnitRegistry()
+# pint 0.25 nem sempre levanta PintError: converter para unidade logarítmica
+# composta ("dB/km", "dBm/Hz") cai num `assert` interno. Para o avaliador, as
+# duas coisas são a mesma: a unidade não fecha, e o crítico corrige.
+_ERROS_DO_PINT = (pint.errors.PintError, AssertionError)
 
 MAX_CARACTERES = 300
 MAX_PROFUNDIDADE = 30
@@ -55,7 +59,7 @@ def quantidade(valor: float, unidade: str) -> pint.Quantity:
             if unidade.strip()
             else UREG.Quantity(float(valor))
         )
-    except pint.errors.PintError as exc:
+    except _ERROS_DO_PINT as exc:
         raise _dimensao(f"unidade desconhecida “{unidade}”: {exc}") from exc
     except Exception as exc:
         raise _dimensao(f"unidade inválida “{unidade}”") from exc
@@ -64,7 +68,7 @@ def quantidade(valor: float, unidade: str) -> pint.Quantity:
 def _sem_dimensao(q: pint.Quantity, onde: str) -> float:
     try:
         return float(q.to("dimensionless").magnitude)
-    except pint.errors.PintError as exc:
+    except _ERROS_DO_PINT as exc:
         raise _dimensao(
             f"{onde} exige argumento sem dimensão, recebeu {q.units}"
         ) from exc
@@ -73,7 +77,7 @@ def _sem_dimensao(q: pint.Quantity, onde: str) -> float:
 def _angulo(q: pint.Quantity, onde: str) -> float:
     try:
         return float(q.to("radian").magnitude)
-    except pint.errors.PintError as exc:
+    except _ERROS_DO_PINT as exc:
         raise _dimensao(f"{onde} exige ângulo, recebeu {q.units}") from exc
 
 
@@ -147,7 +151,7 @@ def avaliar(expressao: str, valores: dict[str, pint.Quantity]) -> pint.Quantity:
         magnitude = resultado.magnitude
     except ErroCalculo:
         raise
-    except pint.errors.PintError as exc:
+    except _ERROS_DO_PINT as exc:
         raise _dimensao(str(exc)) from exc
     except (ZeroDivisionError, OverflowError, ValueError) as exc:
         raise _invalida(f"não calculável: {exc}") from exc
@@ -159,7 +163,7 @@ def avaliar(expressao: str, valores: dict[str, pint.Quantity]) -> pint.Quantity:
 def em_unidade(q: pint.Quantity, unidade: str) -> float:
     try:
         valor = float(q.to(unidade if unidade.strip() else "dimensionless").magnitude)
-    except pint.errors.PintError as exc:
+    except _ERROS_DO_PINT as exc:
         raise _dimensao(
             f"o resultado ({q.units}) não converte para “{unidade}”: {exc}"
         ) from exc

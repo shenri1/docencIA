@@ -133,3 +133,17 @@ def test_unidade_desconhecida():
     with pytest.raises(ErroCalculo) as erro:
         Q(1, "furlongs_por_quinzena_xyz")
     assert erro.value.regra is RegraQualidade.DIMENSAO_INCOERENTE
+
+
+def test_unidade_logaritmica_composta_vira_violacao_e_nao_500():
+    """pint 0.25: converter para "dB/km" levanta AssertionError, não PintError
+    (atenuação de enlace, medido numa geração real de telecom)."""
+    with pytest.raises(ErroCalculo) as erro:
+        em_unidade(_valor("a", a=(3, "m")), "dB/km")
+    assert erro.value.regra is RegraQualidade.DIMENSAO_INCOERENTE
+
+
+def test_conta_com_dado_em_db_por_km_vira_violacao():
+    with pytest.raises(ErroCalculo) as erro:
+        em_unidade(_valor("a * d", a=(0.2, "dB/km"), d=(10, "km")), "dB")
+    assert erro.value.regra is RegraQualidade.DIMENSAO_INCOERENTE

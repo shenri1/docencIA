@@ -510,6 +510,11 @@ def test_migracao_qwen25_ida_e_volta(monkeypatch):
         # Subir de novo reativa a linha que o downgrade só desativou.
         command.upgrade(cfg, "f2c8a4d1b6e7")
         assert _cadeia(eng) == cadeia_3b
+        # O teste reprovou o 3b: a a7d3e5b9c1f4 devolve a cadeia do 9b.
+        command.upgrade(cfg, "a7d3e5b9c1f4")
+        assert _cadeia(eng) == cadeia_9b
+        command.downgrade(cfg, "f2c8a4d1b6e7")
+        assert _cadeia(eng) == cadeia_3b
     finally:
         eng.dispose()
 

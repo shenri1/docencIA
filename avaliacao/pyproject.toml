@@ -1,0 +1,14 @@
+# Projeto à parte, de propósito: o `ragas` não instala no Python 3.14 do app
+# (o `scikit-network` não tem wheel e o build pede compilador C), e o RAGAS usa
+# um LLM como juiz, o que não pode entrar nas dependências da API.
+# Uso: uv run --project avaliacao python -m avaliacao.ragas_avaliar --sessao N
+[project]
+name = "docencia-avaliacao"
+version = "0.0.1"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "ragas==0.4.3",
+    "langchain-ollama",
+    "psycopg[binary]>=3.2",
+    "pymupdf>=1.28.2",
+]

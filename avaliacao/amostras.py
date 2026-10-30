@@ -10,8 +10,6 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
-from backend.app.domain import FormatoItem, TipoQuestao
-
 MOTIVO_SEM_CONTEXTO = "sem contexto"
 
 
@@ -33,17 +31,23 @@ def contextos_das_fontes(questao) -> list[str]:
     return list(vistos)
 
 
+def _valor(enum_ou_texto) -> str:
+    """Aceita o enum do app, o nome gravado no Postgres ("CALCULO") ou o valor.
+    Não importa `backend.app`: este pacote roda num Python que o app não roda."""
+    return str(getattr(enum_ou_texto, "value", enum_ou_texto)).lower()
+
+
 def _resposta(questao) -> str:
     partes = [questao.enunciado]
     justificativa = questao.justificativa
 
-    if questao.tipo is TipoQuestao.DISCURSIVA:
+    if _valor(questao.tipo) == "discursiva":
         aspectos = sorted(questao.aspectos, key=lambda a: a.ordem)
         if aspectos:
             partes.append(
                 "Aspectos esperados:\n" + "\n".join(f"- {a.texto}" for a in aspectos)
             )
-    elif questao.formato is FormatoItem.CALCULO:
+    elif _valor(questao.formato) == "calculo":
         # O resultado e a resolução saem do avaliador determinístico, não do
         # material. O que o material precisa sustentar é a fórmula e o cenário.
         estrutura = (justificativa.estrutura_formato if justificativa else None) or {}

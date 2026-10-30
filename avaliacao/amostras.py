@@ -1,0 +1,86 @@
+"""Questões do banco → amostras do RAGAS — puro, sem banco, rede nem LLM.
+
+Só lê atributos, então aceita o ORM ou qualquer objeto com a mesma forma. Fica
+fora de `backend/app/` de propósito: o RAGAS usa um LLM como juiz, e a regra
+arquitetural proíbe LLM no caminho da API.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
+
+from backend.app.domain import FormatoItem, TipoQuestao
+
+MOTIVO_SEM_CONTEXTO = "sem contexto"
+
+
+@dataclass
+class Montagem:
+    amostras: list[dict] = field(default_factory=list)
+    # `ids[i]` é a questão de `amostras[i]`: o RAGAS devolve as notas na ordem.
+    ids: list[int] = field(default_factory=list)
+    puladas: list[tuple[int, str]] = field(default_factory=list)
+
+
+def contextos_das_fontes(questao) -> list[str]:
+    """Modo 1: os trechos que a própria questão cita, sem vazios nem repetidos."""
+    vistos: dict[str, None] = {}
+    for fonte in questao.fontes_internas:
+        trecho = fonte.trecho_base.strip()
+        if trecho:
+            vistos.setdefault(trecho)
+    return list(vistos)
+
+
+def _resposta(questao) -> str:
+    partes = [questao.enunciado]
+    justificativa = questao.justificativa
+
+    if questao.tipo is TipoQuestao.DISCURSIVA:
+        aspectos = sorted(questao.aspectos, key=lambda a: a.ordem)
+        if aspectos:
+            partes.append(
+                "Aspectos esperados:\n" + "\n".join(f"- {a.texto}" for a in aspectos)
+            )
+    elif questao.formato is FormatoItem.CALCULO:
+        # O resultado e a resolução saem do avaliador determinístico, não do
+        # material. O que o material precisa sustentar é a fórmula e o cenário.
+        estrutura = (justificativa.estrutura_formato if justificativa else None) or {}
+        if estrutura.get("formula_citada"):
+            partes.append(f"Fórmula utilizada: {estrutura['formula_citada']}")
+    else:
+        correta = next((a for a in questao.alternativas if a.correta), None)
+        if correta is not None:
+            partes.append(f"Gabarito: {correta.letra}) {correta.texto}")
+        if justificativa and justificativa.justificativa_correta:
+            partes.append(justificativa.justificativa_correta)
+
+    return "\n".join(partes)
+
+
+def montar_amostra(questao, contextos: list[str]) -> dict:
+    return {
+        "user_input": questao.tema or questao.enunciado,
+        "response": _resposta(questao),
+        "retrieved_contexts": contextos,
+    }
+
+
+def montar_amostras(
+    questoes: Iterable,
+    contextos_por_questao: Mapping[int, list[str]] | None = None,
+) -> Montagem:
+    """`contextos_por_questao` é o Modo 2 (top-k refeito); sem ele, Modo 1."""
+    montagem = Montagem()
+    for questao in questoes:
+        if contextos_por_questao is not None and questao.id in contextos_por_questao:
+            contextos = contextos_por_questao[questao.id]
+        else:
+            contextos = contextos_das_fontes(questao)
+        if not contextos:
+            montagem.puladas.append((questao.id, MOTIVO_SEM_CONTEXTO))
+            continue
+        montagem.amostras.append(montar_amostra(questao, contextos))
+        montagem.ids.append(questao.id)
+    return montagem

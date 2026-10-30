@@ -147,3 +147,14 @@ def test_contexto_recuperado_vazio_pula_mesmo_havendo_fonte_citada():
 
     assert montagem.amostras == []
     assert montagem.puladas == [(7, "sem contexto")]
+
+
+def test_aceita_os_nomes_em_maiuscula_que_o_postgres_grava():
+    questao = _objetiva(
+        tipo="DISCURSIVA",
+        formato="PROPOSICAO",
+        alternativas=[],
+        aspectos=[NS(ordem=1, texto="Define X.")],
+    )
+
+    assert "Aspectos esperados" in montar_amostra(questao, ["t"])["response"]

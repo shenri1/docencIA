@@ -229,3 +229,6 @@ storage/
 
 
 .vscode/
+# Resultados do RAGAS (podem conter enunciados e trechos do docente)
+avaliacao/resultados/*
+!avaliacao/resultados/.gitkeep

@@ -147,3 +147,12 @@ def test_conta_com_dado_em_db_por_km_vira_violacao():
     with pytest.raises(ErroCalculo) as erro:
         em_unidade(_valor("a * d", a=(0.2, "dB/km"), d=(10, "km")), "dB")
     assert erro.value.regra is RegraQualidade.DIMENSAO_INCOERENTE
+
+
+@pytest.mark.parametrize("valor", [-6.02, 0.0])
+def test_converter_valor_nao_positivo_para_db_vira_violacao_e_nao_500(valor):
+    """O log da conversão para dB exige razão positiva: o pint levanta
+    ValueError (“expected a positive input”), medido numa geração real."""
+    with pytest.raises(ErroCalculo) as erro:
+        em_unidade(_valor("a", a=(valor, "")), "dB")
+    assert erro.value.regra is RegraQualidade.EXPRESSAO_INVALIDA

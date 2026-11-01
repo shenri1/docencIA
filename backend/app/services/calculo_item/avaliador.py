@@ -167,6 +167,10 @@ def em_unidade(q: pint.Quantity, unidade: str) -> float:
         raise _dimensao(
             f"o resultado ({q.units}) não converte para “{unidade}”: {exc}"
         ) from exc
+    except (ZeroDivisionError, OverflowError, ValueError) as exc:
+        # Unidade logarítmica (dB) com razão ≤ 0: o log do pint levanta
+        # ValueError. Mesma classificação de `avaliar`: não calculável.
+        raise _invalida(f"não calculável em “{unidade}”: {exc}") from exc
     if not math.isfinite(valor):
         raise _invalida("resultado não finito")
     return valor

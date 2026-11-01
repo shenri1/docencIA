@@ -19,7 +19,7 @@ def _fonte(trecho: str, localizacao: str = "página 3") -> NS:
 
 
 def _objetiva(**campos) -> NS:
-    base = dict(
+    base = dict(  # noqa: C408
         id=1,
         numero=1,
         tipo=TipoQuestao.OBJETIVA,

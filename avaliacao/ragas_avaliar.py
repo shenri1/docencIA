@@ -28,8 +28,12 @@ TEMPERATURA = 0.0
 def _url_do_banco() -> str:
     url = os.environ.get("DATABASE_URL")
     if not url:
-        raise SystemExit("Defina DATABASE_URL (a mesma do .env, com host localhost).")
-    return url.replace("postgresql+psycopg://", "postgresql://")
+        raise SystemExit("Defina DATABASE_URL (pode ser a mesma do .env).")
+    # A do .env vem no formato do SQLAlchemy e com o host do Compose ("db"), que
+    # só resolve dentro dos containers: a mesma troca do dev.py e do alembic.
+    return url.replace("postgresql+psycopg://", "postgresql://").replace(
+        "@db:", "@localhost:"
+    )
 
 
 def _avaliar(amostras: list[dict], modelo: str, base_url: str):
@@ -74,7 +78,7 @@ def main() -> None:
 
     metricas = [c for c in ("faithfulness", "llm_context_precision_without_reference")
                 if c in quadro.columns]
-    carimbo = datetime.now().strftime("%Y%m%d_%H%M%S")
+    carimbo = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
     args.saida.mkdir(parents=True, exist_ok=True)
     quadro.to_csv(args.saida / f"rodada_{carimbo}.csv", index=False)
 

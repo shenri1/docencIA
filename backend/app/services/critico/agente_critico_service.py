@@ -34,7 +34,7 @@ from backend.app.services.geracao.formatos import (
     texto_pedido_formato,
     texto_pedido_itens,
 )
-from backend.app.services.provedor.tipos import RequisicaoLLM
+from backend.app.services.provedor.tipos import RequisicaoLLM, UsoTokens
 from backend.app.services.qualidade.validador_itens import (
     AlternativaAvaliavel,
     AspectoAvaliavel,
@@ -52,6 +52,8 @@ class ResultadoRevisao:
     questao: object | None
     motivo_insuficiencia: str | None
     modelo: str
+    # Para as métricas da tentativa.
+    uso: UsoTokens | None = None
 
 
 def item_objetivo_de(
@@ -220,7 +222,11 @@ def revisar_questao(
             questao=None,
             motivo_insuficiencia=conteudo.informacao_faltante,
             modelo=resposta.modelo,
+            uso=resposta.uso,
         )
     return ResultadoRevisao(
-        questao=conteudo, motivo_insuficiencia=None, modelo=resposta.modelo
+        questao=conteudo,
+        motivo_insuficiencia=None,
+        modelo=resposta.modelo,
+        uso=resposta.uso,
     )

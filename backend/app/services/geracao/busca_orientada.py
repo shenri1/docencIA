@@ -11,6 +11,7 @@ sustentam a relação é o Gerador, que declara insuficiência.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,9 @@ from backend.app.core.config import settings
 from backend.app.models.identidade import SessaoGeracao
 from backend.app.models.materiais import ChunkMaterial
 from backend.app.services.rag.retrieval_service import TrechoRecuperado, buscar
+
+if TYPE_CHECKING:
+    from backend.app.services.metricas.coletor import Coletor
 
 
 def trechos_com_orientacoes(
@@ -27,6 +31,7 @@ def trechos_com_orientacoes(
     sessao: SessaoGeracao,
     ancora: ChunkMaterial,
     orientacoes: Sequence,
+    coletor: Coletor | None = None,
 ) -> list[TrechoRecuperado]:
     trechos = buscar(
         db,
@@ -36,6 +41,7 @@ def trechos_com_orientacoes(
         ancora.texto,
         k=settings.rag_top_k,
         candidatos=settings.rag_candidatos,
+        coletor=coletor,
     )
     cruzamentos = [o.cruzar_com for o in orientacoes if o.cruzar_com]
     if not cruzamentos:
@@ -50,6 +56,8 @@ def trechos_com_orientacoes(
             f"{assunto}\n{ancora.texto}",
             k=settings.rag_top_k_cruzamento,
             candidatos=settings.rag_candidatos_cruzamento,
+            coletor=coletor,
+            origem=f"cruzamento:{assunto}",
         )
     # O texto entra na chave: um bloco longo vira vários chunks com a mesma
     # localização (chunking.py), e eles não são repetidos.

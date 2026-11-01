@@ -78,6 +78,9 @@ from backend.app.services.geracao.formatos import (
     montar_objetiva,
 )
 from backend.app.services.log_auditoria import registrar_evento
+from backend.app.services.metricas.coletor import Coletor
+from backend.app.services.metricas.juiz import Juiz
+from backend.app.services.metricas.registro import registrar_tentativa
 from backend.app.services.orientacoes.orientacao_service import vigentes
 from backend.app.services.prompt_mestre_service import verificar_integridade
 from backend.app.services.qualidade.validador_itens import (
@@ -99,6 +102,8 @@ class Improdutiva:
     # Só na substituição: o rascunho repetiu a original. Medido, não declarado
     # pelo modelo — por isso a substituição tenta de novo em vez de desistir.
     repetida: bool = False
+    # Para as métricas: por que o número ficou sem questão.
+    desfecho: str = "insuficiencia"
 
 
 @dataclass(frozen=True)
@@ -461,14 +466,17 @@ def _produzir_questao(
     pergunta_original: str | None = None,
     orientacoes: Sequence[OrientacaoDocente] = (),
     partida: bool = False,
+    coletor: Coletor | None = None,
 ) -> Produzida | Improdutiva:
     """Uma questão, do rascunho ao commit: gerar, montar, medir, revisar, montar,
     medir, persistir. `gerar_banco` chama em laço; `propor_substituicao` chama uma
     vez. A sequência existe só aqui."""
+    if coletor is None:
+        coletor = Coletor()
     # A busca combinada sai daqui, uma vez: o recuo para proposição e o crítico
     # recebem os mesmos trechos.
     trechos = trechos_com_orientacoes(
-        db, embeddings, reranker, sessao, ancora, orientacoes
+        db, embeddings, reranker, sessao, ancora, orientacoes, coletor
     )
     formato_planejado = formato
     # Até duas tentativas: o formato planejado e, se ele não sair, a proposição
@@ -483,29 +491,34 @@ def _produzir_questao(
 
     for indice, (formato, configuracao) in enumerate(tentativas):
         ultima = indice == len(tentativas) - 1
-        resultado = gerar_questao(
-            db,
-            embeddings,
-            reranker,
-            provedor,
-            sessao,
-            ancora,
-            faixa,
-            numero,
-            distribuicao,
-            tipo=tipo,
-            evitar=evitar,
-            formato=formato,
-            configuracao=configuracao,
-            n_itens=n_itens,
-            trechos=trechos,
-            orientacoes=orientacoes,
-            partida=partida,
-        )
+        with coletor.medir("gerador", formato):
+            resultado = gerar_questao(
+                db,
+                embeddings,
+                reranker,
+                provedor,
+                sessao,
+                ancora,
+                faixa,
+                numero,
+                distribuicao,
+                tipo=tipo,
+                evitar=evitar,
+                formato=formato,
+                configuracao=configuracao,
+                n_itens=n_itens,
+                trechos=trechos,
+                orientacoes=orientacoes,
+                partida=partida,
+            )
+        if resultado.uso is not None:
+            coletor.anotar_tokens("gerador", resultado.uso, resultado.modelo, formato)
+        coletor.modelo_geracao = resultado.modelo
         trechos = resultado.trechos
+        coletor.trechos_enviados = trechos
         if resultado.questao is None:
             if not ultima:
-                motivo_recuo = "insuficiencia"
+                motivo_recuo = coletor.motivo_recuo = "insuficiencia"
                 continue
             return Improdutiva(
                 numero=numero,
@@ -525,28 +538,34 @@ def _produzir_questao(
                     localizacao=resultado.localizacao_ancora,
                     motivo="o rascunho repetiu o enunciado da questão original",
                     repetida=True,
+                    desfecho="repetida",
                 )
             # o determinístico mede, o semântico revisa com essa medida
             # como feedback, e o determinístico mede de novo, sempre sobre a
             # forma montada.
-            violacoes_rascunho = _validar(tipo, rascunho, trechos, faixa)
+            with coletor.medir("validacao"):
+                violacoes_rascunho = _validar(tipo, rascunho, trechos, faixa)
         else:
             # Cálculo que não monta: o que impediu vai ao crítico.
             violacoes_rascunho = bloqueio
-        revisao = revisar_questao(
-            provedor,
-            sessao,
-            trechos,
-            resultado.questao,
-            violacoes_rascunho,
-            faixa,
-            distribuicao,
-            tipo=tipo,
-            formato=formato,
-            configuracao=configuracao,
-            n_itens=n_itens,
-            orientacoes=orientacoes,
-        )
+        with coletor.medir("critico", formato):
+            revisao = revisar_questao(
+                provedor,
+                sessao,
+                trechos,
+                resultado.questao,
+                violacoes_rascunho,
+                faixa,
+                distribuicao,
+                tipo=tipo,
+                formato=formato,
+                configuracao=configuracao,
+                n_itens=n_itens,
+                orientacoes=orientacoes,
+            )
+        if revisao.uso is not None:
+            coletor.anotar_tokens("critico", revisao.uso, revisao.modelo, formato)
+        coletor.modelo_revisao = revisao.modelo
         if revisao.questao is None:
             # O crítico concluiu que o material não sustenta a questão: 
             # funcionando. Nada é persistido, e a retomada tenta de novo.
@@ -561,7 +580,7 @@ def _produzir_questao(
         )
         if final is None:
             if not ultima:
-                motivo_recuo = "calculo"
+                motivo_recuo = coletor.motivo_recuo = "calculo"
                 violacoes_recuo = bloqueio_final
                 # A tentativa recuada não é persistida: sem isto, o porquê some.
                 _log.warning(
@@ -577,8 +596,10 @@ def _produzir_questao(
                 localizacao=resultado.localizacao_ancora,
                 motivo="não montou: "
                 + "; ".join(f"{v.alvo}: {v.detalhe}" for v in bloqueio_final),
+                desfecho="nao_montou",
             )
-        violacoes_final = _validar(tipo, final, trechos, faixa)
+        with coletor.medir("validacao"):
+            violacoes_final = _validar(tipo, final, trechos, faixa)
         questao = _persistir(
             db,
             banco,
@@ -596,6 +617,7 @@ def _produzir_questao(
             motivo_recuo,
             violacoes_recuo,
         )
+        coletor.formato_final = formato
         return Produzida(questao=questao, violacoes_final=violacoes_final)
     raise AssertionError("a última tentativa sempre retorna")  # pragma: no cover
 
@@ -612,6 +634,7 @@ def produzir_questao(
     faixa: FaixaDificuldade,
     ancora: ChunkMaterial,
     distribuicao: DistribuicaoQuestoes,
+    juiz: Juiz | None = None,
     **resto,
 ) -> Produzida | Improdutiva:
     """Falha do CONTEÚDO de uma questão não pára o banco: fonte que o modelo
@@ -619,9 +642,14 @@ def produzir_questao(
     segue. As duas acontecem antes de qualquer gravação, então nada fica pela
     metade. Falha de infraestrutura (cadeia de provedores fora do ar, servidor
     ocupado, prompt divergente) continua subindo: seguir só faria todos os
-    números seguintes falharem igual."""
+    números seguintes falharem igual.
+
+    Cada tentativa que termina, com ou sem questão, deixa uma linha de métricas
+gravada depois do commit da questão. Falha de infraestrutura não
+    deixa linha: ela já fica no evento `falha_provedor`."""
+    coletor = Coletor()
     try:
-        return _produzir_questao(
+        produzida = _produzir_questao(
             db,
             embeddings,
             reranker,
@@ -633,12 +661,38 @@ def produzir_questao(
             faixa,
             ancora,
             distribuicao,
+            coletor=coletor,
             **resto,
         )
-    except (FonteInvalidaException, RespostaLLMInvalidaException) as exc:
-        return Improdutiva(
-            numero=numero, localizacao=ancora.localizacao, motivo=str(exc)
+    except FonteInvalidaException as exc:
+        produzida = Improdutiva(
+            numero=numero,
+            localizacao=ancora.localizacao,
+            motivo=str(exc),
+            desfecho="fonte_invalida",
         )
+    except RespostaLLMInvalidaException as exc:
+        produzida = Improdutiva(
+            numero=numero,
+            localizacao=ancora.localizacao,
+            motivo=str(exc),
+            desfecho="resposta_invalida",
+        )
+    registrar_tentativa(
+        db,
+        coletor=coletor,
+        banco=banco,
+        sessao=sessao,
+        numero=numero,
+        tipo=tipo,
+        faixa=faixa,
+        formato_planejado=resto.get("formato", FormatoItem.PROPOSICAO),
+        estado=resto.get("estado", EstadoQuestao.ATIVA),
+        produzida=produzida,
+        embeddings=embeddings,
+        juiz=juiz,
+    )
+    return produzida
 
 
 def gerar_banco(
@@ -652,6 +706,7 @@ def gerar_banco(
     versao: str,
     apos: int = 0,
     limite: int | None = None,
+    juiz: Juiz | None = None,
 ) -> ResumoBanco:
     n_alvo = n_objetivas + n_discursivas
     if n_alvo < 1:
@@ -704,6 +759,7 @@ def gerar_banco(
             configuracao=item.configuracao,
             n_itens=item.n_itens,
             orientacoes=orientacoes,
+            juiz=juiz,
         )
         if isinstance(produzida, Improdutiva):
             improdutivas.append(produzida)

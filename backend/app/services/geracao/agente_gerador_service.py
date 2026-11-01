@@ -28,7 +28,7 @@ from backend.app.services.geracao.formatos import (
     texto_pedido_formato,
     texto_pedido_itens,
 )
-from backend.app.services.provedor.tipos import RequisicaoLLM
+from backend.app.services.provedor.tipos import RequisicaoLLM, UsoTokens
 from backend.app.services.rag.retrieval_service import TrechoRecuperado, buscar
 
 
@@ -43,6 +43,8 @@ class ResultadoGeracao:
     trechos: list[TrechoRecuperado]
     # Qual modelo de fato respondeu — o fallback pode trocar entre chamadas.
     modelo: str
+    # Para as métricas da tentativa.
+    uso: UsoTokens | None = None
 
 
 def _montar_usuario(
@@ -173,6 +175,7 @@ def gerar_questao(
             localizacao_ancora=ancora.localizacao,
             trechos=trechos,
             modelo=resposta.modelo,
+            uso=resposta.uso,
         )
 
     return ResultadoGeracao(
@@ -182,4 +185,5 @@ def gerar_questao(
         localizacao_ancora=ancora.localizacao,
         trechos=trechos,
         modelo=resposta.modelo,
+        uso=resposta.uso,
     )

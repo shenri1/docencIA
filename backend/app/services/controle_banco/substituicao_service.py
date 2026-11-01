@@ -49,6 +49,7 @@ from backend.app.services.geracao.banco_service import (
     produzir_questao,
 )
 from backend.app.services.log_auditoria import registrar_evento
+from backend.app.services.metricas.juiz import Juiz
 from backend.app.services.orientacoes.orientacao_service import (
     criar_orientacao_questao,
     vigentes,
@@ -128,6 +129,7 @@ def propor_substituicao(
     banco: BancoQuestoes,
     numero: int,
     direcao: DirecaoVariacao | None = None,
+    juiz: Juiz | None = None,
 ) -> Produzida | Improdutiva:
     """Gera a candidata. NÃO muda o banco: nem revisão, nem n_atual, nem a
     original. Permitido com o banco aberto e congelado.
@@ -202,6 +204,7 @@ def propor_substituicao(
             pergunta_original=_pergunta(original),
             orientacoes=orientacoes,
             partida=direcao is not None,
+            juiz=juiz,
         )
         if not (isinstance(resultado, Improdutiva) and resultado.repetida):
             return resultado

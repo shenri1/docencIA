@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from backend.app.services.geracao import busca_orientada
 from backend.app.services.geracao.busca_orientada import trechos_com_orientacoes
+from backend.app.services.metricas.coletor import Coletor
 from backend.app.services.rag.retrieval_service import TrechoRecuperado
 
 ANCORA = SimpleNamespace(texto="fila na busca em largura")
@@ -9,6 +10,7 @@ ANCORA = SimpleNamespace(texto="fila na busca em largura")
 
 def _trecho(localizacao: str, texto: str | None = None) -> TrechoRecuperado:
     return TrechoRecuperado(
+        chunk_id=1,
         material_id=1,
         identificador_curto="P1",
         localizacao=localizacao,
@@ -29,8 +31,21 @@ class BuscaFalsa:
         self.respostas = respostas
         self.chamadas: list[tuple[str, int, int]] = []
 
-    def __call__(self, db, embeddings, reranker, sessao, consulta, k, candidatos):
+    def __call__(
+        self,
+        db,
+        embeddings,
+        reranker,
+        sessao,
+        consulta,
+        k,
+        candidatos,
+        coletor=None,
+        origem="ancora",
+    ):
         self.chamadas.append((consulta, k, candidatos))
+        if coletor is not None:
+            coletor.anotar_busca(origem, consulta, [])
         return list(self.respostas[consulta])
 
 
@@ -126,3 +141,21 @@ def test_mesma_pagina_com_textos_diferentes_nao_e_repetido(monkeypatch):
     )
 
     assert [t.texto for t in trechos] == ["primeira metade", "segunda metade"]
+
+
+def test_cruzamento_gera_segunda_busca_no_coletor(monkeypatch):
+    arquitetura = f"grafos\n{ANCORA.texto}"
+    _instalar(
+        monkeypatch,
+        {
+            ANCORA.texto: [_trecho("página 1")],
+            arquitetura: [_trecho("grafos 1")],
+        },
+    )
+    coletor = Coletor()
+
+    trechos_com_orientacoes(
+        None, None, None, None, ANCORA, [_orientacao(cruzar_com="grafos")], coletor
+    )
+
+    assert [b["origem"] for b in coletor.rag] == ["ancora", "cruzamento:grafos"]

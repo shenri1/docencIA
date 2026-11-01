@@ -32,6 +32,7 @@ TABELAS_ESPERADAS = {
     "exportacoes_docx",
     "registros_auditoria",
     "aspectos_esperados",
+    "metricas_geracao",
 }
 
 
@@ -405,3 +406,15 @@ def test_orientacao_de_questao_valida_e_ligada_a_questao(db_session, sessao_rasc
     ligacoes = db_session.execute(select(questoes_orientacoes)).all()
     assert [(q, o) for q, o in ligacoes] == [(questao.id, orientacao.id)]
     assert orientacao.criada_em is not None
+
+
+def test_metrica_geracao_mapeada():
+    tabela = Base.metadata.tables["metricas_geracao"]
+    fks = {fk.parent.name: fk.ondelete for fk in tabela.foreign_keys}
+    assert fks["banco_id"] == "CASCADE"
+    assert fks["questao_id"] == "SET NULL"
+    assert tabela.c.questao_id.nullable is True
+    for coluna in ("tempos_ms", "tokens", "rag"):
+        assert tabela.c[coluna].nullable is False
+    for coluna in ("sustentacao", "aderencia"):
+        assert tabela.c[coluna].nullable is True

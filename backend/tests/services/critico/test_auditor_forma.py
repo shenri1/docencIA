@@ -13,6 +13,7 @@ from backend.tests.fabrica_banco import criar_banco, criar_questao_objetiva
 
 TRECHOS = [
     TrechoRecuperado(
+        chunk_id=1,
         material_id=1,
         identificador_curto="P1",
         localizacao="página 3",

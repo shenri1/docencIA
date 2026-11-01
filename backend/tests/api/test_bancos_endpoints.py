@@ -159,7 +159,7 @@ def test_schema_do_banco_nao_expoe_justificativa_nem_rascunho():
 
 
 def test_propor_e_aceitar_pela_api(
-    client, db_session, armazenamento, embeddings_fake, reranker_fake
+    client, db_session, armazenamento, embeddings_fake, reranker_fake, juiz_fake
 ):
     headers = _auth(client, "prof-subst")
     sessao_id = client.post("/sessoes", headers=headers, json=SESSAO).json()["id"]
@@ -187,6 +187,8 @@ def test_propor_e_aceitar_pela_api(
         app.dependency_overrides.pop(get_provedor, None)
     assert proposta.status_code == 201
     assert proposta.json()["candidata"]["letra_correta"] == "A"
+    # A candidata é medida pelo mesmo juiz das questões do banco.
+    assert len(juiz_fake.chamadas) == 1
 
     aceite = client.post(
         f"/bancos/{resumo.banco_id}/questoes/1/substituicao/aceitar",

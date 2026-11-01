@@ -291,6 +291,7 @@ from backend.app.services.rag.retrieval_service import TrechoRecuperado as _Trec
 
 _TRECHOS = [
     _Trecho(
+        chunk_id=1,
         material_id=1,
         identificador_curto="P1",
         localizacao="página 1",

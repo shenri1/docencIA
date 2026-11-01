@@ -6,9 +6,9 @@ from backend.app.services.geracao.contexto import formatar_trechos, resolver_fon
 from backend.app.services.rag.retrieval_service import TrechoRecuperado
 
 TRECHOS = [
-    TrechoRecuperado(7, "P1", "página 12", "A busca em largura usa fila.", 0.9, 0.8),
+    TrechoRecuperado(1, 7, "P1", "página 12", "A busca em largura usa fila.", 0.9, 0.8),
     TrechoRecuperado(
-        9, "S2", "slide 3", "A busca em profundidade usa pilha.", 0.7, 0.6
+        2, 9, "S2", "slide 3", "A busca em profundidade usa pilha.", 0.7, 0.6
     ),
 ]
 

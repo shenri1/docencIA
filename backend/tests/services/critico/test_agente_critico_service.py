@@ -21,7 +21,9 @@ from backend.tests.services.geracao.duplos import (
 
 DISTRIBUICAO = calcular_distribuicao(10, 30, 40, 30)
 TRECHOS = [
-    TrechoRecuperado(7, "P1", "página 12", "A busca em largura usa uma fila.", 0.9, 0.8)
+    TrechoRecuperado(
+        1, 7, "P1", "página 12", "A busca em largura usa uma fila.", 0.9, 0.8
+    )
 ]
 VIOLACAO = Violacao(
     RegraQualidade.TAMANHO_ALTERNATIVA, "C", "C tem 14 palavras; média das demais = 5,5"
@@ -174,6 +176,7 @@ from backend.app.services.rag.retrieval_service import TrechoRecuperado as _Trec
 
 _TRECHOS_C = [
     _Trecho(
+        chunk_id=1,
         material_id=1,
         identificador_curto="P1",
         localizacao="página 1",

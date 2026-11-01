@@ -127,7 +127,7 @@ def test_comando_fora_do_marco_e_409_com_o_codigo(client, db_session, armazename
     assert resposta.json()["comandos_aceitos"] == ["prosseguir"]
 
 
-def test_f1_a_f12_so_por_comando(client, db_session, armazenamento):
+def test_f1_a_f12_so_por_comando(client, db_session, armazenamento, juiz_fake):
     """Caminho feliz inteiro, depois de login, sessão e material. Também é o
     do login ao banco gerado são login, criar sessão, enviar o
     material, prosseguir no M1 e prosseguir no M2 — 5 requisições. O RNF fala
@@ -164,6 +164,7 @@ def test_f1_a_f12_so_por_comando(client, db_session, armazenamento):
     finally:
         app.dependency_overrides.pop(get_provedor_sob_demanda, None)
     assert m2["banco"]["geradas"] == 25
+    assert len(juiz_fake.chamadas) == 25  # o M2 mede cada questão
     assert comandos == 2  # as duas interações depois de sessão e material
     [banco] = m2["marco"]["bancos"]
     assert banco["marco"] == "m3_exclusoes"

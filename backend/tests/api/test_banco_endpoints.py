@@ -1,6 +1,11 @@
 import pytest
 
+from backend.app.api.deps import get_provedor
+from backend.app.main import app
+from backend.app.models.identidade import SessaoGeracao
 from backend.tests.conftest import _auth
+from backend.tests.services.geracao.duplos import ProvedorLLMFake
+from backend.tests.services.geracao.test_banco_service import preparar, roteiro
 
 
 def test_gerar_banco_sem_token_e_401(client):
@@ -96,3 +101,36 @@ def test_resumo_expoe_onde_o_lote_parou(client):
     componentes = client.get("/openapi.json").json()["components"]["schemas"]
     propriedades = componentes["ResumoBancoResposta"]["properties"]
     assert {"ultimo_numero", "restantes"} <= set(propriedades)
+
+
+def test_gerar_banco_pela_api_chama_o_juiz(
+    client, db_session, armazenamento, juiz_fake
+):
+    headers = _auth(client, "prof-juiz")
+    sessao_id = client.post(
+        "/sessoes",
+        headers=headers,
+        json={
+            "disciplina": "Algoritmos",
+            "periodo": "2026.2",
+            "tema_escopo": "Grafos",
+            "area_do_conhecimento": "Computação",
+            "k_alternativas": 5,
+            "p_f": 30,
+            "p_m": 40,
+            "p_d": 30,
+        },
+    ).json()["id"]
+    preparar(db_session, armazenamento, db_session.get(SessaoGeracao, sessao_id))
+    app.dependency_overrides[get_provedor] = lambda: ProvedorLLMFake(roteiro(2))
+    try:
+        resposta = client.post(
+            f"/sessoes/{sessao_id}/banco",
+            headers=headers,
+            json={"n_objetivas": 2, "n_discursivas": 0, "versao": "v1"},
+        )
+    finally:
+        app.dependency_overrides.pop(get_provedor, None)
+    assert resposta.status_code == 201, resposta.json()
+    assert resposta.json()["geradas"] == 2
+    assert len(juiz_fake.chamadas) == 2

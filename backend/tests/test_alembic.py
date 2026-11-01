@@ -756,3 +756,77 @@ def test_migracao_21_ativa_o_prompt_2_3_e_desfaz_a_coluna():
         assert "p_calculo" not in colunas
     finally:
         eng.dispose()
+
+
+def test_migracao_25_metricas_ida_e_volta(monkeypatch):
+    """Cascade a partir do banco, SET NULL a partir da questão; o downgrade
+    remove a tabela."""
+    _admin_do_env(monkeypatch, credencial=None, nome=None, senha=None)
+    cfg, eng = _banco_ate("a7d3e5b9c1f4")
+    try:
+        command.upgrade(cfg, "b4e8c2f6a9d3")
+        with eng.begin() as conn:
+            docente = conn.execute(
+                text(
+                    "INSERT INTO docentes (nome, credencial_institucional, "
+                    "senha_hash, perfil) VALUES ('Ana', 'ana25', 'x', 'DOCENTE') "
+                    "RETURNING id"
+                )
+            ).scalar_one()
+            sessao = conn.execute(
+                text(
+                    "INSERT INTO sessoes_geracao (docente_id, disciplina, periodo, "
+                    "k_alternativas, p_f, p_m, p_d, estado) VALUES "
+                    "(:d, 'Redes', '2026.2', 5, 30, 40, 30, "
+                    "'MATERIAIS_CONFIRMADOS') RETURNING id"
+                ),
+                {"d": docente},
+            ).scalar_one()
+            banco = conn.execute(
+                text(
+                    "INSERT INTO bancos_questoes (sessao_id, versao, estado, "
+                    "n_alvo, n_alvo_objetivas, n_alvo_discursivas, n_atual) "
+                    "VALUES (:s, 'v1', 'ABERTO', 1, 1, 0, 1) RETURNING id"
+                ),
+                {"s": sessao},
+            ).scalar_one()
+            questao = conn.execute(
+                text(
+                    "INSERT INTO questoes (banco_id, numero, tipo, enunciado, "
+                    "nivel_bloom, faixa_dificuldade, estado, formato) VALUES "
+                    "(:b, 1, 'OBJETIVA', 'Qual?', 'APLICAR', 'MEDIA', 'ATIVA', "
+                    "'PROPOSICAO') RETURNING id"
+                ),
+                {"b": banco},
+            ).scalar_one()
+            conn.execute(
+                text(
+                    "INSERT INTO metricas_geracao (banco_id, numero, questao_id, "
+                    "origem, desfecho, tipo, faixa, formato_planejado, "
+                    "iniciada_em, tempos_ms, tokens, rag) VALUES (:b, 1, :q, "
+                    "'geracao', 'produzida', 'OBJETIVA', 'MEDIA', 'proposicao', "
+                    "now(), '{}', '[]', '[]')"
+                ),
+                {"b": banco, "q": questao},
+            )
+        with eng.begin() as conn:
+            conn.execute(text("DELETE FROM questoes"))
+        with eng.connect() as conn:
+            assert (
+                conn.execute(
+                    text("SELECT questao_id FROM metricas_geracao")
+                ).scalar_one()
+                is None
+            )
+        with eng.begin() as conn:
+            conn.execute(text("DELETE FROM bancos_questoes"))
+        with eng.connect() as conn:
+            assert (
+                conn.execute(text("SELECT count(*) FROM metricas_geracao")).scalar_one()
+                == 0
+            )
+
+        command.downgrade(cfg, "a7d3e5b9c1f4")
+        assert "metricas_geracao" not in _tabelas(eng)
+    finally:
+        eng.dispose()

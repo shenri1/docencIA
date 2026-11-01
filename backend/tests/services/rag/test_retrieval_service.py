@@ -5,6 +5,8 @@ from backend.app.exceptions import (
     IndiceNaoConfirmadoException,
     SessaoNaoIndexadaException,
 )
+from backend.app.models.materiais import ChunkMaterial
+from backend.app.services.metricas.coletor import Coletor
 from backend.app.services.rag.chunking import ConfigChunking
 from backend.app.services.rag.indexacao_service import indexar_sessao
 from backend.app.services.rag.rerank import RerankerFake
@@ -310,3 +312,68 @@ def test_indice_hnsw_nao_esconde_os_trechos_da_sessao(
     )
 
     assert [t.identificador_curto for t in trechos] == ["P1"]
+
+
+def _indexar_cinco(db_session, armazenamento, embeddings_fake, sessao_rascunho):
+    indexar(
+        db_session,
+        armazenamento,
+        embeddings_fake,
+        sessao_rascunho,
+        "P1",
+        [("página 1", f"assunto {n} " * 60) for n in range(1, 6)],
+    )
+
+
+def test_buscar_sem_coletor_devolve_o_mesmo_top_k(
+    db_session, armazenamento, embeddings_fake, sessao_rascunho
+):
+    _indexar_cinco(db_session, armazenamento, embeddings_fake, sessao_rascunho)
+    for reranker in (RerankerFake(), RerankerInvertido()):
+        completo = buscar(
+            db_session, embeddings_fake, reranker, sessao_rascunho, "assunto", 5, 20
+        )
+        corte = buscar(
+            db_session, embeddings_fake, reranker, sessao_rascunho, "assunto", 2, 20
+        )
+        assert [t.chunk_id for t in corte] == [t.chunk_id for t in completo][:2]
+
+
+def test_buscar_registra_todos_os_candidatos(
+    db_session, armazenamento, embeddings_fake, sessao_rascunho
+):
+    _indexar_cinco(db_session, armazenamento, embeddings_fake, sessao_rascunho)
+    coletor = Coletor()
+
+    trechos = buscar(
+        db_session,
+        embeddings_fake,
+        RerankerInvertido(),
+        sessao_rascunho,
+        "assunto",
+        2,
+        20,
+        coletor=coletor,
+    )
+
+    busca = coletor.rag[0]
+    assert busca["origem"] == "ancora"
+    candidatos = busca["candidatos"]
+    assert len(candidatos) == 5
+    scores = [c["score_vetorial"] for c in candidatos]
+    assert scores == sorted(scores, reverse=True)
+    # O duplo inverte: o último do pgvector é o primeiro do rerank.
+    assert [c["posicao_rerank"] for c in candidatos] == [4, 3, 2, 1, 0]
+    assert trechos[0].chunk_id == candidatos[-1]["chunk_id"]
+    assert {"busca_vetorial", "rerank"} <= set(coletor.tempos_ms)
+
+
+def test_trecho_recuperado_tem_chunk_id(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    _indexar_cinco(db_session, armazenamento, embeddings_fake, sessao_rascunho)
+    trechos = buscar(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho, "assunto", 3, 20
+    )
+    ids = {c.id for c in db_session.query(ChunkMaterial)}
+    assert all(t.chunk_id in ids for t in trechos)

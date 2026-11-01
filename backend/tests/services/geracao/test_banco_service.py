@@ -32,6 +32,7 @@ from backend.app.models.banco import (
     RevisaoQuestao,
 )
 from backend.app.models.materiais import ChunkMaterial
+from backend.app.models.metricas import MetricaGeracao
 from backend.app.prompt.parametros import ParametrosGeracao
 from backend.app.services.geracao.banco_service import (
     Improdutiva,
@@ -39,6 +40,7 @@ from backend.app.services.geracao.banco_service import (
     _obter_ou_criar_banco,
     gerar_banco,
 )
+from backend.app.services.metricas.juiz import FalhaJuizException, JuizFake
 from backend.app.services.prompt_mestre_service import ativar, registrar_versao
 from backend.tests.services.geracao.duplos import (
     CONTEXTO_MEDIA,
@@ -410,7 +412,7 @@ CURTAS = [f"Opção curta número {i}" for i in range(5)]
 COM_LONGA = [CURTAS[0], CURTAS[1], LONGA, CURTAS[3], CURTAS[4]]
 
 
-def gerar(db, emb, rer, sessao, provedor, n_alvo=1, n_discursivas=0):
+def gerar(db, emb, rer, sessao, provedor, n_alvo=1, n_discursivas=0, juiz=None):
     return gerar_banco(
         db,
         emb,
@@ -420,6 +422,7 @@ def gerar(db, emb, rer, sessao, provedor, n_alvo=1, n_discursivas=0):
         n_objetivas=n_alvo,
         n_discursivas=n_discursivas,
         versao="v1",
+        juiz=juiz,
     )
 
 
@@ -1698,3 +1701,218 @@ def test_insuficiencia_na_proposicao_apos_recuo_continua_improdutiva(
     assert isinstance(produzida, Improdutiva)
     assert provedor.chamadas == 2
     assert "o tema" in produzida.motivo
+
+
+# --- métricas de geração por tentativa ---
+
+
+def _metricas(db) -> list[MetricaGeracao]:
+    return list(db.scalars(select(MetricaGeracao).order_by(MetricaGeracao.id)))
+
+
+def test_metrica_uma_linha_por_numero_produzido(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    juiz = JuizFake()
+    gerar(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake(roteiro(1)),
+        juiz=juiz,
+    )
+    [metrica] = _metricas(db_session)
+    questao = db_session.query(Questao).one()
+    assert metrica.desfecho == "produzida"
+    assert metrica.questao_id == questao.id
+    assert metrica.origem == "geracao"
+    assert metrica.numero == 1
+    assert metrica.formato_final == questao.formato.value
+    assert metrica.modelo_geracao == metrica.modelo_revisao == "fake"
+    assert {
+        "busca_vetorial",
+        "rerank",
+        "gerador",
+        "critico",
+        "validacao",
+        "juiz",
+        "embedding_aderencia",
+        "total",
+    } <= set(metrica.tempos_ms)
+    assert [t["papel"] for t in metrica.tokens] == ["gerador", "critico", "juiz"]
+    assert metrica.aderencia["juiz"]["nota_tema"] == 5
+    assert len(metrica.sustentacao) == len(questao.fontes_internas)
+    assert len(juiz.chamadas) == 1
+
+
+def test_metrica_de_insuficiencia_sem_questao(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    gerar(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake([corpo_insuficiencia("faltou o critério")]),
+        juiz=JuizFake(),
+    )
+    [metrica] = _metricas(db_session)
+    assert metrica.questao_id is None
+    assert metrica.desfecho == "insuficiencia"
+    assert "critério" in metrica.motivo
+    assert metrica.formato_final is None
+    assert metrica.sustentacao is None and metrica.aderencia is None
+    assert "critico" not in metrica.tempos_ms
+
+
+def test_metrica_fonte_invalida(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    gerar(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake([corpo_questao(5), corpo_questao(5, identificador="P9")]),
+    )
+    [metrica] = _metricas(db_session)
+    assert metrica.desfecho == "fonte_invalida"
+    assert metrica.questao_id is None
+    assert "P9" in metrica.motivo
+
+
+def test_metrica_resposta_invalida(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    gerar(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake([RespostaLLMInvalidaException("cortada")]),
+    )
+    [metrica] = _metricas(db_session)
+    assert metrica.desfecho == "resposta_invalida"
+    assert "cortada" in metrica.motivo
+
+
+def test_metrica_no_recuo_tem_duas_tentativas(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    from backend.tests.services.geracao.duplos import corpo_calculo
+
+    preparar(db_session, armazenamento, sessao_rascunho)
+    invalido = corpo_calculo(expressao="__import__('os')")
+    _gerar_um(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        _item_calculo(sessao_rascunho),
+        [
+            invalido,
+            invalido,
+            corpo_questao(5, contexto=CONTEXTO_MEDIA),
+            corpo_questao(5, contexto=CONTEXTO_MEDIA),
+        ],
+    )
+    [metrica] = _metricas(db_session)
+    assert [e["formato"] for e in metrica.tempos_ms["gerador"]] == [
+        "calculo",
+        "proposicao",
+    ]
+    assert [e["formato"] for e in metrica.tempos_ms["critico"]] == [
+        "calculo",
+        "proposicao",
+    ]
+    assert [(t["papel"], t["formato"]) for t in metrica.tokens] == [
+        ("gerador", "calculo"),
+        ("critico", "calculo"),
+        ("gerador", "proposicao"),
+        ("critico", "proposicao"),
+    ]
+    assert metrica.motivo_recuo == "calculo"
+    assert metrica.formato_planejado == "calculo"
+    assert metrica.formato_final == "proposicao"
+    # O recuo reusa os trechos: uma busca só.
+    assert len(metrica.rag) == 1
+
+
+def test_metrica_rag_marca_enviados(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    provedor = ProvedorLLMFake(roteiro(1))
+    gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
+    [metrica] = _metricas(db_session)
+    candidatos = metrica.rag[0]["candidatos"]
+    enviados = [c for c in candidatos if c["enviado"]]
+    assert len(candidatos) == 20
+    assert len(enviados) == 8
+    # O prompt do Gerador cita exatamente os trechos marcados como enviados.
+    usuario = provedor.requisicoes[0].usuario
+    for c in candidatos:
+        assert (f"[P1, {c['localizacao']}]" in usuario) is c["enviado"]
+
+
+def test_falha_do_juiz_nao_afeta_questao(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    gerar(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake(roteiro(1)),
+        juiz=JuizFake(FalhaJuizException("timeout")),
+    )
+    questao = db_session.query(Questao).one()
+    assert questao.estado is EstadoQuestao.ATIVA
+    [metrica] = _metricas(db_session)
+    assert metrica.aderencia["juiz"] == {"erro": "timeout"}
+
+
+def test_falha_ao_gravar_metrica_nao_desfaz_questao(
+    db_session,
+    armazenamento,
+    embeddings_fake,
+    reranker_fake,
+    sessao_rascunho,
+    monkeypatch,
+    caplog,
+):
+    from backend.app.services.metricas import registro
+
+    def quebra(*args, **kwargs):
+        raise RuntimeError("sustentação quebrou")
+
+    monkeypatch.setattr(registro, "medir_sustentacao", quebra)
+    preparar(db_session, armazenamento, sessao_rascunho)
+    resumo = gerar(
+        db_session,
+        embeddings_fake,
+        reranker_fake,
+        sessao_rascunho,
+        ProvedorLLMFake(roteiro(2)),
+        n_alvo=2,
+    )
+    assert resumo.geradas == 2
+    assert db_session.query(Questao).count() == 2
+    assert _metricas(db_session) == []
+    assert any("não gravada" in r.getMessage() for r in caplog.records)
+
+
+def test_falha_de_infra_nao_gera_linha(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    preparar(db_session, armazenamento, sessao_rascunho)
+    provedor = ProvedorLLMFake([FalhaProvedorLLMException([("ollama", "HTTP 500")])])
+    with pytest.raises(FalhaProvedorLLMException):
+        gerar(db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor)
+    assert _metricas(db_session) == []

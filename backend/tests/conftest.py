@@ -66,6 +66,7 @@ from backend.app.models.prompt_provedor import PromptMestre
 from backend.app.models.provas import ExportacaoDocx, ItemProva, Prova
 from backend.app.schemas.identidade import DocenteCriar
 from backend.app.services.auth_service import registrar_docente
+from backend.app.services.metricas.juiz import JuizFake, get_juiz
 from backend.app.services.rag.embeddings import EmbeddingsFake, get_embeddings
 from backend.app.services.rag.rerank import RerankerFake, get_reranker
 
@@ -222,6 +223,11 @@ def reranker_fake() -> RerankerFake:
 
 
 @pytest.fixture()
+def juiz_fake() -> JuizFake:
+    return JuizFake()
+
+
+@pytest.fixture()
 def sessao_rascunho(db_session, docente) -> SessaoGeracao:
     from backend.app.schemas.sessao import SessaoCriar
     from backend.app.services.sessao_service import criar_sessao
@@ -244,7 +250,7 @@ def sessao_rascunho(db_session, docente) -> SessaoGeracao:
 
 @pytest.fixture()
 def client(
-    db_session, armazenamento, embeddings_fake, reranker_fake
+    db_session, armazenamento, embeddings_fake, reranker_fake, juiz_fake
 ) -> Generator[TestClient]:
     def _override_get_db() -> Generator[Session]:
         yield db_session
@@ -253,6 +259,8 @@ def client(
     app.dependency_overrides[get_armazenamento] = lambda: armazenamento
     app.dependency_overrides[get_embeddings] = lambda: embeddings_fake
     app.dependency_overrides[get_reranker] = lambda: reranker_fake
+    # O Ollama do host pode estar no ar: sem isto, a geração pela API chamaria o juiz.
+    app.dependency_overrides[get_juiz] = lambda: juiz_fake
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

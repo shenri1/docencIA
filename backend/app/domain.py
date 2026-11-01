@@ -64,7 +64,7 @@ class EstadoBanco(str, Enum):
 class EstadoQuestao(str, Enum):
     ATIVA = "ativa"
     EXCLUIDA = "excluida"
-    # a original de uma substituição aceita. Mantém o número e o
+    # A original de uma substituição aceita. Mantém o número e o
     # motivo da troca; não conta em n_atual.
     SUBSTITUIDA = "substituida"
     # Gerada por propor_substituicao e ainda não lida pelo docente: ocupa uma
@@ -89,7 +89,7 @@ class DecisaoSubstituicao(str, Enum):
 
 
 class OrigemOrientacao(str, Enum):
-    """onde o docente deu a orientação — na sessão, antes de gerar, ou
+    """Onde o docente deu a orientação — na sessão, antes de gerar, ou
     numa questão, ao pedir uma variação guiada."""
 
     SESSAO = "sessao"
@@ -135,7 +135,7 @@ class FormatoItem(str, Enum):
     PROPOSICAO = "proposicao"
     AFIRMATIVAS = "afirmativas"
     ASSERCAO_RAZAO = "assercao_razao"
-    # cálculo numérico, montado e calculado pelo sistema.
+    # Cálculo numérico, montado e calculado pelo sistema.
     CALCULO = "calculo"
 
 
@@ -156,7 +156,7 @@ class TipoExportacao(str, Enum):
 
 
 class RegraQualidade(str, Enum):
-    """Regras de forma, e, medidas sem LLM."""
+    """Regras de forma do item, medidas sem LLM."""
 
     TAMANHO_ALTERNATIVA = "tamanho_alternativa"
     CORRETA_LONGA = "correta_longa"
@@ -168,7 +168,7 @@ class RegraQualidade(str, Enum):
     ASPECTOS_REPETIDOS = "aspectos_repetidos"
     INVALIDACAO_LETRA_INVALIDA = "invalidacao_letra_invalida"
     LETRA_CITADA_EM_TEXTO = "letra_citada_em_texto"
-    #.
+    # Guias de elaboração de itens.
     CONTEXTO_CURTO = "contexto_curto"
     ALTERNATIVA_ROTULO = "alternativa_rotulo"
     ALTERNATIVA_GENERICA = "alternativa_generica"
@@ -176,9 +176,9 @@ class RegraQualidade(str, Enum):
     PONTUACAO_INCOERENTE = "pontuacao_incoerente"
     ASSERCAO_CITACAO = "assercao_citacao"
     OPINIAO_PESSOAL = "opiniao_pessoal"
-    #.
+    # Notação matemática e química.
     NOTACAO_INVALIDA = "notacao_invalida"
-    #.
+    # Questões de cálculo.
     EXPRESSAO_INVALIDA = "expressao_invalida"
     DIMENSAO_INCOERENTE = "dimensao_incoerente"
     DISTRATORES_COINCIDENTES = "distratores_coincidentes"
@@ -193,7 +193,7 @@ class RiscoAuditoria(str, Enum):
     CORRETA_NAO_UNICA = "correta_nao_unica"
     DISTRATOR_INDEFENSAVEL = "distrator_indefensavel"
     ASSIMETRIA_FORMA = "assimetria_forma"
-    # a reverificação sem LLM não reproduz a alternativa gravada.
+    # A reverificação sem LLM não reproduz a alternativa gravada.
     CALCULO_DIVERGENTE = "calculo_divergente"
 
 

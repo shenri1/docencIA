@@ -56,7 +56,7 @@ def registrar_versao(
 
 
 def listar_versoes(db: Session) -> list[PromptMestre]:
-    """histórico consultável, mais recente primeiro."""
+    """Histórico consultável, mais recente primeiro."""
     return list(
         db.scalars(
             select(PromptMestre).order_by(
@@ -74,7 +74,7 @@ def obter_ativo(db: Session) -> PromptMestre:
 
 
 def ativar(db: Session, versao: str) -> PromptMestre:
-    """rollback. Desativa a anterior e ativa a pedida na mesma
+    """Rollback. Desativa a anterior e ativa a pedida na mesma
     transação — duas versões ativas tornariam indefinido o que foi enviado."""
     alvo = db.scalar(select(PromptMestre).where(PromptMestre.versao == versao))
     if alvo is None:

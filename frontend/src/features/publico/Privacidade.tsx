@@ -3,7 +3,7 @@ import { Alerta } from "../../components/Alerta";
 import { CascaPublica } from "./CascaPublica";
 
 /**
- * descreve só o que o código faz. Controlador e contato não são
+ * Descreve só o que o código faz. Controlador e contato não são
  * inventados — ficam a definir pela instituição que hospeda o sistema.
  */
 export function Privacidade() {

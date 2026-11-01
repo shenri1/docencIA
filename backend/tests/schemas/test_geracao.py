@@ -84,7 +84,7 @@ def _questao_objetiva(esquema: dict) -> dict:
 
 
 def test_bloom_da_objetiva_e_vocabulario_fechado_sem_criar():
-    """O remove "Criar" da múltipla escolha: síntese original não é
+    """\"Criar\" fica fora da múltipla escolha: síntese original não é
     operacionalizável numa alternativa. A decodificação restrita o impede."""
     campo = _questao_objetiva(montar_schema_objetiva(5).model_json_schema())[
         "properties"

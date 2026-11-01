@@ -39,7 +39,7 @@ def banco_com_dez(db, sessao):
 
 
 def test_exclusao_marca_mantem_numero_e_registra(db_session, docente, sessao_rascunho):
-    """marca EXCLUIDA, mantém a numeração original, sem substituição
+    """Marca EXCLUIDA, mantém a numeração original, sem substituição
     automática."""
     banco = banco_com_dez(db_session, sessao_rascunho)
     relatorio = excluir_questoes(db_session, docente, banco, [2, 5], 0)
@@ -58,7 +58,7 @@ def test_exclusao_marca_mantem_numero_e_registra(db_session, docente, sessao_ras
 def test_cada_rodada_de_exclusao_gera_um_relatorio(
     db_session, docente, sessao_rascunho
 ):
-    """ diz "após cada exclusão", e segue o RF em vez do passo
+    """ Diz "após cada exclusão", e segue o RF em vez do passo
     único do F6."""
     banco = banco_com_dez(db_session, sessao_rascunho)
     excluir_questoes(db_session, docente, banco, [1], 0)

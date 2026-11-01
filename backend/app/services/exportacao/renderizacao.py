@@ -59,7 +59,7 @@ _DATA_FIXA = (1980, 1, 1, 0, 0, 0)
 class Cabecalho:
     disciplina: str
     periodo: str
-    # o único dado de identificação que o sistema tem. Instituição e
+    # O único dado de identificação que o sistema tem. Instituição e
     # curso são do cabeçalho institucional, que o docente insere no Word.
     professor: str
     versao_banco: str

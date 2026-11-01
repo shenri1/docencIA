@@ -40,7 +40,7 @@ def extrair_pdf(
     documento = fitz.open(stream=dados, filetype="pdf")
     try:
         _verificar_protecao(documento)
-        # contagem física do arquivo digital, ignorando numeração
+        # Contagem física do arquivo digital, ignorando numeração
         # impressa e rótulos de página.
         paginas_logicas = documento.page_count
         if paginas_logicas > cfg.max_paginas:

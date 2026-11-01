@@ -70,7 +70,7 @@ class BancoQuestoes(Base):
     # n_atual é o número de questões ATIVA. Excluída, substituída, candidata e
     # descartada não contam.
     n_atual: Mapped[int] = mapped_column(Integer, default=0)
-    # contador de revisão, incrementado a cada exclusão, substituição
+    # Contador de revisão, incrementado a cada exclusão, substituição
     # aceita e congelamento. Exibido como "v1.r3".
     revisao: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
@@ -157,7 +157,7 @@ class Questao(Base):
     )
     exclusoes: Mapped[list[RegistroExclusao]] = relationship(back_populates="questao")
     itens_prova: Mapped[list[ItemProva]] = relationship(back_populates="questao")
-    # as orientações vigentes na geração desta questão. Gravada só pela
+    # As orientações vigentes na geração desta questão. Gravada só pela
     # persistência da geração; o resto do sistema só lê.
     orientacoes: Mapped[list[OrientacaoDocente]] = relationship(
         secondary="questoes_orientacoes", order_by="OrientacaoDocente.id"
@@ -222,7 +222,7 @@ class JustificativaEstruturada(Base):
 
 
 class RevisaoQuestao(Base):
-    """o rascunho e as violações de forma antes e depois da revisão.
+    """O rascunho e as violações de forma antes e depois da revisão.
     Tabela própria pelo mesmo motivo da JustificativaEstruturada: nada daqui
     pode vazar no corpo da questão. "Aprovada na autoauditoria" não é coluna:
     é violacoes_final vazio, e coluna derivada seria mais um lugar para
@@ -244,7 +244,7 @@ class RevisaoQuestao(Base):
 
 
 class AspectoEsperado(Base):
-    """o que uma boa resposta discursiva deveria abordar. Orienta a
+    """O que uma boa resposta discursiva deveria abordar. Orienta a
     correção do docente; não é gabarito nem rubrica. Cada aspecto aponta a
     fonte que o sustenta — é isso que mantém a discursiva rastreável."""
 
@@ -302,7 +302,7 @@ class RelatorioImpacto(Base):
 
 
 class RegistroSubstituicao(Base):
-    """histórico de trocas, append-only. Sem relationship de
+    """Histórico de trocas, append-only. Sem relationship de
     propósito — duas FKs para `questoes` exigiriam `foreign_keys` em cada uma,
     e nenhuma consulta desta etapa navega por elas."""
 

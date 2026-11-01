@@ -59,7 +59,7 @@ def test_pdf_nativo_gera_bloco_por_pagina():
 
 
 def test_contagem_logica_ignora_numeracao_impressa():
-    """três páginas físicas, ainda que impressas como 45/46/47."""
+    """Três páginas físicas, ainda que impressas como 45/46/47."""
     dados = pdf_com_numeracao_impressa(["Página 45", "Página 46", "Página 47"])
     assert extrair_pdf(dados, CFG, ocr=None).contagem_paginas_logicas == 3
 

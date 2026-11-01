@@ -68,7 +68,7 @@ export function nomeDoArquivo(disposicao: string | null, id: number): string {
 }
 
 /**
- * a rota exige token, então um <a href> para a API não serve. Baixa
+ * A rota exige token, então um <a href> para a API não serve. Baixa
  * por fetch e entrega por um link de blob, liberado logo depois do clique.
  */
 export async function baixarExportacao(

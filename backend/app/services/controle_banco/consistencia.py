@@ -72,7 +72,7 @@ def _problemas_discursiva(questao: Questao, rotulo: str) -> list[str]:
     aspectos = sorted(questao.aspectos, key=lambda a: a.ordem)
     itens = [a.item for a in aspectos]
     if any(i is not None for i in itens):
-        # discursiva difícil com 2 ou 3 itens, de 1 a 3 aspectos cada.
+        # Discursiva difícil com 2 ou 3 itens, de 1 a 3 aspectos cada.
         if None in itens:
             problemas.append(f"{rotulo}: aspectos com e sem item na mesma questão")
         else:

@@ -60,7 +60,7 @@ def obter_sessao(db: Session, docente: Docente, sessao_id: int) -> SessaoGeracao
 
 
 def exigir_indice_confirmado(sessao: SessaoGeracao) -> None:
-    """geração bloqueada enquanto o docente não confirmar o índice.
+    """Geração bloqueada enquanto o docente não confirmar o índice.
     Consumido (Agente Gerador)."""
     if sessao.estado == EstadoSessao.RASCUNHO:
         raise IndiceNaoConfirmadoException()

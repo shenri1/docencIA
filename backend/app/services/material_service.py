@@ -248,7 +248,7 @@ def remover_material(
 
 
 def confirmar_indice(db: Session, sessao: SessaoGeracao) -> SessaoGeracao:
-    """a partir daqui o índice está congelado. Confirmar de novo é
+    """A partir daqui o índice está congelado. Confirmar de novo é
     idempotente."""
     if sessao.estado != EstadoSessao.RASCUNHO:
         return sessao

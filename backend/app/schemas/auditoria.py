@@ -5,7 +5,7 @@ Não confundir com schema de resposta da API, que fica em `schemas/banco.py`.
 Construído por chamada, e não uma vez, porque duas restrições dependem do
 contexto: as letras válidas dependem de K, e as localizações citáveis dependem
 dos trechos que o retrieval trouxe. Fechar as duas por enum é a lição do
-`nivel_bloom` da o que a decodificação restrita do Ollama pode impor
+`nivel_bloom` do Gerador — o que a decodificação restrita do Ollama pode impor
 não deve ser conferido depois.
 """
 
@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field, create_model
 from backend.app.domain import RiscoAuditoria
 from backend.app.schemas.geracao import K_MAXIMO, K_MINIMO, LETRAS
 
-# R-LLM-01: sem teto, a saída passou de 1024 tokens
+# Sem teto, a saída passou de 1024 tokens
 # e veio cortada. Estimativa, não medida (~3 caracteres por token, ~40 de
 # estrutura por achado): cada achado no teto custa ~240 tokens, então K = 5
 # (4 achados) fica perto de 960, dentro de AUDITORIA_MAX_TOKENS (2048). Com

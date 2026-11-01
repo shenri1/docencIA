@@ -149,7 +149,7 @@ def criar_questao_objetiva(
             objetivo_cognitivo="identificar a estrutura",
             justificativa_correta="o trecho afirma o uso de fila",
             # A correta é sempre a A (i == 0 acima). False reproduz banco
-            # anterior à, com a lista sem letra.
+            # antigo, com a lista sem letra.
             invalidacao_distratores=(
                 [
                     {"letra": LETRAS[i], "motivo": f"distrator {LETRAS[i]}"}

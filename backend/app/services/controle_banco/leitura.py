@@ -75,7 +75,7 @@ class QuestaoLida:
     letra_correta: str | None
     aspectos_esperados: list[AspectoLido]
     formato: FormatoItem
-    # ids das orientações vigentes na geração. Só ids: o texto vem da
+    # Ids das orientações vigentes na geração. Só ids: o texto vem da
     # lista da sessão.
     orientacoes_ids: list[int]
 

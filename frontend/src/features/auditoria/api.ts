@@ -52,7 +52,7 @@ export interface Progresso {
 }
 
 /**
- * lotes de `TAMANHO_LOTE` em laço até as auditadas alcançarem o total,
+ * Lotes de `TAMANHO_LOTE` em laço até as auditadas alcançarem o total,
  * ou até uma chamada não auditar nada novo (sem isso, um banco que mudou no meio
  * giraria para sempre). Cada questão é gravada sozinha: parar no meio não perde
  * nada. Erro interrompe o laço, e nada é reenviado sozinho.

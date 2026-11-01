@@ -461,7 +461,7 @@ def test_alternativa_rotulo_na_fronteira_exata():
 
 
 def test_sem_comando_regras_novas_de_alternativa_nao_disparam():
-    """É o caso do auditor e dos itens anteriores à."""
+    """É o caso do auditor e dos itens antigos."""
     assert regras_de(objetiva(LIMPO)) == []
 
 

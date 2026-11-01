@@ -1,4 +1,4 @@
-"""Agente Crítico, auditoria sob comando — .
+"""Agente Crítico, auditoria sob comando —.
 
 Parte B do mesmo agente da `agente_critico_service`. Duas metades por questão:
 o Núcleo Determinístico remede as duas regras de assimetria sobre a `Questao`
@@ -53,9 +53,9 @@ from backend.app.services.qualidade.validador_itens import (
 from backend.app.services.rag.retrieval_service import TrechoRecuperado, buscar
 
 # Das seis regras que `validar_objetiva` devolve, só estas duas são o que o
-#  chama de "assimetria de forma ou extensão". As outras quatro
+# requisito chama de "assimetria de forma ou extensão". As outras quatro
 # (termo_absoluto, mencao_fonte, gemeos_insuficientes, gemeo_na_correta) são
-#  e já apareceram na geração.
+# E já apareceram na geração.
 _REGRAS_DE_ASSIMETRIA = (
     RegraQualidade.TAMANHO_ALTERNATIVA,
     RegraQualidade.CORRETA_LONGA,
@@ -119,7 +119,7 @@ def achados_de_forma(item: ItemObjetivo) -> list[Achado]:
     """Assimetria de forma ou extensão, medida sem LLM.
 
     A proposta carrega o `detalhe` da violação, que já diz o que foi medido — é
-    o "risco identificado" que  pede, sem um campo a mais.
+    o "risco identificado" que o requisito pede, sem um campo a mais.
     """
     return [
         Achado(
@@ -265,7 +265,7 @@ def auditar_questao(
     )
 
 
-# Discriminador do evento em `registros_auditoria`.  vai usar a mesma
+# Discriminador do evento em `registros_auditoria`. vai usar a mesma
 # tabela para o log transversal de comandos, com outro tipo_evento — é o que
 # permite as duas coisas conviverem sem tabela nova.
 TIPO_EVENTO_AUDITORIA = TipoEventoAuditoria.AUDITORIA_QUESTAO.value
@@ -286,10 +286,10 @@ class ResumoAuditoria:
     auditadas: int
     ja_auditadas: int
     discursivas_ignoradas: int
-    # Só as questões COM achado: relatório  lista item problemático.
+    # Só as questões COM achado: relatório lista item problemático.
     questoes: list[QuestaoAuditada]
     proporcao_com_achado: Decimal
-    # questões de formato montado, sem verificação de assimetria. Payload
+    # Questões de formato montado, sem verificação de assimetria. Payload
     # anterior à etapa, sem a chave, conta como aplicável.
     sem_verificacao_de_forma: int = 0
 
@@ -408,13 +408,14 @@ def auditar_banco(
     banco: BancoQuestoes,
     limite: int | None = None,
 ) -> ResumoAuditoria:
-    """. Roda com o banco aberto ou congelado: auditoria é leitura.
+    """Roda com o banco aberto ou congelado: auditoria é leitura.
 
     Não muda estado, não incrementa revisão, não gera RelatorioImpacto. A única
     escrita é INSERT em registros_auditoria.
 
-    `limite` é o máximo de questões auditadas nesta chamada (o cliente audita em lotes para nenhuma requisição passar do timeout
-    do navegador ou do proxy). Sem `limite`, audita todas as pendentes.
+    `limite` é o máximo de questões auditadas nesta chamada:
+    o cliente audita em lotes para nenhuma requisição passar do timeout
+    do navegador ou do proxy. Sem `limite`, audita todas as pendentes.
     """
     # Verificações baratas primeiro: descobrir divergência de prompt no minuto 7
     # desperdiçaria minutos de GPU.
@@ -461,7 +462,7 @@ def auditar_banco(
             },
         )
         # Commit por questão: ~19 s mais retrieval por item, e falha no item 20
-        # preserva os 19 anteriores. Mesmo padrão .
+        # preserva os 19 anteriores. Mesmo padrão.
         db.commit()
         feitas += 1
 

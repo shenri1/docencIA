@@ -11,7 +11,7 @@ export const chavesProvas = {
 };
 
 /**
- * o mesmo que a montagem devolveu, recalculado pela API. Só é usado
+ * O mesmo que a montagem devolveu, recalculado pela API. Só é usado
  * com o marco em M10 ou concluído — sem provas, a API responde 404.
  */
 export function useProvasDoBanco(bancoId: number) {

@@ -103,7 +103,7 @@ def _criar_prova(
             letra = next(proxima_letra)
             ordem = _ordem_das_alternativas(questao, letra, gerador)
         else:
-            # é sobre alternativas, e discursiva não tem nenhuma.
+            # É sobre alternativas, e discursiva não tem nenhuma.
             letra, ordem = None, None
         db.add(
             ItemProva(

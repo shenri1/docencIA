@@ -219,7 +219,7 @@ BANCO_MIGRACAO_16 = "docencia_migracao_16_test"
 
 
 def test_migracao_pseudonimiza_o_ator_legado():
-    """ parte B gravava a credencial em claro. A migração troca pelo
+    """A auditoria antiga gravava a credencial em claro. A migração troca pelo
     pseudônimo, anula credencial sem docente e não toca pseudônimo existente —
     inclusive ao rodar de novo."""
     from backend.app.services.log_auditoria import pseudonimo
@@ -333,7 +333,7 @@ def test_semente_cria_admin_do_env_e_ativa_prompt(monkeypatch):
         assert verificar_senha("senhaforte123", senha_hash)
         # A 1.0.0 é semeada pela e1a4c8f02b77, a 2.0.0 pela b7d2e9f4a1c6,
         # a 2.1.0 pela c5e1f8a3b7d9, a 2.2.0 pela d8a4f1c6e3b2
-        # e a 2.3.0 pela e9c3a6d2f8b1, que fica ativa;
+        # E a 2.3.0 pela e9c3a6d2f8b1, que fica ativa;
         # rodar de novo não duplica nenhuma.
         assert [tuple(p) for p in prompts] == [
             ("1.0.0", False),

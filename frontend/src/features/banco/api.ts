@@ -27,7 +27,7 @@ export function comoErroApi(erro: unknown): ErroApi {
 }
 
 /**
- * uma questão por chamada, em laço, até `restantes == 0`. Cada
+ * Uma questão por chamada, em laço, até `restantes == 0`. Cada
  * chamada dura o tempo de uma questão — nenhuma passa do timeout do navegador
  * ou do proxy —, e cada questão é gravada sozinha: parar no meio não perde nada.
  */

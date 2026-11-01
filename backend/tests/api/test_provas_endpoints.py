@@ -41,7 +41,7 @@ def preparar(client, db_session, credencial="prof-provas"):
                 db_session, banco, numero=numero, faixa=faixa, subtema=f"s{numero}"
             )
     db_session.commit()
-    # Pelo serviço da congelado sem relatório de congelamento é
+    # Pelo serviço do controle do banco: congelado sem relatório de congelamento é
     # incoerente, e a montagem recusa.
     congelar_banco(db_session, sessao.docente, banco, banco.revisao)
     return headers, banco
@@ -122,7 +122,7 @@ def test_get_prova_marca_desatualizada_depois_de_substituicao(client, db_session
         is False
     )
 
-    # Substituição aceita move banco.revisao — é o que prometeu que
+    # Substituição aceita move banco.revisao — é o que o controle do banco prometeu que
     # tornaria "inconsistência de estado" uma comparação de inteiros.
     banco.revisao += 1
     db_session.commit()
@@ -140,7 +140,7 @@ def test_get_verificacao(client, db_session):
 
 
 def test_schema_da_prova_nao_revela_a_correta():
-    """prova é o que o aluno vê. Gabarito é."""
+    """Prova é o que o aluno vê. Gabarito é outro endpoint."""
     schemas = app.openapi()["components"]["schemas"]
     item = schemas["ItemProvaResposta"]["properties"]
     alternativa = schemas["AlternativaProvaResposta"]["properties"]

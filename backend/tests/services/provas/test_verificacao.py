@@ -157,7 +157,7 @@ def test_varias_violacoes_saem_juntas(db_session, sessao_rascunho):
 
 
 def test_contagem_por_faixa_divergente_e_violacao(db_session, sessao_rascunho):
-    """Checagem 9: as contagens por faixa batem com a distribuição pedida."""
+    """Spec, checagem 9: as contagens por faixa batem com a distribuição pedida."""
     _, a, b = par_de_provas(db_session, sessao_rascunho, "CCBDDEABAE", "BAEDECCDBA")
     item = min(a.itens, key=lambda i: i.posicao)
     item.questao.faixa_dificuldade = FaixaDificuldade.DIFICIL

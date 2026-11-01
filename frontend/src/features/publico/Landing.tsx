@@ -33,24 +33,13 @@ const PASSOS = [
   },
 ];
 
-// Cada garantia com a regra que a sustenta: nada aqui vai além do que o sistema faz.
+// Nada aqui vai além do que o sistema faz.
 const GARANTIAS = [
-  {
-    regra: "R2",
-    texto:
-      "Usa só os materiais que você enviou na sessão — nem conhecimento geral do modelo, nem busca externa.",
-  },
-  {
-    regra: "",
-    texto:
-      "Quando o material não sustenta uma questão, responde “insuficiência de fonte” em vez de inventar.",
-  },
-  {
-    regra: ", ",
-    texto: "Cada questão traz o material, a localização e o trecho que a sustenta.",
-  },
-  { regra: "", texto: "Nada muda no banco sem um comando seu." },
-  { regra: "", texto: "A exportação reproduz fielmente o que você aprovou." },
+  "Usa só os materiais que você enviou na sessão — nem conhecimento geral do modelo, nem busca externa.",
+  "Quando o material não sustenta uma questão, responde “insuficiência de fonte” em vez de inventar.",
+  "Cada questão traz o material, a localização e o trecho que a sustenta.",
+  "Nada muda no banco sem um comando seu.",
+  "A exportação reproduz fielmente o que você aprovou.",
 ];
 
 const LIMITES = [
@@ -107,11 +96,8 @@ export function Landing() {
           </h2>
           <ul className="flex flex-col gap-4">
             {GARANTIAS.map((garantia) => (
-              <li key={garantia.regra} className="flex flex-col gap-1 border-l-2 border-manter pl-4">
-                <span className="font-serifa text-corpo-lg">{garantia.texto}</span>
-                <span className="font-grotesca text-detalhe text-texto-suave">
-                  {garantia.regra}
-                </span>
+              <li key={garantia} className="border-l-2 border-manter pl-4">
+                <span className="font-serifa text-corpo-lg">{garantia}</span>
               </li>
             ))}
           </ul>

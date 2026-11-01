@@ -197,7 +197,7 @@ function ItemComentado({ item, versao }: { item: ItemGabarito; versao: string })
             </h3>
             {item.invalidacoes_sem_letra && (
               <Alerta variante="aviso">
-                O registro não diz qual motivo é de qual alternativa (banco anterior à 
+                O registro não diz qual motivo é de qual alternativa (banco antigo
                 ou vínculo gravado inválido): os motivos aparecem sem letra.
               </Alerta>
             )}

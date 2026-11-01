@@ -9,7 +9,7 @@ import { TextoComFormulas } from "../../components/TextoComFormulas";
 
 type FonteQuestao = Questao["fontes"][number];
 
-// estado sempre com ícone e texto, nunca só cor.
+// Estado sempre com ícone e texto, nunca só cor.
 const ESTADO: Record<
   Questao["estado"] | "marcada",
   { rotulo: string; Icone: () => ReactNode; cor: string }

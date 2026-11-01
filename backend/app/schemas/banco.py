@@ -27,7 +27,7 @@ class BancoCriar(BaseModel):
     n_objetivas: int = Field(..., ge=0, description="Quantas questões objetivas.")
     n_discursivas: int = Field(..., ge=0, description="Quantas questões discursivas.")
     versao: str = Field(..., max_length=50, description="Identificador do banco.")
-    # o cliente gera em lotes curtos para nenhuma
+    # O cliente gera em lotes curtos para nenhuma
     # requisição passar do timeout do navegador ou do proxy.
     apos: int = Field(0, ge=0, description="Só números do plano maiores que este.")
     limite: int | None = Field(
@@ -60,7 +60,7 @@ class AncoraImprodutivaResposta(BaseModel):
 class ViolacaoResposta(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    regra: RegraQualidade = Field(..., description="Regra /020b violada.")
+    regra: RegraQualidade = Field(..., description="Regra de forma violada.")
     alvo: str = Field(
         ..., description='Letra da alternativa, "enunciado" ou "questao".'
     )
@@ -215,7 +215,7 @@ class QuestaoResposta(BaseModel):
     )
     orientacoes_ids: list[int] = Field(
         ...,
-        description="Orientações vigentes na geração. Vazio antes.",
+        description="Orientações vigentes na geração. Vazio em questões geradas sem orientação.",
     )
 
 
@@ -242,7 +242,7 @@ class PropostaSubstituicaoResposta(BaseModel):
     numero: int
     candidata: QuestaoResposta | None = None
     motivo_insuficiencia: str | None = Field(
-        None, description="o material não sustentou outra questão."
+        None, description="O material não sustentou outra questão."
     )
     localizacao: str | None = None
 
@@ -314,7 +314,7 @@ class ResumoAuditoriaResposta(BaseModel):
 
 
 class ItemCatalogoResposta(BaseModel):
-    """número do item, tema principal e grau de dificuldade."""
+    """Número do item, tema principal e grau de dificuldade."""
 
     model_config = ConfigDict(from_attributes=True)
 

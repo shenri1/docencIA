@@ -299,7 +299,7 @@ function provaLida(banco: BancoFalso, provas: ProvasFalsas, versao: "A" | "B"): 
     revisao_banco: provas.revisao,
     banco_revisao_atual: banco.revisao,
     desatualizada: provas.revisao !== banco.revisao,
-    // só letra e texto, nunca a correta.
+    // Só letra e texto, nunca a correta.
     itens: questoes.map((q, i) => ({
       posicao: i + 1,
       numero: q.numero,

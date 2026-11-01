@@ -252,7 +252,7 @@ def _obter_ou_criar_banco(
             db.refresh(banco)
             return banco
     if banco.estado is EstadoBanco.CONGELADO:
-        # congelado não recebe questão nova.
+        # Congelado não recebe questão nova.
         raise BancoCongeladoException(versao)
     if (banco.n_alvo_objetivas, banco.n_alvo_discursivas) != (
         n_objetivas,
@@ -331,7 +331,7 @@ def _persistir(
         subtema=final.subtema,
         estado=estado,
     )
-    # as orientações vigentes nesta geração, na mesma transação.
+    # As orientações vigentes nesta geração, na mesma transação.
     questao.orientacoes = list(orientacoes)
     db.add(questao)
     versao = banco.versao  # lido antes: o rollback expira `banco`
@@ -434,7 +434,7 @@ def _persistir(
             "n_orientacoes": len(orientacoes),
             "com_cruzamento": any(o.cruzar_com for o in orientacoes),
             "orientacoes_ids": [o.id for o in orientacoes],
-            # por que o formato planejado não saiu ("insuficiencia"
+            # Por que o formato planejado não saiu ("insuficiencia"
             # ou "calculo"); None quando saiu.
             "motivo_recuo": motivo_recuo,
             # O que impediu o cálculo de montar depois do crítico. Só o enum: o
@@ -540,7 +540,7 @@ def _produzir_questao(
                     repetida=True,
                     desfecho="repetida",
                 )
-            # o determinístico mede, o semântico revisa com essa medida
+            # O determinístico mede, o semântico revisa com essa medida
             # como feedback, e o determinístico mede de novo, sempre sobre a
             # forma montada.
             with coletor.medir("validacao"):

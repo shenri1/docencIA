@@ -98,7 +98,7 @@ def test_json_schema_fecha_alvo_e_localizacao_por_enum():
     assert achado["properties"]["localizacao"]["enum"] == LOCS
 
 
-# R-LLM-01: sem teto no schema, a saída da auditoria passava de 1024 tokens e
+# Sem teto no schema, a saída da auditoria passava de 1024 tokens e
 # vinha cortada (502). Os tetos fazem o tamanho máximo caber por construção.
 
 

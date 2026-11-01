@@ -3,7 +3,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from backend.app.domain import EstadoSessao
 from backend.app.schemas.orientacao import TextoOrientacao
 
-# oito erros típicos distintos para K = 11 é irreal.
+# Oito erros típicos distintos para K = 11 é irreal.
 MAX_K_COM_CALCULO = 5
 
 

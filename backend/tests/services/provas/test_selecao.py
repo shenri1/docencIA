@@ -123,7 +123,7 @@ def test_banco_insuficiente_levanta_com_a_tabela(db_session, sessao_rascunho):
 
 
 def test_subtema_repetido_nas_compartilhadas_levanta(db_session, sessao_rascunho):
-    """no máximo 2 questões com o mesmo subtema nas duas provas. Aqui as
+    """No máximo 2 questões com o mesmo subtema nas duas provas. Aqui as
     3 difíceis compartilhadas têm todas o mesmo subtema."""
     banco = montar(
         db_session,

@@ -1,8 +1,9 @@
 """Checagem pré-DOCX — Núcleo Determinístico.
 
-Composição, não regra nova: cada peça já existe e já é testada nas . Todas rodam, os problemas se acumulam, e só então levanta — uma
+Composição, não regra nova: cada peça já existe e já é testada nas 
+e 13. Todas rodam, os problemas se acumulam, e só então levanta — uma
 "INCONSISTÊNCIA DE ESTADO" com a lista inteira, como verificar_consistencia faz
-. NÃO é bug: é o sistema se recusando a entregar
+NÃO é bug: é o sistema se recusando a entregar
 estado incoerente.
 """
 
@@ -49,7 +50,7 @@ def verificar_exportavel(
         if prova.estado is not EstadoProva.MONTADA:
             problemas.append(f"a prova {prova.versao} não está montada")
         if prova.revisao_banco != banco.revisao:
-            # Onde as  deixaram o bloqueio: lá é aviso, aqui não.
+            # Onde as deixaram o bloqueio: lá é aviso, aqui não.
             problemas.append(
                 f"a prova {prova.versao} está desatualizada: montada na revisão "
                 f"{prova.revisao_banco}, banco na revisão {banco.revisao}"

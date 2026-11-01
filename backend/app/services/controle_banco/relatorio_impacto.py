@@ -1,7 +1,8 @@
 """Relatório de impacto — Núcleo Determinístico, função pura, nunca chama LLM.
 
-cada exclusão, substituição aceita e congelamento gera um relatório com
-N final, contagem por faixa e observação sobre desvio de pF/pM/pD.  o banco é misto, e pF/pM/pD vale para cada tipo separadamente: cada
+Cada exclusão, substituição aceita e congelamento gera um relatório com
+N final, contagem por faixa e observação sobre desvio de pF/pM/pD. Desde as
+discursivas o banco é misto, e pF/pM/pD vale para cada tipo separadamente: cada
 tipo é medido contra o mesmo percentual, com o seu próprio N.
 """
 
@@ -14,8 +15,8 @@ from backend.app.domain import FaixaDificuldade, TipoQuestao
 
 _DUAS_CASAS = Decimal("0.01")
 
-#  fala em "observação sobre desvio" sem fixar limiar; 5 pontos
-# percentuais é escolha . A fronteira exata NÃO alerta.
+# O requisito fala em "observação sobre desvio" sem fixar limiar; 5 pontos
+# percentuais é escolha. A fronteira exata NÃO alerta.
 TOLERANCIA_PONTOS = 5
 
 

@@ -55,7 +55,7 @@ from backend.tests.travamento import espiar_lock
 
 
 def banco_gerado(db, armazenamento, embeddings, reranker, sessao, n=3):
-    """Banco real, pelo laço /10: a substituição precisa das âncoras
+    """Banco real, pelo laço de geração e revisão: a substituição precisa das âncoras
     determinísticas, que só existem sobre material indexado."""
     preparar(db, armazenamento, sessao)
     resumo = gerar_banco(
@@ -360,7 +360,7 @@ def test_aceitar_com_revisao_desatualizada_responde_409(
 def test_substituicao_funciona_com_banco_congelado(
     db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
 ):
-    """o congelamento fecha a janela de exclusões, não a substituição
+    """O congelamento fecha a janela de exclusões, não a substituição
     com comando explícito. É por aqui que as propostas da auditoria (
     parte B) viram ação."""
     banco = banco_gerado(

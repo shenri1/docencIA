@@ -7,7 +7,6 @@ medição seja repetível e o número citado no TCC tenha origem verificável.
 A parte determinística (`assimetria_forma`) é conferida automaticamente pelo
 `test_auditor_sintetico.py`. A parte semântica NÃO é: com duplo de provedor, a
 taxa sairia do roteiro do fake e não do modelo, e citá-la como ≥90% seria falso.
-
 """
 
 from __future__ import annotations

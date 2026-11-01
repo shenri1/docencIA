@@ -18,8 +18,8 @@ from pydantic import BaseModel, Field, ValidationError
 from backend.app.core.config import settings
 from backend.app.services.provedor.tipos import UsoTokens
 
-# Fora de `app/prompt/` de propósito: tudo lá entra no hash do PromptMestre
-#e mexer na régua do juiz não pode exigir versão nova do prompt de
+# Fora de `app/prompt/` de propósito: tudo lá entra no hash do PromptMestre,
+# e mexer na régua do juiz não pode exigir versão nova do prompt de
 # geração nem travar a geração com PromptDivergenteException.
 _PROMPT = (Path(__file__).parent / "prompt_juiz.md").read_text(encoding="utf-8")
 VERSAO_PROMPT_JUIZ = "aderencia@" + hashlib.sha256(_PROMPT.encode()).hexdigest()[:12]

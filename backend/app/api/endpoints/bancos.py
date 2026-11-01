@@ -70,7 +70,7 @@ def ler(
     banco_id: int,
     de: int = Query(1, ge=1, description="Primeiro número do bloco."),
     ate: int = Query(20, ge=1, description="Último número do bloco."),
-    com_gabarito: bool = Query(False, description="só com pedido explícito."),
+    com_gabarito: bool = Query(False, description="Só com pedido explícito."),
     incluir_historico: bool = Query(
         False, description="Mostra também substituídas, candidatas e descartadas."
     ),

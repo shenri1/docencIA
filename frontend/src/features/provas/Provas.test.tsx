@@ -23,7 +23,7 @@ describe("Provas — ver (M10)", () => {
     expect(within(primeira).getByText("Questão 1 do banco")).toBeInTheDocument();
     expect(within(primeira).getByText("Enunciado da questão 1.")).toBeInTheDocument();
     expect(within(primeira).getByText("Alternativa B da questão 1")).toBeInTheDocument();
-    // prova não diz qual é a correta.
+    // Prova não diz qual é a correta.
     expect(screen.queryByText("Correta")).not.toBeInTheDocument();
 
     expect(screen.getByText("Montadas sobre a revisão r0 do banco.")).toBeInTheDocument();

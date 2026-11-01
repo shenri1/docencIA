@@ -4,7 +4,7 @@ prova é o que o aluno vê. O que NÃO existe aqui é tão importante quanto
 o que existe — nenhum dataclass tem campo para alternativa correta,
 `letra_atribuida`, `ordem_alternativas`, aspectos esperados, justificativa ou
 fonte interna. Vazar isso exigiria mudar o modelo de leitura, não esquecer um
-`exclude`. Gabarito é.
+`exclude`. Gabarito fica em outro módulo.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ _CARREGAR_ITENS = (
     .selectinload(ItemProva.questao)
     .selectinload(Questao.alternativas)
 )
-# o contexto mora na justificativa; carregado junto, sem uma consulta
+# O contexto mora na justificativa; carregado junto, sem uma consulta
 # por questão.
 _CARREGAR_JUSTIFICATIVAS = (
     selectinload(Prova.itens)
@@ -66,7 +66,7 @@ class ItemLido:
     enunciado: str
     # Vazia na discursiva.
     alternativas: list[AlternativaLida]
-    # o cenário, para o DOCX pôr em 10 pt. É parte do
+    # O cenário, para o DOCX pôr em 10 pt. É parte do
     # enunciado, que o aluno já vê; não é gabarito.
     contexto: str | None = None
 
@@ -81,7 +81,7 @@ class ProvaLida:
     n_discursivas: int
     revisao_banco: int
     banco_revisao_atual: int
-    # A comparação de inteiros que prometeu. Quem bloqueia de fato é
+    # A comparação de inteiros que o controle do banco prometeu. Quem bloqueia de fato é
     # na exportação; aqui é aviso.
     desatualizada: bool
     itens: list[ItemLido]

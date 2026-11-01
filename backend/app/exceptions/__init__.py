@@ -184,7 +184,7 @@ class FormatoNaoSuportadoException(DomainException):
 
 
 class MaterialIlegivelException(DomainException):
-    """Base dos casos do o arquivo chegou, mas não dá para extrair
+    """Base dos casos de material ilegível: o arquivo chegou, mas não dá para extrair
     texto dele de forma confiável."""
 
     status_code = 422
@@ -323,7 +323,7 @@ class FalhaTransporteLLMException(DomainException):
 
 
 class FalhaProvedorLLMException(DomainException):
-    """a cadeia inteira falhou. Carrega o motivo de cada provedor —
+    """A cadeia inteira falhou. Carrega o motivo de cada provedor —
     sem isso, diagnosticar exige ler log do servidor."""
 
     status_code = 503
@@ -452,7 +452,7 @@ class MaterialInsuficienteParaBancoException(DomainException):
 
 
 class BancoCongeladoException(DomainException):
-    """depois da janela de exclusões o banco é congelado."""
+    """Depois da janela de exclusões o banco é congelado."""
 
     status_code = 409
     codigo = "BANCO_CONGELADO"
@@ -574,7 +574,7 @@ class RevisaoDesatualizadaException(DomainException):
 
 
 class JanelaExclusoesFechadaException(DomainException):
-    """o congelamento fecha a janela de exclusões. Substituição
+    """O congelamento fecha a janela de exclusões. Substituição
     com comando explícito continua permitida — é a exceção que abre."""
 
     status_code = 409
@@ -762,7 +762,7 @@ class BancoInsuficienteParaProvaException(DomainException):
 
 
 class SobreposicaoInevitavelException(DomainException):
-    """no máximo 2 questões com o mesmo subtema nas duas provas."""
+    """No máximo 2 questões com o mesmo subtema nas duas provas."""
 
     status_code = 409
     codigo = "SOBREPOSICAO_INEVITAVEL"

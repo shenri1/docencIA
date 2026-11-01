@@ -935,7 +935,7 @@ export interface components {
         EstadoBanco: "aberto" | "congelado";
         /**
          * EstadoOrientacao
-         * @description. A única transição é ATIVA → INATIVA. PONTUAL vale para a chamada
+         * @description A única transição é ATIVA → INATIVA. PONTUAL vale para a chamada
          *     que a criou e nunca entra em outra geração.
          * @enum {string}
          */
@@ -977,7 +977,7 @@ export interface components {
         /**
          * ExportacaoResposta
          * @description Sem `caminho_arquivo`, de propósito: a chave de armazenamento nunca sai
-         * na resposta.
+         *     na resposta.
          */
         ExportacaoResposta: {
             /** Id */
@@ -1034,7 +1034,7 @@ export interface components {
         FormatoArquivo: "pdf" | "pptx" | "docx" | "txt";
         /**
          * FormatoItem
-         * @description. Atribuído pelo plano do banco, nunca escolhido pelo modelo. O
+         * @description Atribuído pelo plano do banco, nunca escolhido pelo modelo. O
          *     valor é também o nome da pasta do formato em `prompt/objetiva/formatos/`.
          * @enum {string}
          */
@@ -1085,7 +1085,7 @@ export interface components {
         InvalidacaoGabaritoResposta: {
             /**
              * Letra
-             * @description Letra DA PROVA da alternativa errada. Nula quando o banco é anterior à ou o vínculo gravado é inválido.
+             * @description Letra DA PROVA da alternativa errada. Nula quando o banco é antigo ou o vínculo gravado é inválido.
              */
             letra: string | null;
             /** Motivo */
@@ -1093,7 +1093,7 @@ export interface components {
         };
         /**
          * ItemCatalogoResposta
-         * @description número do item, tema principal e grau de dificuldade.
+         * @description Número do item, tema principal e grau de dificuldade.
          */
         ItemCatalogoResposta: {
             /** Numero */
@@ -1173,8 +1173,8 @@ export interface components {
         };
         /**
          * Marco
-         * @description. Derivado do estado gravado a cada pedido, nunca persistido.
-         * Numeração (F5–F12 ↔ M2–M10); M4, M5, M7, M8 e
+         * @description Derivado do estado gravado a cada pedido, nunca persistido.
+         *     Numeração (F5–F12 ↔ M2–M10); M4, M5, M7, M8 e
          *     M9 não são paradas: auditar é comando próprio, e os demais saem embutidos
          *     na resposta do passo anterior.
          * @enum {string}
@@ -1318,7 +1318,7 @@ export interface components {
         };
         /**
          * OrigemOrientacao
-         * @description onde o docente deu a orientação — na sessão, antes de gerar, ou
+         * @description Onde o docente deu a orientação — na sessão, antes de gerar, ou
          *     numa questão, ao pedir uma variação guiada.
          * @enum {string}
          */
@@ -1407,7 +1407,7 @@ export interface components {
             candidata?: components["schemas"]["QuestaoResposta"] | null;
             /**
              * Motivo Insuficiencia
-             * @description o material não sustentou outra questão.
+             * @description O material não sustentou outra questão.
              */
             motivo_insuficiencia?: string | null;
             /** Localizacao */
@@ -1432,7 +1432,7 @@ export interface components {
             banco_revisao_atual: number;
             /**
              * Desatualizada
-             * @description A revisão do banco mudou desde a montagem. Quem bloqueia a exportação é; aqui é aviso.
+             * @description A revisão do banco mudou desde a montagem. Quem bloqueia a exportação é a própria exportação; aqui é aviso.
              */
             desatualizada: boolean;
             /** Itens */
@@ -1471,7 +1471,7 @@ export interface components {
             compartilhadas: number[];
             /**
              * Sem Subtema
-             * @description Questões selecionadas sem subtema. A regra de sobreposição fica cega para elas — banco gerado antes.
+             * @description Questões selecionadas sem subtema. A regra de sobreposição fica cega para elas — banco gerado antes de existir subtema.
              */
             sem_subtema: number;
             verificacao: components["schemas"]["VerificacaoResposta"];
@@ -1528,13 +1528,13 @@ export interface components {
             formato: components["schemas"]["FormatoItem"];
             /**
              * Orientacoes Ids
-             * @description Orientações vigentes na geração. Vazio antes.
+             * @description Orientações vigentes na geração. Vazio em questões geradas sem orientação.
              */
             orientacoes_ids: number[];
         };
         /**
          * RegistroAuditoriaResposta
-         * @description. `ator` é o pseudônimo HMAC do docente, nunca a
+         * @description `ator` é o pseudônimo HMAC do docente, nunca a
          *     identidade.
          */
         RegistroAuditoriaResposta: {
@@ -1561,7 +1561,7 @@ export interface components {
         };
         /**
          * RegraQualidade
-         * @description Regras de forma, e, medidas sem LLM.
+         * @description Regras de forma do item, medidas sem LLM.
          * @enum {string}
          */
         RegraQualidade: "tamanho_alternativa" | "correta_longa" | "termo_absoluto" | "mencao_fonte" | "gemeos_insuficientes" | "gemeo_na_correta" | "comando_ausente" | "aspectos_repetidos" | "invalidacao_letra_invalida" | "letra_citada_em_texto" | "contexto_curto" | "alternativa_rotulo" | "alternativa_generica" | "comando_negativo" | "pontuacao_incoerente" | "assercao_citacao" | "opiniao_pessoal" | "notacao_invalida" | "expressao_invalida" | "dimensao_incoerente" | "distratores_coincidentes" | "formula_fora_do_trecho" | "numero_no_texto";
@@ -1724,7 +1724,7 @@ export interface components {
         };
         /**
          * RiscoAuditoria
-         * @description. Os dois primeiros são juízo semântico e vêm do modelo; o
+         * @description Os dois primeiros são juízo semântico e vêm do modelo; o
          *     terceiro é medido por `validar_objetiva` e nunca vem dele.
          * @enum {string}
          */
@@ -1816,7 +1816,7 @@ export interface components {
         };
         /**
          * TipoEventoAuditoria
-         * @description. `registros_auditoria.tipo_evento` é String(100): este enum é o
+         * @description `registros_auditoria.tipo_evento` é String(100): este enum é o
          *     vocabulário, não um tipo do banco — acrescentar membro não pede migração.
          * @enum {string}
          */
@@ -1909,7 +1909,7 @@ export interface components {
         };
         /**
          * VerificacaoResposta
-         * @description as duas auditorias pós-montagem. `violacoes` vazia é o
+         * @description As duas auditorias pós-montagem. `violacoes` vazia é o
          *     resultado esperado.
          */
         VerificacaoResposta: {
@@ -1928,7 +1928,7 @@ export interface components {
         };
         /** ViolacaoResposta */
         ViolacaoResposta: {
-            /** @description Regra /020b violada. */
+            /** @description Regra de forma violada. */
             regra: components["schemas"]["RegraQualidade"];
             /**
              * Alvo
@@ -2561,7 +2561,7 @@ export interface operations {
                 de?: number;
                 /** @description Último número do bloco. */
                 ate?: number;
-                /** @description só com pedido explícito. */
+                /** @description Só com pedido explícito. */
                 com_gabarito?: boolean;
                 /** @description Mostra também substituídas, candidatas e descartadas. */
                 incluir_historico?: boolean;

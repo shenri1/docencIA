@@ -11,7 +11,7 @@ export const ROTULO_FAIXA: Record<Questao["faixa_dificuldade"], string> = {
   dificil: "Difícil",
 };
 
-// o enum diz `entender`; o diz "Compreender".
+// O enum diz `entender`; o diz "Compreender".
 export const ROTULO_BLOOM: Record<Questao["nivel_bloom"], string> = {
   lembrar: "Lembrar",
   entender: "Compreender",

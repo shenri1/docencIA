@@ -637,7 +637,7 @@ def test_contexto_em_10_e_resto_em_12_justificados():
     i = next(i for i, p in enumerate(ps) if p.text == f"3. {CONTEXTO}")
     contexto, comando = ps[i], ps[i + 1]
     assert comando.text == COMANDO
-    # o texto volta igual, com a quebra de parágrafo no lugar do "\n\n".
+    # O texto volta igual, com a quebra de parágrafo no lugar do "\n\n".
     assert (
         contexto.text.removeprefix("3. ") + "\n\n" + comando.text
         == f"{CONTEXTO}\n\n{COMANDO}"

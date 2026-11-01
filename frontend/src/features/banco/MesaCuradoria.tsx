@@ -60,7 +60,7 @@ interface MesaProps {
 function Mesa({ sessaoId, marcoBanco, proxima }: MesaProps) {
   const [pagina, setPagina] = useState(1);
   const [historico, setHistorico] = useState(false);
-  // locais à tela — sobrevivem à troca de bloco, somem ao recarregar.
+  // Locais à tela — sobrevivem à troca de bloco, somem ao recarregar.
   const [marcadas, setMarcadas] = useState<ReadonlySet<number>>(new Set());
   const [aviso, setAviso] = useState<string | null>(null);
   const banco = useBanco(marcoBanco.banco_id, pagina);
@@ -85,7 +85,7 @@ function Mesa({ sessaoId, marcoBanco, proxima }: MesaProps) {
   const candidatas = new Map(
     dados.questoes.filter((q) => q.estado === "candidata").map((q) => [q.numero, q]),
   );
-  // do M10 em diante já há prova montada, e a API recusaria o aceite.
+  // Do M10 em diante já há prova montada, e a API recusaria o aceite.
   const podeVariar = marcoBanco.marco === "m3_exclusoes" || marcoBanco.marco === "m6_provas";
   const provasMontadas = marcoBanco.marco === "m10_docx" || marcoBanco.marco === "concluido";
 

@@ -106,8 +106,8 @@ def _pergunta(questao: Questao) -> str:
 
 
 def _formato_da_original(questao: Questao):
-    """(formato, configuração, n_itens) da original. Questão anterior à 
-    é proposição sem itens."""
+    """(formato, configuração, n_itens) da original. Questão antiga, sem
+    formato gravado, é proposição sem itens."""
     estrutura = (
         questao.justificativa.estrutura_formato if questao.justificativa else None
     ) or {}
@@ -208,7 +208,7 @@ def propor_substituicao(
         )
         if not (isinstance(resultado, Improdutiva) and resultado.repetida):
             return resultado
-    # duas cópias seguidas dizem que o trecho não rende outra questão.
+    # Duas cópias seguidas dizem que o trecho não rende outra questão.
     return Improdutiva(
         numero=numero,
         localizacao=resultado.localizacao,

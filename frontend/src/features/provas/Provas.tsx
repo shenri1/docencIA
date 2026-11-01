@@ -18,7 +18,7 @@ const COM_PROVAS: ReadonlySet<Marco> = new Set<Marco>(["m10_docx", "concluido"])
 // Espelha N_MAXIMO_BANCO (backend/app/schemas/banco.py). Conveniência: a API
 // continua sendo a autoridade.
 const N_MAXIMO_PROVA = 25;
-// o padrão de 10 questões por prova.
+// O padrão de 10 questões por prova.
 const N_PADRAO = 10;
 const FAIXAS = ["facil", "media", "dificil"] as const;
 

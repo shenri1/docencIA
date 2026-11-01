@@ -53,7 +53,7 @@ def corpo_questao(
     **sobrescritas,
 ) -> dict:
     """`enunciado` vira o `comando`. Com o contexto vazio, é também o enunciado
-    montado, e os testes anteriores à leem o mesmo texto de antes."""
+    montado, e os testes antigos leem o mesmo texto de antes."""
     questao = {
         "tipo": "questao",
         "contexto": contexto,

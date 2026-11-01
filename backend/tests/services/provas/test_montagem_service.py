@@ -24,7 +24,7 @@ F, M, D = FaixaDificuldade.FACIL, FaixaDificuldade.MEDIA, FaixaDificuldade.DIFIC
 
 
 def banco_congelado(db, docente, sessao, objetivas=(7, 10, 8), discursivas=(0, 0, 0)):
-    """Congela pelo serviço da banco CONGELADO sem relatório de
+    """Congela pelo serviço do controle do banco: banco CONGELADO sem relatório de
     congelamento é incoerente, e a montagem recusa."""
     banco = criar_banco(
         db,
@@ -151,7 +151,7 @@ def test_montagem_e_determinista(db_session, docente, sessao_rascunho):
 def test_falha_na_verificacao_nao_deixa_prova_nenhuma(
     db_session, docente, sessao_rascunho, monkeypatch
 ):
-    """nenhuma prova existe sem a outra — verificado por contagem depois
+    """Nenhuma prova existe sem a outra — verificado por contagem depois
     de falha forçada no meio, com A e B já gravadas na transação."""
     banco = banco_congelado(db_session, docente, sessao_rascunho)
     monkeypatch.setattr(

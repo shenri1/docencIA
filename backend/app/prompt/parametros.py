@@ -1,6 +1,8 @@
 """Parâmetros injetados no prompt mestre.
 
-Todos os valores chegam **já validados e já calculados**. A validação  é de `validar_distribuicao`; o cálculo das contagens inteiras é . Este módulo formata e injeta — nunca decide nada.
+Todos os valores chegam **já validados e já calculados**. A validação dos
+percentuais é de `validar_distribuicao`; o cálculo das contagens inteiras é de
+`calcular_distribuicao`. Este módulo formata e injeta — nunca decide nada.
 """
 
 from __future__ import annotations

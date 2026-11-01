@@ -411,7 +411,7 @@ def test_payload_antigo_sem_forma_aplicavel_conta_como_aplicavel(
     db_session, docente, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
 ):
     """registros_auditoria é append-only: o registro antigo é inserido com o
-    payload de antes, sem a chave nova."""
+    payload antigo, sem a chave nova."""
     banco = banco_misto(
         db_session, armazenamento, sessao_rascunho, objetivas=1, discursivas=0
     )

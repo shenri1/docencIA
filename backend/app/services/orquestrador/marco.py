@@ -94,7 +94,7 @@ def banco_da_versao(
 
 
 def classificar_banco(db: Session, banco: BancoQuestoes) -> tuple[Marco, str | None]:
-    """Marco e, só em BLOQUEADO, o motivo. A ordem dos testes é a."""
+    """Marco e, só em BLOQUEADO, o motivo. A ordem dos testes é a dos marcos."""
     if banco.estado is EstadoBanco.ABERTO:
         # Mesmo com provas de outro banco na sessão: excluir, auditar e
         # congelar continuam valendo; só montar é que não.

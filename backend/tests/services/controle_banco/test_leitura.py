@@ -52,7 +52,7 @@ def test_cabecalho_traz_o_ultimo_relatorio(db_session, docente, sessao_rascunho)
 
 
 def test_gabarito_escondido_por_padrao(db_session, docente, sessao_rascunho):
-    """nada de gabarito salvo pedido explícito."""
+    """Nada de gabarito salvo pedido explícito."""
     banco = banco_misto(db_session, sessao_rascunho)
     lido = ler_banco(db_session, docente, banco.id, 1, 20, False, False)
     objetiva = next(q for q in lido.questoes if q.alternativas)

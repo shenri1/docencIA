@@ -88,8 +88,7 @@ def extrair_docx(dados: bytes) -> ResultadoExtracao:
 
     # Tabelas de topo não entram em document.paragraphs — percorrer também,
     # senão o texto delas é perdido silenciosamente (violaria R2). Tabelas
-    # aninhadas e outras estruturas raras seguem como limitação registrada na
-    # 
+    # aninhadas e outras estruturas raras seguem como limitação conhecida.
     for indice, tabela in enumerate(documento.tables, start=1):
         textos = _textos_da_tabela(tabela)
         if textos:

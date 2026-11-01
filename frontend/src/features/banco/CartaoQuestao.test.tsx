@@ -10,7 +10,7 @@ describe("CartaoQuestao", () => {
     expect(within(cartao).getByText("Qual é o papel do pivô no quicksort?")).toBeInTheDocument();
     expect(within(cartao).getByText("Objetiva")).toBeInTheDocument();
     expect(within(cartao).getByText("Média")).toBeInTheDocument();
-    // o enum diz `entender`, a interface diz "Compreender".
+    // O enum diz `entender`, a interface diz "Compreender".
     expect(within(cartao).getByText("Compreender")).toBeInTheDocument();
     expect(within(cartao).getByText("Ativa")).toBeInTheDocument();
 

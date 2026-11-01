@@ -64,7 +64,7 @@ describe("fluxo contra o back-end falso", () => {
     );
     expect(await screen.findByRole("heading", { name: "Geração do banco" })).toBeInTheDocument();
 
-    // gera um banco pequeno até o fim
+    // Gera um banco pequeno até o fim
     const objetivas = await screen.findByLabelText("Questões objetivas");
     await user.clear(objetivas);
     await user.type(objetivas, "2");
@@ -78,7 +78,7 @@ describe("fluxo contra o back-end falso", () => {
       expect(router.state.location.pathname).toBe(`/sessoes/${sessaoId}/banco`),
     );
 
-    // a mesa mostra as questões que a geração gravou
+    // A mesa mostra as questões que a geração gravou
     expect(await screen.findByRole("article", { name: "Questão 1" })).toBeInTheDocument();
     expect(screen.getByRole("article", { name: "Questão 2" })).toBeInTheDocument();
   });

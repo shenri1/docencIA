@@ -1657,7 +1657,7 @@ def test_calculo_que_sobra_recua_para_proposicao_com_os_mesmos_trechos(
     assert payload["formato"] == "proposicao"
     assert payload["motivo_recuo"] == "calculo"
     # A tentativa de cálculo não é persistida: o porquê fica no evento (só o
-    # enum, ) e o detalhe no log da aplicação.
+    # enum) e o detalhe no log da aplicação.
     assert payload["violacoes_recuo"] == ["expressao_invalida"]
     aviso = [r for r in caplog.records if "não montou" in r.getMessage()]
     assert len(aviso) == 1

@@ -161,8 +161,8 @@ def _item(item: ItemProva, comentado: bool) -> ItemGabarito:
 
 
 def _problemas(itens: list[ItemGabarito], k: int, comentado: bool) -> list[str]:
-    """Critério da gabarito para 100% das questões selecionadas. Com as
-     funcionando a lista é vazia; ela existe porque critério de
+    """Critério: gabarito para 100% das questões selecionadas. Com o controle
+    do banco e a montagem funcionando, a lista é vazia; ela existe porque critério de
     aceitação que não é medido é suposição."""
     problemas: list[str] = []
     for item in itens:
@@ -206,7 +206,7 @@ def gerar_gabarito(
         modalidade=modalidade,
         revisao_banco=prova.revisao_banco,
         # Gera normalmente: a questão substituída continua gravada, então o
-        # gabarito segue fiel à prova impressa. Quem bloqueia é.
+        # gabarito segue fiel à prova impressa. Quem bloqueia é a exportação.
         desatualizada=prova.revisao_banco != prova.banco.revisao,
         completo=not problemas,
         problemas=problemas,

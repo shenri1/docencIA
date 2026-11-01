@@ -35,7 +35,7 @@ export interface ContextoRota {
 
 const raiz = createRootRouteWithContext<ContextoRota>()({ component: Outlet });
 
-// a landing é para quem ainda não entrou.
+// A landing é para quem ainda não entrou.
 const inicio = createRoute({
   getParentRoute: () => raiz,
   path: "/",

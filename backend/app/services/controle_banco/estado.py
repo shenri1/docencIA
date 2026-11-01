@@ -38,7 +38,7 @@ def travar_banco(db: Session, banco: BancoQuestoes) -> None:
     Todo comando que confere `revisao_esperada` e depois move a revisão precisa
     chamar isto ANTES de `exigir_revisao`: sem o lock, dois comandos com a mesma
     revisão passam juntos pela conferência e ambos gravam `revisao + 1`, e o
-    banco fica na mesma revisão tendo sofrido duas mudanças — o que 
+    banco fica na mesma revisão tendo sofrido duas mudanças — o que a revisão
     existe para impedir e que `verificar_consistencia` não detecta. O lock vale
     até o commit ou rollback do comando.
 

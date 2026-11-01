@@ -6,7 +6,7 @@ from backend.app.services.calculo_distribuicao_service import calcular_distribui
 
 
 def test_sem_resto_distribui_exatamente_os_percentuais():
-    """"""
+    """Caso de referência: 50 questões com 10/60/30 não deixam resto."""
     d = calcular_distribuicao(50, 10, 60, 30)
     assert (d.faceis, d.medias, d.dificeis) == (5, 30, 15)
 

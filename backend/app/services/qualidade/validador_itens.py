@@ -23,7 +23,7 @@ from backend.app.services.notacao import (
 )
 
 # Listas fechadas em código de propósito: elas definem o que a métrica da
-# mede, e mudá-las é mudança revisada, não configuração.
+# Mede, e mudá-las é mudança revisada, não configuração.
 TERMOS_ABSOLUTOS = frozenset(
     {"sempre", "nunca", "jamais", "invariavelmente", "absolutamente"}
 )
@@ -36,8 +36,7 @@ TERMOS_FONTE = frozenset(
 # Comando operacional da discursiva. Lista fechada em código, como as
 # anteriores: define o que a métrica mede. Um falso positivo ("Qual a relação
 # entre…?") vira violação registrada, não questão descartada.
-# "discuta", "comente" e "discorra" ficam fora: verbo vago não diz o que fazer
-#.
+# "discuta", "comente" e "discorra" ficam fora: verbo vago não diz o que fazer.
 VERBOS_COMANDO = frozenset(
     {
         "explique",
@@ -86,7 +85,7 @@ _CITACAO_LETRA = re.compile(
 )
 
 
-# regras dos guias de elaboração. Listas fechadas em código, como as
+# Regras dos guias de elaboração. Listas fechadas em código, como as
 # anteriores, comparadas sem acento e sem caixa, por sequência de palavras.
 TERMOS_ALTERNATIVA_GENERICA = (
     "todas as anteriores",
@@ -110,7 +109,7 @@ TERMOS_OPINIAO = (
     "na sua visao",
 )
 # Abaixo disso a alternativa é rótulo ("Usa fila."). Alternativa que contém
-# fórmula é isenta; "12 m/s" é.
+# fórmula é isenta; "12 m/s" é das questões de cálculo.
 MINIMO_PALAVRAS_ALTERNATIVA = 4
 # A fácil não tem mínimo: pergunta direta é permitida.
 MINIMO_PALAVRAS_CONTEXTO = {FaixaDificuldade.MEDIA: 15, FaixaDificuldade.DIFICIL: 40}
@@ -350,7 +349,7 @@ def _invalidacao_letra_invalida(item: ItemObjetivo) -> list[Violacao]:
 
 def _letra_citada_em_texto(item: ItemObjetivo) -> list[Violacao]:
     """A letra muda em cada versão da prova. Texto que a cita passa a
-    apontar para a alternativa errada, e proíbe reescrevê-lo depois."""
+    apontar para a alternativa errada, e a exportação fiel proíbe reescrevê-lo depois."""
     textos: list[tuple[str, str | None]] = [
         ("enunciado", item.enunciado),
         ("justificativa", item.justificativa_correta),

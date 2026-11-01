@@ -13,7 +13,7 @@ from backend.app.domain import FaixaDificuldade
 from backend.app.exceptions import ParametrosInconsistentesException
 
 # Empate de fracionário resolve pela faixa mais difícil: o viés favorece
-# 
+# rigor.
 _ORDEM_DESEMPATE = {
     FaixaDificuldade.DIFICIL: 0,
     FaixaDificuldade.MEDIA: 1,

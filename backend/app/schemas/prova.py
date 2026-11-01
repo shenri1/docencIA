@@ -25,7 +25,7 @@ class ProvasCriar(BaseModel):
 
 
 class VerificacaoResposta(BaseModel):
-    """as duas auditorias pós-montagem. `violacoes` vazia é o
+    """As duas auditorias pós-montagem. `violacoes` vazia é o
     resultado esperado."""
 
     model_config = ConfigDict(from_attributes=True)
@@ -49,7 +49,7 @@ class ProvasMontadasResposta(BaseModel):
     sem_subtema: int = Field(
         ...,
         description="Questões selecionadas sem subtema. A regra de sobreposição "
-        "fica cega para elas — banco gerado antes.",
+        "fica cega para elas — banco gerado antes de existir subtema.",
     )
     verificacao: VerificacaoResposta
 
@@ -90,7 +90,7 @@ class ProvaResposta(BaseModel):
     desatualizada: bool = Field(
         ...,
         description="A revisão do banco mudou desde a montagem. Quem bloqueia a "
-        "exportação é; aqui é aviso.",
+        "exportação é a própria exportação; aqui é aviso.",
     )
     itens: list[ItemProvaResposta]
 
@@ -112,7 +112,7 @@ class InvalidacaoGabaritoResposta(BaseModel):
     letra: str | None = Field(
         ...,
         description="Letra DA PROVA da alternativa errada. Nula quando o banco é "
-        "anterior à ou o vínculo gravado é inválido.",
+        "antigo ou o vínculo gravado é inválido.",
     )
     motivo: str
 

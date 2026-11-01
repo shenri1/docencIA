@@ -27,14 +27,14 @@ def n_afirmativas(k: int) -> int:
 # do laço) nem zero ou duas corretas.
 LETRAS = "ABCDEFGHIJK"
 
-# O remove "Criar" da múltipla escolha. Na discursiva ele volta a
+# "Criar" fica fora da múltipla escolha. Na discursiva ele volta a
 # ser operacionalizável, então a restrição vive no schema, não no enum.
 BLOOM_OBJETIVA = tuple(n.value for n in NivelBloom if n is not NivelBloom.CRIAR)
 
 
 class AlternativaGerada(BaseModel):
     texto: str
-    # distrator que espelha a estrutura da correta.
+    # Distrator que espelha a estrutura da correta.
     e_gemeo_malvado: bool
 
 
@@ -107,7 +107,7 @@ def montar_schema_objetiva(
     entre questão gerada e insuficiência de fonte."""
     _validar_k(k)
 
-    # cada motivo diz a qual alternativa se refere. Fechada por enum
+    # Cada motivo diz a qual alternativa se refere. Fechada por enum
     # como `letra_correta` — o que a decodificação restrita pode impor não deve
     # ser esperado do modelo. Distintas e diferentes da correta não cabem em
     # JSON Schema: são a regra `invalidacao_letra_invalida` do validador.
@@ -138,7 +138,7 @@ def montar_schema_objetiva(
         comando=(str, ...),
         nivel_bloom=(Literal[BLOOM_OBJETIVA], ...),
         tema=(str, ...),
-        # a regra de sobreposição temática entre Provas A e B compara
+        # A regra de sobreposição temática entre Provas A e B compara
         # subtema. Obrigatório, não opcional: campo opcional em schema de saída
         # restrita é campo que o modelo omite.
         subtema=(str, ...),

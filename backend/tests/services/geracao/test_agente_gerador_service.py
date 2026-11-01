@@ -308,8 +308,7 @@ _MEDIA = _Faixa.MEDIA
 
 
 def test_pedido_sem_orientacao_e_o_de_antes():
-    """Regressão: toda geração sem orientação manda exatamente o pedido de antes
-    ."""
+    """Regressão: toda geração sem orientação manda exatamente o pedido de antes."""
     esperado = "\n\n".join(
         [
             "Trechos disponíveis:\n" + _formatar_trechos(_TRECHOS),

@@ -80,7 +80,7 @@ def test_depois_de_mudar_a_revisao_o_arquivo_antigo_continua_integro(
     db_session, docente, sessao_rascunho, armazenamento
 ):
     """Substituição depois da montagem bloqueia nova exportação (risco
-    declarado ), mas o que já saiu continua baixável e íntegro."""
+    conhecido), mas o que já saiu continua baixável e íntegro."""
     banco, _ = provas_montadas(db_session, docente, sessao_rascunho)
     registros = exportar(db_session, docente, armazenamento, banco)
     banco.revisao += 1

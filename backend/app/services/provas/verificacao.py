@@ -1,7 +1,7 @@
 """Verificação pós-montagem — Núcleo Determinístico, puro sobre o persistido.
 
 O critério de aceitação é "verificação automática pós-montagem
-identifica zero violações das regras de distribuição de letras", e o é
+identifica zero violações das regras de distribuição de letras", e o da sobreposição temática é
 "auditoria final detecta zero violações da regra de sobreposição". Esta função é
 essas duas auditorias.
 

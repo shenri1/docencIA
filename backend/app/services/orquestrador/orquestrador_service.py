@@ -125,6 +125,7 @@ def executar_comando(
     embeddings,
     reranker,
     obter_provedor,
+    juiz=None,
 ) -> ResultadoComando:
     tipo = ComandoOrquestrador(comando.comando)
     marco, motivo, banco = _alvo(db, sessao, comando.versao)
@@ -163,6 +164,7 @@ def executar_comando(
             n_objetivas=comando.n_objetivas,
             n_discursivas=comando.n_discursivas,
             versao=comando.versao,
+            juiz=juiz,
         )
     elif marco is Marco.M3_EXCLUSOES:
         resultado["relatorio"] = congelar_banco(

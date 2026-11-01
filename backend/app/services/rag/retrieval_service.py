@@ -8,7 +8,9 @@ com o modelo caro.
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -20,9 +22,13 @@ from backend.app.services.rag.embeddings import Embeddings
 from backend.app.services.rag.rerank import Reranker
 from backend.app.services.sessao_service import exigir_indice_confirmado
 
+if TYPE_CHECKING:
+    from backend.app.services.metricas.coletor import Coletor
+
 
 @dataclass(frozen=True)
 class TrechoRecuperado:
+    chunk_id: int
     material_id: int
     identificador_curto: str
     localizacao: str
@@ -39,7 +45,12 @@ def buscar(
     consulta: str,
     k: int,
     candidatos: int,
+    coletor: Coletor | None = None,
+    origem: str = "ancora",
 ) -> list[TrechoRecuperado]:
+    """Com `coletor`, registra todos os candidatos com os scores. O
+    reranker já pontuava todos e descartava; aqui só se guarda o que ele
+    devolve, e os mesmos `k` primeiros seguem para o prompt."""
     exigir_indice_confirmado(sessao)
 
     # Checa se há algum chunk antes de pagar a chamada de embedding: sessão
@@ -53,27 +64,36 @@ def buscar(
     if tem_chunk is None:
         raise SessaoNaoIndexadaException()
 
-    vetor = embeddings.embutir_consulta(consulta)
+    with _medir(coletor, "busca_vetorial"):
+        vetor = embeddings.embutir_consulta(consulta)
 
-    distancia = ChunkMaterial.vetor_embedding.cosine_distance(vetor).label("distancia")
-    linhas = db.execute(
-        select(ChunkMaterial, MaterialReferencia.identificador_curto, distancia)
-        .join(MaterialReferencia, ChunkMaterial.material_id == MaterialReferencia.id)
-        # Esta cláusula é a R2: nenhum chunk de outra sessão é alcançável, e o
-        # reranker só vê o que ela deixou passar.
-        .where(MaterialReferencia.sessao_id == sessao.id)
-        .order_by(distancia)
-        .limit(candidatos)
-    ).all()
+        distancia = ChunkMaterial.vetor_embedding.cosine_distance(vetor).label(
+            "distancia"
+        )
+        linhas = db.execute(
+            select(ChunkMaterial, MaterialReferencia.identificador_curto, distancia)
+            .join(
+                MaterialReferencia, ChunkMaterial.material_id == MaterialReferencia.id
+            )
+            # Esta cláusula é a R2: nenhum chunk de outra sessão é alcançável, e o
+            # reranker só vê o que ela deixou passar.
+            .where(MaterialReferencia.sessao_id == sessao.id)
+            .order_by(distancia)
+            .limit(candidatos)
+        ).all()
 
     if not linhas:
         raise SessaoNaoIndexadaException()
 
-    ordenados = reranker.reordenar(
-        consulta, [linha[0].texto for linha in linhas], top_n=k
-    )
+    with _medir(coletor, "rerank"):
+        ordenados = reranker.reordenar(
+            consulta, [linha[0].texto for linha in linhas], top_n=len(linhas)
+        )
+    if coletor is not None:
+        coletor.anotar_busca(origem, consulta, _candidatos(linhas, ordenados))
     return [
         TrechoRecuperado(
+            chunk_id=linhas[indice][0].id,
             material_id=linhas[indice][0].material_id,
             identificador_curto=linhas[indice][1],
             localizacao=linhas[indice][0].localizacao,
@@ -81,5 +101,26 @@ def buscar(
             score=score,
             score_vetorial=1.0 - float(linhas[indice][2]),
         )
-        for indice, score in ordenados
+        for indice, score in ordenados[:k]
+    ]
+
+
+def _medir(coletor: Coletor | None, etapa: str):
+    return coletor.medir(etapa) if coletor is not None else nullcontext()
+
+
+def _candidatos(linhas, ordenados: list[tuple[int, float]]) -> list[dict]:
+    """Na ordem do pgvector; `enviado` é preenchido por `Coletor.fechar`."""
+    posicao = {indice: (pos, score) for pos, (indice, score) in enumerate(ordenados)}
+    return [
+        {
+            "chunk_id": chunk.id,
+            "material": identificador,
+            "localizacao": chunk.localizacao,
+            "score_vetorial": round(1.0 - float(dist), 4),
+            "score_rerank": posicao[i][1],
+            "posicao_rerank": posicao[i][0],
+            "enviado": False,
+        }
+        for i, (chunk, identificador, dist) in enumerate(linhas)
     ]

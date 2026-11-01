@@ -74,6 +74,14 @@ class Settings(BaseSettings):
     )
     rerank_timeout_s: float = 120.0
 
+    # Juiz de aderência. Modelo fixo, fora da cadeia de
+    # provedores, e em CPU (num_gpu 0) para não disputar a VRAM com o gerador.
+    # Na CPU a leitura do prompt é o gargalo, por isso o timeout largo.
+    juiz_base_url: str = "http://localhost:11434"
+    juiz_model: str = "qwen3:4b"
+    juiz_timeout_s: float = 300.0
+    juiz_max_tokens: int = 256
+
     # Rerank custa uma chamada HTTP por par: 20 candidatos, não 40.
     rag_candidatos: int = 20
     rag_top_k: int = 8

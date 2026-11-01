@@ -15,6 +15,7 @@ from backend.app.schemas.orquestrador import (
     MarcoSessaoResposta,
     ResultadoComandoResposta,
 )
+from backend.app.services.metricas.juiz import Juiz, get_juiz
 from backend.app.services.orquestrador.marco import MarcoSessao, marco_da_sessao
 from backend.app.services.orquestrador.orquestrador_service import executar_comando
 from backend.app.services.provedor.provedor_service import ProvedorLLMService
@@ -43,6 +44,7 @@ def comando(
     armazenamento: ArmazenamentoArquivos = Depends(get_armazenamento),
     embeddings: Embeddings = Depends(get_embeddings),
     reranker: Reranker = Depends(get_reranker),
+    juiz: Juiz = Depends(get_juiz),
     obter_provedor: Callable[[], ProvedorLLMService] = Depends(
         get_provedor_sob_demanda
     ),
@@ -59,6 +61,7 @@ def comando(
         embeddings=embeddings,
         reranker=reranker,
         obter_provedor=obter_provedor,
+        juiz=juiz,
     )
     # Validado aqui por atributo: devolvido como dataclass, o FastAPI chamaria
     # dataclasses.asdict, que faz deepcopy dos objetos ORM do resultado.

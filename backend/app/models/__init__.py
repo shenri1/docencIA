@@ -16,6 +16,7 @@ from backend.app.models.banco import (
 from backend.app.models.base import Base
 from backend.app.models.identidade import Docente, SessaoGeracao
 from backend.app.models.materiais import ChunkMaterial, MaterialReferencia
+from backend.app.models.metricas import MetricaGeracao
 from backend.app.models.orientacoes import OrientacaoDocente, questoes_orientacoes
 from backend.app.models.prompt_provedor import ConsumoToken, PromptMestre, ProvedorLLM
 from backend.app.models.provas import ExportacaoDocx, Gabarito, ItemProva, Prova
@@ -34,6 +35,7 @@ __all__ = [
     "ItemProva",
     "JustificativaEstruturada",
     "MaterialReferencia",
+    "MetricaGeracao",
     "OrientacaoDocente",
     "PromptMestre",
     "Prova",

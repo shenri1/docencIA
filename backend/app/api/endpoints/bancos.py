@@ -55,6 +55,7 @@ from backend.app.services.exportacao.exportacao_service import (
     listar_exportacoes,
 )
 from backend.app.services.geracao.banco_service import Produzida
+from backend.app.services.metricas.juiz import Juiz, get_juiz
 from backend.app.services.provas.leitura import provas_do_banco
 from backend.app.services.provas.montagem_service import ProvasMontadas, montar_provas
 from backend.app.services.provedor.provedor_service import ProvedorLLMService
@@ -138,13 +139,14 @@ def propor(
     docente: Docente = Depends(get_current_docente),
     embeddings: Embeddings = Depends(get_embeddings),
     reranker: Reranker = Depends(get_reranker),
+    juiz: Juiz = Depends(get_juiz),
     provedor: ProvedorLLMService = Depends(get_provedor),
 ) -> PropostaSubstituicaoResposta:
     # Chamada longa: ~38 s (geração + revisão). Nada muda no banco até o docente
     # aceitar. Com corpo, é a variação guiada.
     banco = obter_banco(db, docente, banco_id)
     produzida = propor_substituicao(
-        db, embeddings, reranker, provedor, docente, banco, numero, direcao
+        db, embeddings, reranker, provedor, docente, banco, numero, direcao, juiz
     )
     if isinstance(produzida, Produzida):
         return PropostaSubstituicaoResposta(

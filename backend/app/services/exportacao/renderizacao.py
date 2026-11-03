@@ -7,6 +7,12 @@ Fidelidade: texto persistido entra sem `strip`, sem troca de aspas, sem
 capitalização. Quebra de linha dentro do texto vira quebra de linha no DOCX, que
 é o que o python-docx faz ao atribuir texto a um run.
 
+Única exceção, imposta pelo formato: caractere que o XML não representa (controle
+C0, surrogate solto, U+FFFE/U+FFFF) sai como símbolo visível (`_legivel`). O
+validador aceita e sinaliza esse texto (o LaTeX mal escapado no JSON vira
+U+000C), então ele chega aqui, e o python-docx recusaria o documento inteiro.
+O que está persistido não muda.
+
 Reprodutibilidade: medido com python-docx 1.2.0, o mesmo conteúdo renderizado
 duas vezes muda SÓ a data das entradas do zip. `normalizar_zip` fixa essa data,
 e o sha256 do arquivo entregue vira prova conferível com `sha256sum`. Por isso
@@ -16,6 +22,7 @@ nenhuma data entra no documento.
 from __future__ import annotations
 
 import io
+import re
 import zipfile
 from dataclasses import dataclass
 
@@ -82,6 +89,24 @@ def normalizar_zip(dados: bytes) -> bytes:
     return saida.getvalue()
 
 
+# O que o XML 1.0 não aceita: controles C0 exceto tab, LF e CR; surrogates (o
+# JSON "\ud800" gera um solto); U+FFFE e U+FFFF.
+_ILEGAL_NO_XML = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]")
+
+
+def _substituto(achado: re.Match[str]) -> str:
+    codigo = ord(achado.group())
+    # Controles têm símbolo próprio (U+2400 + código: ␌ para U+000C); o resto
+    # fica como caractere de substituição.
+    return chr(0x2400 + codigo) if codigo < 0x20 else "�"
+
+
+def _legivel(texto: str) -> str:
+    """Troca o que o DOCX não comporta por um símbolo visível: o docente vê
+    onde o texto está corrompido em vez de a exportação inteira falhar."""
+    return _ILEGAL_NO_XML.sub(_substituto, texto)
+
+
 def _salvar(documento) -> bytes:
     buffer = io.BytesIO()
     documento.save(buffer)
@@ -139,7 +164,7 @@ def _paragrafo(documento, *partes: str, tamanho=None):
     sem concatenação que o transforme."""
     paragrafo = documento.add_paragraph()
     for parte in partes:
-        run = paragrafo.add_run(parte)
+        run = paragrafo.add_run(_legivel(parte))
         if tamanho is not None:
             run.font.size = tamanho
     return paragrafo
@@ -163,12 +188,12 @@ O texto persistido não é reescrito: fórmula que não converte sai
         criados.append(paragrafo)
 
     def _texto(conteudo: str) -> None:
-        run = paragrafo.add_run(conteudo)
+        run = paragrafo.add_run(_legivel(conteudo))
         if tamanho is not None:
             run.font.size = tamanho
 
     if rotulo:
-        paragrafo.add_run(rotulo)
+        paragrafo.add_run(_legivel(rotulo))
     segmentos = separar(texto)
     if not segmentos:
         _texto(texto)
@@ -176,7 +201,14 @@ O texto persistido não é reescrito: fórmula que não converte sai
         if isinstance(segmento, Texto):
             _texto(segmento.conteudo)
             continue
-        omml = omml_da_formula(segmento.latex, segmento.destaque)
+        # Com caractere ilegal o conversor o trata como espaço e devolve outra
+        # equação ("\x0crac{a}{b}" viraria "r a c a b"): sai crua, como a que
+        # não converte, e o símbolo mostra onde está o defeito.
+        omml = (
+            None
+            if _ILEGAL_NO_XML.search(segmento.latex)
+            else omml_da_formula(segmento.latex, segmento.destaque)
+        )
         if omml is None:
             _texto(
                 f"\\[{segmento.latex}\\]"
@@ -248,7 +280,9 @@ def renderizar_conteudo_puro(
         if indice:
             _quebra_de_pagina(documento)
         documento.add_heading(
-            f"{cabecalho.disciplina} — {cabecalho.periodo} — Prova {prova.versao}",
+            _legivel(
+                f"{cabecalho.disciplina} — {cabecalho.periodo} — Prova {prova.versao}"
+            ),
             level=1,
         )
         _paragrafo(documento, "Professor: ", cabecalho.professor)
@@ -379,7 +413,7 @@ def renderizar_metadados(
     documento = docx.Document()
     _aplicar_padrao(documento)
     documento.add_heading(
-        f"{cabecalho.disciplina} — {cabecalho.periodo} — Metadados", level=1
+        _legivel(f"{cabecalho.disciplina} — {cabecalho.periodo} — Metadados"), level=1
     )
     _paragrafo(
         documento,

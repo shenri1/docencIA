@@ -206,6 +206,14 @@ def test_afirmativas_posicao_reprodutivel_pela_semente():
     )
 
 
+def test_afirmativas_posicao_da_correta_varia_com_o_numero():
+    """A semente é o número da questão, não uma constante: com semente fixa, a
+    correta cairia sempre na mesma letra em todas as questões de afirmativas,
+    e o gabarito ficaria previsível. Reprodutível não é o mesmo que constante."""
+    letras = {_afirmativas((V, X, V), numero=n).letra_correta for n in range(1, 21)}
+    assert len(letras) > 1
+
+
 def test_afirmativas_uma_invalidacao_por_distrator():
     montada = _afirmativas((V, X, V))
     letras = [i.letra for i in montada.invalidacoes]

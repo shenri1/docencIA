@@ -1,4 +1,5 @@
 from backend.app.domain import OrigemTexto
+from backend.app.models.materiais import TAMANHO_LOCALIZACAO, ChunkMaterial
 from backend.app.services.extracao.tipos import BlocoTexto
 from backend.app.services.rag.chunking import (
     ConfigChunking,
@@ -90,6 +91,57 @@ def test_combinar_unidades_diferentes_junta_com_ponto_e_virgula():
 def test_combinar_secoes_diferentes_junta_com_ponto_e_virgula():
     entrada = ["Introdução · par. 3", "Métodos · par. 4"]
     assert combinar_localizacoes(entrada) == "Introdução · par. 3; Métodos · par. 4"
+
+
+TITULO_LONGO = "Fundamentos teóricos e metodológicos da análise de algoritmos em grafos"
+
+
+def test_limite_e_o_tamanho_da_coluna():
+    """Se a coluna mudar, o teto do chunking acompanha: um valor só."""
+    coluna = ChunkMaterial.__table__.columns["localizacao"]
+    assert TAMANHO_LOCALIZACAO == coluna.type.length == 255
+
+
+def test_combinar_secoes_longas_resume_pelas_pontas():
+    entrada = [f"{TITULO_LONGO} {n} · par. {n}" for n in (1, 2, 3, 4)]
+    combinada = combinar_localizacoes(entrada)
+    assert len(combinada) <= TAMANHO_LOCALIZACAO
+    assert combinada.startswith(TITULO_LONGO + " 1")
+    assert combinada.endswith("par. 4")
+    assert " … " in combinada
+
+
+def test_combinar_que_cabe_continua_com_ponto_e_virgula():
+    entrada = ["Introdução · par. 3", "Métodos · par. 4", "Resultados · par. 5"]
+    assert combinar_localizacoes(entrada) == (
+        "Introdução · par. 3; Métodos · par. 4; Resultados · par. 5"
+    )
+
+
+def test_combinar_extremos_longos_sao_abreviados_e_cabem():
+    entrada = ["A" * 400 + " · par. 1", "B" * 400 + " · par. 9"]
+    combinada = combinar_localizacoes(entrada)
+    assert len(combinada) <= TAMANHO_LOCALIZACAO
+    assert combinada.startswith("A") and "…" in combinada
+    assert combinada.rstrip().endswith("…")
+
+
+def test_localizacao_unica_longa_e_abreviada():
+    """Título de seção do DOCX com 400 caracteres: nem precisa combinar."""
+    combinada = combinar_localizacoes(["T" * 400 + " · par. 1"])
+    assert len(combinada) == TAMANHO_LOCALIZACAO
+    assert combinada.endswith("…")
+
+
+def test_chunks_nunca_passam_do_limite_da_coluna():
+    blocos = [
+        bloco(f"{TITULO_LONGO} {n} · par. {n}", "palavra " * 15)
+        for n in range(1, 40, 2)
+    ]
+    blocos.append(bloco("T" * 500 + " · par. 99", "x" * 1500))
+    chunks = dividir_em_chunks(blocos, CFG)
+    assert len(chunks) > 1
+    assert all(len(c.localizacao) <= TAMANHO_LOCALIZACAO for c in chunks)
 
 
 def test_combinar_formato_desconhecido_nao_explode():

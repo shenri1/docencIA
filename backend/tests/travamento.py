@@ -6,21 +6,39 @@ lock (FOR UPDATE até o commit), a segunda conexão falha na hora; se não segur
 consegue — e o teste vê a diferença.
 """
 
+from psycopg.errors import LockNotAvailable
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 
 
-def linha_do_banco_esta_livre(engine, banco_id: int) -> bool:
-    """True se outra conexão conseguiria travar a linha agora."""
+def linha_esta_livre(engine, tabela: str, id_: int) -> bool:
+    """True se outra conexão conseguiria travar a linha agora.
+
+    Só o "lock não disponível" do NOWAIT conta como travada. Qualquer outro
+    OperationalError (conexão recusada, timeout) sobe: lido como "travada",
+    ele faria `achados == [False]` passar sem que o comando segurasse lock
+    nenhum."""
     with engine.connect() as conn:
+        linha = conn.execute(
+            text(f"SELECT id FROM {tabela} WHERE id = :i"), {"i": id_}
+        ).first()
+        # Linha que esta conexão não vê (inexistente ou não commitada) "trava"
+        # sem erro e devolveria True: o espião não mediria nada.
+        assert linha is not None, f"{tabela}:{id_} não é visível para esta conexão"
         try:
             conn.execute(
-                text("SELECT id FROM bancos_questoes WHERE id = :i FOR UPDATE NOWAIT"),
-                {"i": banco_id},
+                text(f"SELECT id FROM {tabela} WHERE id = :i FOR UPDATE NOWAIT"),
+                {"i": id_},
             )
             return True
-        except OperationalError:
-            return False
+        except OperationalError as exc:
+            if isinstance(exc.orig, LockNotAvailable):
+                return False
+            raise
+
+
+def linha_do_banco_esta_livre(engine, banco_id: int) -> bool:
+    return linha_esta_livre(engine, "bancos_questoes", banco_id)
 
 
 def espiar_lock(monkeypatch, modulo, nome: str, engine, banco_id: int) -> list[bool]:

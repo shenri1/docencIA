@@ -489,6 +489,78 @@ def test_delimitador_sem_par_nao_engole_o_resto():
     assert r"1. Abre \(x^2 e segue o texto." in "".join(paragrafos(dados))
 
 
+
+def test_caractere_de_controle_no_enunciado_nao_derruba_a_exportacao():
+    dados = _prova_com("Calcule \x0crac{a}{b} e \x08eta.")
+    textos = "\n".join(paragrafos(dados))
+    # Vira o símbolo visível do próprio caractere, no lugar certo do texto.
+    assert "Calcule ␌rac{a}{b} e ␈eta." in textos
+
+
+def test_caractere_de_controle_dentro_de_formula_nao_derruba_a_exportacao():
+    """Sai crua, como a fórmula que não converte. Convertida, o U+000C virava
+    espaço e a equação seria "r a c a b", sem aviso."""
+    xml = _documento_xml(_prova_com("Seja \\(\x0crac{a}{b}\\) o valor."))
+    assert "\\(␌rac{a}{b}\\)" in xml
+    assert "<m:oMath" not in xml
+
+
+def test_caractere_de_controle_na_formula_em_destaque():
+    xml = _documento_xml(_prova_com("Antes.\n\\[\x0crac{a}{b}\\]\nDepois."))
+    assert "\\[␌rac{a}{b}\\]" in xml
+    assert "<m:oMath" not in xml
+
+
+def test_caractere_de_controle_na_alternativa_e_no_contexto():
+    itens = [
+        objetiva(
+            1,
+            "Contexto \x0b aqui.\n\nQual?",
+            ["a\x00", "b", "c", "d", "e"],
+            contexto="Contexto \x0b aqui.",
+        )
+    ]
+    dados = renderizar_conteudo_puro(CABECALHO, prova("A", itens), prova("B", itens))
+    textos = "\n".join(paragrafos(dados))
+    assert "Contexto ␋ aqui." in textos
+    assert "A) a␀" in textos
+
+
+def test_caractere_de_controle_no_cabecalho():
+    cabecalho = dataclasses.replace(
+        CABECALHO, disciplina="Alg\x0coritmos", professor="Ana\x00 Souza"
+    )
+    itens = [objetiva(1, "x", ["a", "b", "c", "d", "e"])]
+    dados = renderizar_conteudo_puro(cabecalho, prova("A", itens), prova("B", itens))
+    textos = "\n".join(paragrafos(dados))
+    assert "Alg␌oritmos — 2026.2 — Prova A" in textos
+    assert "Professor: Ana␀ Souza" in textos
+
+
+def test_char_nao_representavel_vira_substituicao():
+    """Surrogate solto (JSON "\\ud800") e U+FFFE: nem como controle existem."""
+    dados = _prova_com("a\ud800b\ufffec\uffff")
+    assert "a\ufffdb\ufffdc\ufffd" in "\n".join(paragrafos(dados))
+
+
+def test_tab_quebra_e_retorno_continuam_como_estao():
+    dados = _prova_com("col1\tcol2\nlinha2")
+    assert "col1\tcol2\nlinha2" in "\n".join(paragrafos(dados))
+
+
+def test_metadados_com_caractere_de_controle_nao_derrubam_a_exportacao():
+    item = item_objetivo(
+        justificativa_correta="o trecho diz \x0crac",
+        fontes=[FonteGabarito("P1", "página\x08 12", "trecho \x0c do material")],
+        objetivo_cognitivo="aplicar \x08eta",
+    )
+    juntos = "\n".join(metadados([item]))
+    assert "Justificativa: o trecho diz ␌rac" in juntos
+    assert "Fonte: P1, página␈ 12" in juntos
+    assert "Trecho-base: trecho ␌ do material" in juntos
+    assert "Objetivo cognitivo: aplicar ␈eta" in juntos
+
+
 def test_docx_com_formula_e_reproduzivel():
     um = _prova_com(r"Seja \(\frac{a}{b}\) e \[\sum_{i=1}^{n} i\].")
     dois = _prova_com(r"Seja \(\frac{a}{b}\) e \[\sum_{i=1}^{n} i\].")
@@ -549,7 +621,12 @@ def test_pagina_a4_com_margens_3_e_2(indice):
     xml = _documento_xml(_os_dois_docx()[indice])
     assert re.search(r'<w:pgSz w:w="11906" w:h="16838"', xml)
     margens = re.search(r"<w:pgMar [^>]*/>", xml).group(0)
-    for lado, valor in (("top", 1701), ("left", 1701), ("bottom", 1134), ("right", 1134)):
+    for lado, valor in (
+        ("top", 1701),
+        ("left", 1701),
+        ("bottom", 1134),
+        ("right", 1134),
+    ):
         assert f'w:{lado}="{valor}"' in margens
 
 
@@ -584,7 +661,13 @@ def test_cabecalho_de_pagina_vazio():
 
 def test_identificacao_em_cada_prova():
     textos = paragrafos(_os_dois_docx()[0])
-    for rotulo in ("Professor: Ana Souza", "Aluno: ", "Matrícula: ", "Data: ", "Nota: "):
+    for rotulo in (
+        "Professor: Ana Souza",
+        "Aluno: ",
+        "Matrícula: ",
+        "Data: ",
+        "Nota: ",
+    ):
         assert sum(1 for t in textos if t.startswith(rotulo)) == 2, rotulo
     assert not any(t.startswith("Nome: ") for t in textos)
 

@@ -39,6 +39,17 @@ def test_familia_periodo_curto():
     assert periodo_minimo(seq) * 2 <= len(seq)
 
 
+def test_periodo_que_cobre_exatamente_metade_e_rejeitado():
+    """ABDABD: período 3 em 6 posições, a fronteira exata do `* 2 <= n`. Sem
+    progressão aritmética nem deriva monótona, então só a regra do período o
+    recusa."""
+    seq = indices("ABDABD")
+    assert periodo_minimo(seq) * 2 == len(seq)
+    assert not tem_progressao_aritmetica(seq)
+    assert not tem_deriva_monotona(seq)
+    assert mod._aceitavel(seq, None, 3) is False
+
+
 def test_familia_deriva_monotona():
     """O furo que os três primeiros filtros deixavam passar. AABBCCDDEE é
     não-decrescente nas 10 posições, e EDCBA é o espelho descendente."""

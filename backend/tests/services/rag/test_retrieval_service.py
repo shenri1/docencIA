@@ -376,4 +376,5 @@ def test_trecho_recuperado_tem_chunk_id(
         db_session, embeddings_fake, reranker_fake, sessao_rascunho, "assunto", 3, 20
     )
     ids = {c.id for c in db_session.query(ChunkMaterial)}
+    assert len(trechos) == 3  # sem isto, uma busca vazia passaria
     assert all(t.chunk_id in ids for t in trechos)

@@ -12,6 +12,7 @@ from backend.app.services.qualidade.validador_itens import (
     ItemObjetivo,
     Violacao,
     cita_letra,
+    enunciado_repetido,
     validar_discursiva,
     validar_objetiva,
 )
@@ -797,6 +798,16 @@ def test_dado_sem_unidade_com_tres_digitos_casa():
     )
 
 
+def test_dado_sem_unidade_com_dois_digitos_nao_casa():
+    """Sem unidade, só decimal ou inteiro de três dígitos ou mais é "forte": um
+    inteiro pequeno como 12 aparece no texto por outros motivos ("12 etapas")."""
+    assert RegraQualidade.NUMERO_NO_TEXTO not in _regras_calculo(
+        contexto="O processo tem 12 etapas.",
+        comando="Calcule.",
+        dados_calculo=[("n", 12.0, "")],
+    )
+
+
 def test_numero_decimal_nao_casa_dentro_de_outro_numero():
     assert RegraQualidade.NUMERO_NO_TEXTO not in _regras_calculo(
         contexto="Vale 9,81 m.", comando="Calcule.", dados_calculo=[("g", 9.8, "m")]
@@ -811,3 +822,32 @@ def test_calculo_nao_aplica_regras_de_alternativa():
         RegraQualidade.ALTERNATIVA_ROTULO,
         RegraQualidade.TAMANHO_ALTERNATIVA,
     }
+
+
+# --- enunciado_repetido: os dois lados do limiar (0,9) ---
+
+ORIGINAL = (
+    "Qual estrutura de dados a busca em largura utiliza para guardar os vértices "
+    "descobertos?"
+)
+
+
+def test_copia_com_caixa_e_pontuacao_diferentes_e_repetida():
+    copia = ORIGINAL.upper().replace("?", "!")
+    assert enunciado_repetido(copia, ORIGINAL)
+
+
+def test_uma_palavra_trocada_ainda_e_repetida():
+    """Razão 0,93: acima do limiar, é a mesma pergunta com um sinônimo."""
+    quase = ORIGINAL.replace("guardar", "manter")
+    assert enunciado_repetido(quase, ORIGINAL)
+
+
+def test_variacao_legitima_abaixo_do_limiar_nao_e_repetida():
+    """Razão 0,79: outra busca, outro conjunto de vértices. Com o limiar antigo
+    de 0,8 já passava raspando; um limiar frouxo a recusaria como cópia."""
+    variacao = (
+        "Que estrutura de dados a busca em profundidade utiliza para guardar os "
+        "vértices visitados?"
+    )
+    assert not enunciado_repetido(variacao, ORIGINAL)

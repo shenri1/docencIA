@@ -19,6 +19,16 @@ def test_verificar_senha_rejeita_senha_errada():
     assert verificar_senha("outrasenha", hash_) is False
 
 
+def test_senha_acima_de_72_bytes_nao_quebra_o_hash():
+    """O bcrypt 5 recusa senha com mais de 72 bytes (ValueError). A truncagem
+    em `_senha_bytes_truncados` é o que evita um 500 no cadastro e no login com
+    senha longa ou acentuada."""
+    longa = "ç" * 50  # 100 bytes em UTF-8
+    hash_ = hash_senha(longa)
+    assert verificar_senha(longa, hash_) is True
+    assert verificar_senha("outra senha qualquer", hash_) is False
+
+
 def test_criar_e_decodificar_token_roundtrip():
     token = criar_access_token(subject="42")
     payload = decodificar_token(token)

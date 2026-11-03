@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse, delay } from "msw";
 import { server } from "../../mocks/server";
 import {
@@ -214,9 +214,16 @@ describe("Materiais — envio", () => {
 
   it("sem material enviado, não há como seguir para o índice", async () => {
     backend();
-    renderApp("/sessoes/5/materiais", { token: "t" });
+    const { queryClient } = renderApp("/sessoes/5/materiais", { token: "t" });
 
     await screen.findByLabelText("Selecionar arquivos");
+    // O campo de arquivos aparece antes de o índice chegar, e antes dele o link
+    // nunca existe: conferir a ausência só prova algo com o índice vazio já
+    // carregado e renderizado.
+    await waitFor(() =>
+      expect(queryClient.getQueryState(["sessoes", 5, "indice"])?.status).toBe("success"),
+    );
+    await act(() => new Promise((fim) => setTimeout(fim, 0)));
     expect(screen.queryByRole("link", { name: "Continuar para o índice" })).not.toBeInTheDocument();
   });
 });

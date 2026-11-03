@@ -1,6 +1,5 @@
 import pytest
-from sqlalchemy import select, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy import select
 
 from backend.app.domain import EstadoOrientacao, OrigemOrientacao, TipoEventoAuditoria
 from backend.app.exceptions import (
@@ -19,6 +18,7 @@ from backend.app.services.orientacoes.orientacao_service import (
     vigentes,
 )
 from backend.tests.fabrica_banco import criar_banco
+from backend.tests.travamento import linha_esta_livre
 
 
 def _de_sessao(db, docente, sessao, n):
@@ -176,15 +176,7 @@ def test_eventos_sem_texto_da_orientacao(db_session, docente, sessao_rascunho):
 
 
 def _sessao_esta_livre(engine, sessao_id: int) -> bool:
-    with engine.connect() as conn:
-        try:
-            conn.execute(
-                text("SELECT id FROM sessoes_geracao WHERE id = :i FOR UPDATE NOWAIT"),
-                {"i": sessao_id},
-            )
-            return True
-        except OperationalError:
-            return False
+    return linha_esta_livre(engine, "sessoes_geracao", sessao_id)
 
 
 def test_teto_e_contado_com_a_sessao_travada(

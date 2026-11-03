@@ -29,6 +29,7 @@ from backend.tests.fabrica_banco import criar_banco, criar_questao_objetiva
 from backend.tests.services.geracao.duplos import ProvedorLLMFake
 from backend.tests.services.geracao.test_banco_service import (
     PARAMS_PROMPT,
+    TEXTO_CHUNK,
     preparar,
     roteiro,
 )
@@ -77,7 +78,7 @@ def material_indexado(db, armazenamento, sessao, chunks=30):
             ChunkMaterial(
                 material_id=material.id,
                 ordem=ordem,
-                texto=f"trecho numero {ordem} sobre busca em largura",
+                texto=f"{TEXTO_CHUNK} Trecho numero {ordem}.",
                 localizacao=f"página {ordem + 1}",
                 vetor_embedding=[0.0] * 1023 + [1.0],
             )

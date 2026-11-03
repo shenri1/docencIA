@@ -127,6 +127,9 @@ def test_auditar_nao_muda_nada_do_banco(
         banco,
     )
 
+    # Relido do banco: comparar o objeto em memória consigo mesmo não veria
+    # uma escrita feita por fora do ORM.
+    db_session.expire_all()
     assert (banco.revisao, banco.n_atual, banco.estado) == antes
     assert {q.numero: q.estado for q in banco.questoes} == estados
     assert db_session.query(RelatorioImpacto).count() == 0

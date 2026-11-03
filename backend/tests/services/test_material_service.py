@@ -129,7 +129,9 @@ def test_rejeicao_nao_deixa_arquivo_nem_linha(
         _registrar(db_session, armazenamento, docente, sessao, dados=pdf_protegido())
     materiais, _ = listar_indice(db_session, sessao)
     assert materiais == []
-    assert not any(armazenamento.raiz.rglob("*.pdf"))
+    # Qualquer arquivo, não só *.pdf: o artefato `.extraido.json` também não
+    # pode sobrar.
+    assert not any(p.is_file() for p in armazenamento.raiz.rglob("*"))
 
 
 def test_falha_no_segundo_salvar_nao_deixa_arquivo_orfao(

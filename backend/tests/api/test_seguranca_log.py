@@ -61,8 +61,11 @@ def test_resposta_de_login_falho_e_identica_nos_dois_casos(client, db_session):
 
 def test_senha_no_campo_de_usuario_nao_vai_para_o_log(client, db_session):
     login(client, "MinhaSenhaSecreta!2026", "x")
-    for registro in db_session.query(RegistroAuditoria).all():
+    registros = db_session.query(RegistroAuditoria).all()
+    assert [r.tipo_evento for r in registros] == [E.LOGIN_FALHO.value]
+    for registro in registros:
         assert "MinhaSenhaSecreta" not in (registro.ator or "")
+        assert "MinhaSenhaSecreta" not in registro.entidade_afetada
         assert "MinhaSenhaSecreta" not in json.dumps(registro.payload)
 
 

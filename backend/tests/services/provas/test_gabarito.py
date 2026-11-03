@@ -84,10 +84,14 @@ def test_comentado_liga_cada_motivo_a_letra_da_prova(
     _, montadas = provas_montadas(db_session, docente, sessao_rascunho)
     gabarito = gerar_gabarito(db_session, docente, montadas.prova_a_id, COMENTADO)
 
+    # Sem estas contagens, um gabarito sem itens ou sem invalidações passaria:
+    # os laços abaixo não rodariam.
+    assert len(gabarito.itens) == 10
     for item_gab in gabarito.itens:
         item = item_da_prova(db_session, montadas.prova_a_id, item_gab.posicao)
         # A fábrica grava o motivo como "distrator <letra original>".
         originais = {letra: original for original, letra in _mapa(item).items()}
+        assert len(item_gab.invalidacoes) == 4  # K = 5: uma por errada
         assert item_gab.invalidacoes_sem_letra is False
         assert [i.letra for i in item_gab.invalidacoes] == sorted(
             i.letra for i in item_gab.invalidacoes
@@ -166,6 +170,8 @@ def test_discursiva_tem_aspectos_e_nao_tem_letra(db_session, docente, sessao_ras
     assert all(a.fonte.trecho_base is None for i in discursivos for a in i.aspectos)
 
     comentados = [i for i in comentado.itens if i.aspectos]
+    # Sem a contagem, um comentado que perdesse os aspectos passaria em branco.
+    assert len(comentados) == 3
     assert all(i.objetivo_cognitivo for i in comentados)
     assert all(a.fonte.trecho_base for i in comentados for a in i.aspectos)
     assert simples.completo and comentado.completo

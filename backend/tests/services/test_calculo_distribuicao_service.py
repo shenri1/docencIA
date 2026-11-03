@@ -24,6 +24,14 @@ def test_empate_entre_facil_e_media_vai_para_media():
     assert (d.faceis, d.medias, d.dificeis) == (0, 1, 1)
 
 
+def test_empate_entre_facil_e_dificil_vai_para_dificil():
+    """Fracionários 40/20/40 e uma unidade de resto: fácil e difícil empatam,
+    e o viés declarado favorece o rigor. Os outros testes de empate envolvem
+    média e não distinguem a posição da difícil na ordem de desempate."""
+    d = calcular_distribuicao(1, 40, 20, 40)
+    assert (d.faceis, d.medias, d.dificeis) == (0, 0, 1)
+
+
 def test_resto_dois_com_empate_na_segunda_unidade():
     """O caso mais completo: fracionários 57/57/86. Difícil leva a primeira
     unidade por ter o maior; fácil e média empatam em 57 e média vence."""

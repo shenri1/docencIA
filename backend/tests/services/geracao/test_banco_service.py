@@ -66,6 +66,11 @@ PARAMS_PROMPT = ParametrosGeracao(
 )
 
 
+TEXTO_CHUNK = (
+    "A busca em largura usa uma fila. A busca em profundidade usa uma pilha."
+)
+
+
 def preparar(db, armazenamento, sessao, chunks: int = 20):
     """Prompt ativo, sessão confirmada e chunks suficientes para ancorar."""
     registrar_versao(db, "1.0.0", "docente", PARAMS_PROMPT)
@@ -79,7 +84,9 @@ def preparar(db, armazenamento, sessao, chunks: int = 20):
             ChunkMaterial(
                 material_id=material.id,
                 ordem=ordem,
-                texto=f"trecho numero {ordem} sobre busca em largura",
+                # O trecho que os duplos citam precisa constar no chunk: a
+                # fonte que não consta no material é recusada.
+                texto=f"{TEXTO_CHUNK} Trecho numero {ordem}.",
                 localizacao=f"página {ordem + 1}",
                 vetor_embedding=[0.0] * 1023 + [1.0],
             )
@@ -510,7 +517,7 @@ def test_fonte_persistida_vem_da_revisao_mesmo_com_rascunho_invalido(
             {
                 "identificador_material": "P1",
                 "localizacao": "página 77",
-                "trecho_base": "Trecho citado pela revisão.",
+                "trecho_base": "A busca em profundidade usa uma pilha.",
             }
         ],
     )
@@ -520,7 +527,7 @@ def test_fonte_persistida_vem_da_revisao_mesmo_com_rascunho_invalido(
             {
                 "identificador_material": "P1",
                 "localizacao": "página 1",
-                "trecho_base": "Trecho citado pelo rascunho.",
+                "trecho_base": "A busca em largura usa uma fila.",
             }
         ],
     )
@@ -531,8 +538,36 @@ def test_fonte_persistida_vem_da_revisao_mesmo_com_rascunho_invalido(
 
     questao = db_session.query(Questao).filter_by(banco_id=resumo.banco_id).one()
     fonte = db_session.query(FonteInterna).filter_by(questao_id=questao.id).one()
-    assert fonte.localizacao == "página 77"
-    assert fonte.trecho_base == "Trecho citado pela revisão."
+    assert fonte.trecho_base == "A busca em profundidade usa uma pilha."
+    # "página 77" não existe: vale a localização real do chunk que contém o trecho.
+    assert fonte.localizacao != "página 77"
+    assert fonte.localizacao in {f"página {n}" for n in range(1, 21)}
+
+
+def test_trecho_inventado_vira_improdutiva_sem_persistir(
+    db_session, armazenamento, embeddings_fake, reranker_fake, sessao_rascunho
+):
+    """Material certo, trecho que não consta nele: a questão não é gerada."""
+    preparar(db_session, armazenamento, sessao_rascunho)
+    inventado = corpo_questao(
+        5,
+        fontes=[
+            {
+                "identificador_material": "P1",
+                "localizacao": "página 99",
+                "trecho_base": "O grafo é sempre acíclico por definição.",
+            }
+        ],
+    )
+    provedor = ProvedorLLMFake([inventado, inventado])
+    resumo = gerar(
+        db_session, embeddings_fake, reranker_fake, sessao_rascunho, provedor
+    )
+    assert resumo.geradas == 0
+    assert [i.numero for i in resumo.improdutivas] == [1]
+    assert "não consta" in resumo.improdutivas[0].motivo
+    assert db_session.query(Questao).count() == 0
+    assert db_session.query(FonteInterna).count() == 0
 
 
 def test_fonte_inventada_na_revisao_vira_improdutiva_sem_persistir(

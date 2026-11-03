@@ -74,9 +74,13 @@ def test_um_numero_invalido_nao_exclui_nenhum(db_session, docente, sessao_rascun
     assert erro.value.extras["invalidos"] == [
         {"numero": 99, "motivo": "não existe ou não está ativa no banco"}
     ]
-    assert all(q.estado is EstadoQuestao.ATIVA for q in banco.questoes)
+    # "Nenhum" é sobre o gravado: desfaz a transação, como o handler, e relê.
+    db_session.rollback()
+    db_session.expire_all()
+    assert [q.estado for q in banco.questoes] == [EstadoQuestao.ATIVA] * 10
     assert banco.n_atual == 10
     assert banco.revisao == 0
+    assert db_session.query(RegistroExclusao).count() == 0
 
 
 def test_numero_repetido_na_lista_e_invalido(db_session, docente, sessao_rascunho):

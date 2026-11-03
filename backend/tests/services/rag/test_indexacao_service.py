@@ -105,8 +105,12 @@ def test_chunks_carregam_localizacao_e_ordem(
     )
     indexar_sessao(db_session, armazenamento, embeddings_fake, sessao_rascunho, CFG)
     chunks = db_session.query(ChunkMaterial).order_by(ChunkMaterial.ordem).all()
-    assert [c.ordem for c in chunks] == list(range(len(chunks)))
-    assert all(c.localizacao for c in chunks)
+    # Cada página tem 540 caracteres, acima do mínimo de 300: um chunk cada.
+    # Sem fixar a lista, zero chunks passaria em todas as asserções.
+    assert [(c.ordem, c.localizacao) for c in chunks] == [
+        (0, "página 1"),
+        (1, "página 2"),
+    ]
     assert all(len(c.vetor_embedding) == embeddings_fake.dimensao for c in chunks)
 
 

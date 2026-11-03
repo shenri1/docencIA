@@ -64,6 +64,21 @@ def test_escolhe_o_trecho_de_melhor_casamento():
     assert resultado["chunk_id"] == 9
 
 
+def test_citacao_longa_com_uma_palavra_trocada_continua_alta():
+    """Com 200+ caracteres o difflib ignoraria as letras comuns (autojunk) e a
+    razão despencaria, embora quase tudo seja cópia."""
+    original = (
+        "A busca em largura percorre o grafo por níveis, usando uma fila para "
+        "guardar os vértices a visitar. Cada vértice entra na fila uma única vez, "
+        "e a distância até a origem cresce de um em um a cada nível percorrido pelo algoritmo."
+    )
+    citado = original.replace("percorrido", "visitado")
+    assert len(citado) > 200
+    resultado = medir_citacao(citado, [_trecho(4, original + " Fim do trecho.")])
+    assert resultado["literal"] is False
+    assert resultado["similaridade"] >= 0.95
+
+
 def test_citacao_maior_que_o_trecho_nao_quebra():
     resultado = medir_citacao(TEXTO * 3, [_trecho(4, "fila")])
     assert resultado["literal"] is False

@@ -94,6 +94,9 @@ def test_propor_nao_altera_o_banco(
 
     produzida = _propor(db_session, embeddings_fake, reranker_fake, docente, banco, 2)
 
+    # Relido do banco: com expire_on_commit=False, os objetos em memória não
+    # mostrariam uma escrita feita por fora do ORM.
+    db_session.expire_all()
     assert produzida.questao.estado is EstadoQuestao.CANDIDATA
     assert produzida.questao.numero == 2
     assert produzida.questao.tipo is TipoQuestao.OBJETIVA
@@ -174,6 +177,7 @@ def test_rejeitar_descarta_sem_mexer_no_banco(
 
     descartada = rejeitar_substituicao(db_session, docente, banco, 3)
 
+    db_session.expire_all()  # o que vale é o gravado, não o objeto em memória
     assert descartada.id == produzida.questao.id
     assert descartada.estado is EstadoQuestao.DESCARTADA
     assert banco.revisao == revisao_antes
@@ -443,8 +447,13 @@ def test_aceitar_com_provas_montadas_responde_409_e_nao_muda_nada(
         aceitar_substituicao(db_session, docente, banco, 1, banco.revisao)
 
     assert erro.value.status_code == 409
+    # "Não muda nada" é sobre o gravado: desfaz a transação da requisição, como
+    # o handler faria, e relê. Em memória, um commit antes do raise não apareceria.
+    db_session.rollback()
+    db_session.expire_all()
     assert banco.revisao == revisao_antes
     assert produzida.questao.estado is EstadoQuestao.CANDIDATA
+    assert db_session.query(RegistroSubstituicao).count() == 0
 
 
 def test_aceitar_segura_o_lock_da_linha_do_banco(
@@ -830,6 +839,10 @@ def test_substituicao_mantem_calculo_e_recalcula(
     candidata = produzida.questao
     assert candidata.formato is FormatoItem.CALCULO
     assert candidata.justificativa.estrutura_formato["dados"][1]["valor"] == 8
+    # "Diferente da original" passaria com qualquer valor errado: a correta tem
+    # de ser a recalculada com os dados novos, √(2 · 9,81 · 8) ≈ 12,5 m/s.
+    [correta] = [a for a in candidata.alternativas if a.correta]
+    assert correta.texto == r"\(12{,}5\ \frac{\mathrm{m}}{\mathrm{s}}\)"
     assert {a.texto for a in candidata.alternativas} != {
         a.texto for a in original.alternativas
     }

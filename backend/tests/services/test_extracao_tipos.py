@@ -118,6 +118,10 @@ def test_documento_sem_nenhuma_pagina_util_e_ilegivel():
         ("aula.pptx", pptx_com_slides([("Título", "corpo")]), FormatoArquivo.PPTX),
         ("aula.txt", txt_bytes("conteúdo"), FormatoArquivo.TXT),
     ],
+    # Sem `ids`, o pytest põe os bytes do arquivo no nome do teste e em
+    # PYTEST_CURRENT_TEST; no Windows a variável passa de 32767 caracteres e o
+    # DOCX e o PPTX dão ERROR no setup, sem nunca rodar a asserção.
+    ids=["pdf", "docx", "pptx", "txt"],
 )
 def test_detectar_formato_reconhece_os_quatro(nome, dados, esperado):
     assert detectar_formato(nome, dados) is esperado

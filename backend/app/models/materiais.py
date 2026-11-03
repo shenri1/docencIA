@@ -83,6 +83,11 @@ class MaterialReferencia(Base):
     )
 
 
+# Teto da localização de um chunk. O chunking o respeita ao montar a
+# localização: valor maior que a coluna estoura o INSERT e trava a indexação.
+TAMANHO_LOCALIZACAO = 255
+
+
 class ChunkMaterial(Base):
     __tablename__ = "chunks_material"
     __table_args__ = (
@@ -102,7 +107,7 @@ class ChunkMaterial(Base):
     # Posição dentro do material: reconstrução e ordenação estável.
     ordem: Mapped[int] = mapped_column(Integer)
     texto: Mapped[str] = mapped_column(Text)
-    localizacao: Mapped[str] = mapped_column(String(255))
+    localizacao: Mapped[str] = mapped_column(String(TAMANHO_LOCALIZACAO))
     vetor_embedding: Mapped[list[float]] = mapped_column(Vector(settings.embedding_dim))
 
     material: Mapped[MaterialReferencia] = relationship(back_populates="chunks")

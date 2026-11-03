@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from backend.app.core.config import settings
+from backend.app.models.materiais import TAMANHO_LOCALIZACAO
 from backend.app.services.extracao.tipos import BlocoTexto
 
 
@@ -49,13 +50,34 @@ _PLURAL = {
 }
 
 
+def _abreviar(texto: str, limite: int) -> str:
+    if len(texto) <= limite:
+        return texto
+    return texto[: limite - 1].rstrip() + "…"
+
+
 def combinar_localizacoes(localizacoes: list[str]) -> str:
     """Une localizações de blocos adjacentes num intervalo legível.
 
     Só vira intervalo quando seção e unidade são as mesmas e a numeração é
     contígua. Qualquer outro caso junta com "; " — inclusive formato
     desconhecido, para que a função nunca falhe por localização inesperada.
+
+    O resultado nunca passa de `TAMANHO_LOCALIZACAO`: o título de seção do DOCX
+    entra inteiro na localização, então a junção (ou até uma só) pode estourar
+    a coluna. Passando do teto, a junção vira "primeira … última", cada ponta
+    abreviada se preciso.
     """
+    combinada = _combinar(localizacoes)
+    if len(combinada) <= TAMANHO_LOCALIZACAO:
+        return combinada
+    if len(localizacoes) == 1:
+        return _abreviar(combinada, TAMANHO_LOCALIZACAO)
+    meio = (TAMANHO_LOCALIZACAO - len(" … ")) // 2
+    return f"{_abreviar(localizacoes[0], meio)} … {_abreviar(localizacoes[-1], meio)}"
+
+
+def _combinar(localizacoes: list[str]) -> str:
     if len(localizacoes) == 1:
         return localizacoes[0]
 

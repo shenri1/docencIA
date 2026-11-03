@@ -96,14 +96,10 @@ _ILEGAL_NO_XML = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\ufff
 
 def _substituto(achado: re.Match[str]) -> str:
     codigo = ord(achado.group())
-    # Controles têm símbolo próprio (U+2400 + código: ␌ para U+000C); o resto
-    # fica como caractere de substituição.
     return chr(0x2400 + codigo) if codigo < 0x20 else "�"
 
 
 def _legivel(texto: str) -> str:
-    """Troca o que o DOCX não comporta por um símbolo visível: o docente vê
-    onde o texto está corrompido em vez de a exportação inteira falhar."""
     return _ILEGAL_NO_XML.sub(_substituto, texto)
 
 
@@ -174,7 +170,7 @@ def _paragrafo_modelo(
     documento, rotulo: str, texto: str, *, tamanho=None, alinhamento=None, recuo=None
 ) -> list:
     """Como `_paragrafo`, mas o texto escrito pelo modelo pode ter fórmula
-O texto persistido não é reescrito: fórmula que não converte sai
+    O texto persistido não é reescrito: fórmula que não converte sai
     crua, com o delimitador. O rótulo ("3. ", "A) ") é texto do sistema e não
     recebe `tamanho`. Fórmula em destaque abre parágrafos extras: a formatação
     vale para todos. A fórmula OMML sai no tamanho do `Normal` (limite
@@ -201,9 +197,6 @@ O texto persistido não é reescrito: fórmula que não converte sai
         if isinstance(segmento, Texto):
             _texto(segmento.conteudo)
             continue
-        # Com caractere ilegal o conversor o trata como espaço e devolve outra
-        # equação ("\x0crac{a}{b}" viraria "r a c a b"): sai crua, como a que
-        # não converte, e o símbolo mostra onde está o defeito.
         omml = (
             None
             if _ILEGAL_NO_XML.search(segmento.latex)

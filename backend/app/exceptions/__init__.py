@@ -536,6 +536,23 @@ class FonteInvalidaException(DomainException):
         )
 
 
+class FonteNaoSustentadaException(DomainException):
+    """O material citado existe, mas o trecho-base que o modelo informou não
+    consta nele. Sem trecho claro no material, a questão não é gerada: a fonte
+    é o que o docente usa para conferir a questão."""
+
+    status_code = 502
+    codigo = "FONTE_NAO_SUSTENTADA"
+
+    def __init__(self, identificador: str, trecho_base: str) -> None:
+        resumo = trecho_base if len(trecho_base) <= 80 else trecho_base[:77] + "..."
+        super().__init__(
+            f"O modelo citou o material {identificador}, mas o trecho-base não "
+            f"consta nele: «{resumo}».",
+            identificador=identificador,
+        )
+
+
 # --- Controle do Banco ---
 
 

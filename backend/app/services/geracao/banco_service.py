@@ -31,6 +31,7 @@ from backend.app.domain import (
 from backend.app.exceptions import (
     BancoCongeladoException,
     FonteInvalidaException,
+    FonteNaoSustentadaException,
     GeracaoEmAndamentoException,
     ParametrosBancoDivergentesException,
     RespostaLLMInvalidaException,
@@ -66,16 +67,16 @@ from backend.app.services.geracao.agente_gerador_service import (
 from backend.app.services.geracao.ancoras import selecionar_ancoras
 from backend.app.services.geracao.busca_orientada import trechos_com_orientacoes
 from backend.app.services.geracao.contexto import resolver_fontes
-from backend.app.services.geracao.plano_calculo import (
-    contagens_de_calculo,
-    posicoes_de_calculo,
-)
 from backend.app.services.geracao.formatos import (
     atribuir_configuracao,
     atribuir_formato,
     atribuir_n_itens,
     montar_discursiva,
     montar_objetiva,
+)
+from backend.app.services.geracao.plano_calculo import (
+    contagens_de_calculo,
+    posicoes_de_calculo,
 )
 from backend.app.services.log_auditoria import registrar_evento
 from backend.app.services.metricas.coletor import Coletor
@@ -637,7 +638,7 @@ def produzir_questao(
     juiz: Juiz | None = None,
     **resto,
 ) -> Produzida | Improdutiva:
-    """Falha do CONTEÚDO de uma questão não pára o banco: fonte que o modelo
+    """Falha do CONTEÚDO de uma questão não para o banco: fonte que o modelo
     inventou ou resposta fora do formato viram lacuna daquele número, e o laço
     segue. As duas acontecem antes de qualquer gravação, então nada fica pela
     metade. Falha de infraestrutura (cadeia de provedores fora do ar, servidor
@@ -645,7 +646,7 @@ def produzir_questao(
     números seguintes falharem igual.
 
     Cada tentativa que termina, com ou sem questão, deixa uma linha de métricas
-gravada depois do commit da questão. Falha de infraestrutura não
+    gravada depois do commit da questão. Falha de infraestrutura não
     deixa linha: ela já fica no evento `falha_provedor`."""
     coletor = Coletor()
     try:
@@ -664,7 +665,7 @@ gravada depois do commit da questão. Falha de infraestrutura não
             coletor=coletor,
             **resto,
         )
-    except FonteInvalidaException as exc:
+    except (FonteInvalidaException, FonteNaoSustentadaException) as exc:
         produzida = Improdutiva(
             numero=numero,
             localizacao=ancora.localizacao,

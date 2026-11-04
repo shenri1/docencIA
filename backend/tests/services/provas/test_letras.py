@@ -155,3 +155,12 @@ def test_par_de_planos_existe_para_todo_n(n):
         b = planejar_letras(n, k, semente=f"B{n}-{k}", contra=a)
         colisoes = sum(1 for x, y in zip(a, b, strict=True) if x == y)
         assert colisoes * 2 <= n
+
+
+def test_planos_de_tamanhos_diferentes_limitam_colisao_nas_posicoes_comuns():
+    """A e B escolhidas pelo docente podem ter números diferentes de objetivas."""
+    contra = planejar_letras(7, 5, "a")
+    plano = planejar_letras(8, 5, "b", contra=contra)
+    assert len(plano) == 8
+    colisoes = sum(1 for x, y in zip(plano, contra, strict=False) if x == y)
+    assert colisoes <= 7 // 2

@@ -22,7 +22,6 @@ from sqlalchemy.orm import Session
 from backend.app.domain import TipoQuestao
 from backend.app.models.provas import ItemProva, Prova
 from backend.app.schemas.geracao import LETRAS
-from backend.app.services.calculo_distribuicao_service import calcular_distribuicao
 from backend.app.services.provas.letras import (
     JANELA_MONOTONA,
     LIMITE_COLISAO_DIVISOR,
@@ -124,19 +123,8 @@ def _violacoes_da_composicao(prova: Prova) -> list[str]:
         problemas.append(
             f"{prova.versao}: {objetivas} objetivas, esperado {prova.n_objetivas}"
         )
-    sessao = prova.sessao
-    pedidas = dict(
-        calcular_distribuicao(
-            prova.n_questoes, sessao.p_f, sessao.p_m, sessao.p_d
-        ).itens()
-    )
-    obtidas = Counter(item.questao.faixa_dificuldade for item in itens)
-    for faixa, esperado in pedidas.items():
-        if obtidas[faixa] != esperado:
-            problemas.append(
-                f"{prova.versao}: {obtidas[faixa]} questões na faixa "
-                f"{faixa.value}, esperado {esperado}"
-            )
+    # A proporção por faixa não é conferida aqui: ela vale na geração do banco,
+    # e a composição de cada prova é escolha do docente.
     return problemas
 
 

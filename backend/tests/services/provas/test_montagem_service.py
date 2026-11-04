@@ -1,24 +1,35 @@
 import pytest
 
-from backend.app.domain import EstadoBanco, EstadoProva, EstadoSessao, FaixaDificuldade
+from backend.app.domain import (
+    EstadoBanco,
+    EstadoProva,
+    EstadoSessao,
+    FaixaDificuldade,
+)
 from backend.app.exceptions import (
     BancoNaoCongeladoException,
     InconsistenciaDeEstadoException,
     MontagemInconsistenteException,
     ProvasJaMontadasException,
+    QuestoesIndisponiveisException,
     RevisaoDesatualizadaException,
+    SobreposicaoInevitavelException,
 )
 from backend.app.models.provas import ItemProva, Prova
 from backend.app.services.controle_banco.exclusao_service import congelar_banco
 from backend.app.services.provas import montagem_service
-from backend.app.services.provas.montagem_service import montar_provas
+from backend.app.services.provas.montagem_service import (
+    montar_provas,
+    montar_provas_escolhidas,
+    sugerir_selecao,
+)
 from backend.app.services.provas.verificacao import Verificacao
-from backend.tests.travamento import espiar_lock
 from backend.tests.fabrica_banco import (
     criar_banco,
     criar_questao_discursiva,
     criar_questao_objetiva,
 )
+from backend.tests.travamento import espiar_lock
 
 F, M, D = FaixaDificuldade.FACIL, FaixaDificuldade.MEDIA, FaixaDificuldade.DIFICIL
 
@@ -229,3 +240,87 @@ def test_ler_prova_traz_o_contexto_gravado(db_session, docente, sessao_rascunho)
     for item in prova.itens:
         esperado = f"Cenário {item.numero}." if item.numero % 2 else None
         assert item.contexto == esperado
+
+
+def _numeros(db, versao):
+    prova = db.query(Prova).filter_by(versao=versao).one()
+    return sorted(item.questao.numero for item in prova.itens)
+
+
+def test_escolha_do_docente_vai_exatamente_para_cada_prova(
+    db_session, docente, sessao_rascunho
+):
+    banco = banco_congelado(db_session, docente, sessao_rascunho)
+    a, b = list(range(1, 11)), list(range(11, 21))
+
+    resultado = montar_provas_escolhidas(db_session, docente, banco, a, b, banco.revisao)
+
+    assert resultado.verificacao.violacoes == []
+    assert resultado.compartilhadas == []
+    assert _numeros(db_session, "A") == a
+    assert _numeros(db_session, "B") == b
+    assert sessao_rascunho.estado is EstadoSessao.PROVAS_MONTADAS
+
+
+def test_escolha_pode_por_a_mesma_questao_nas_duas(db_session, docente, sessao_rascunho):
+    banco = banco_congelado(db_session, docente, sessao_rascunho)
+
+    resultado = montar_provas_escolhidas(
+        db_session, docente, banco, list(range(1, 11)), list(range(6, 16)), banco.revisao
+    )
+
+    assert resultado.compartilhadas == [6, 7, 8, 9, 10]
+    assert resultado.verificacao.violacoes == []
+
+
+def test_escolha_nao_exige_a_proporcao_de_faixas(db_session, docente, sessao_rascunho):
+    """A proporção fácil/média/difícil vale na geração do banco; na montagem
+    quem decide é o docente."""
+    banco = banco_congelado(db_session, docente, sessao_rascunho)
+    faceis, dificeis = list(range(1, 8)), list(range(18, 26))
+
+    resultado = montar_provas_escolhidas(
+        db_session, docente, banco, faceis, dificeis, banco.revisao
+    )
+
+    assert resultado.verificacao.violacoes == []
+
+
+def test_escolha_com_questao_fora_do_banco_ativo_e_recusada(
+    db_session, docente, sessao_rascunho
+):
+    banco = banco_congelado(db_session, docente, sessao_rascunho)
+
+    with pytest.raises(QuestoesIndisponiveisException) as erro:
+        montar_provas_escolhidas(db_session, docente, banco, [1, 99], [2], banco.revisao)
+    assert erro.value.extras["numeros"] == [99]
+    assert db_session.query(Prova).count() == 0
+
+
+def test_escolha_respeita_o_limite_de_subtema_em_comum(
+    db_session, docente, sessao_rascunho
+):
+    banco = banco_congelado(db_session, docente, sessao_rascunho)
+    for questao in banco.questoes:
+        if questao.numero in (1, 2, 3):
+            questao.subtema = "grafos"
+    db_session.commit()
+
+    with pytest.raises(SobreposicaoInevitavelException):
+        montar_provas_escolhidas(
+            db_session, docente, banco, [1, 2, 3, 4], [1, 2, 3, 5], banco.revisao
+        )
+    assert db_session.query(Prova).count() == 0
+
+
+def test_sugestao_e_a_selecao_automatica_e_nao_grava_nada(
+    db_session, docente, sessao_rascunho
+):
+    banco = banco_congelado(db_session, docente, sessao_rascunho)
+
+    sugestao = sugerir_selecao(db_session, banco, 10, 0)
+
+    assert db_session.query(Prova).count() == 0
+    montar_provas(db_session, docente, banco, 10, 0, banco.revisao)
+    assert sorted(q.numero for q in sugestao.a) == _numeros(db_session, "A")
+    assert sorted(q.numero for q in sugestao.b) == _numeros(db_session, "B")

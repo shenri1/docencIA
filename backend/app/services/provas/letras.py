@@ -98,8 +98,10 @@ def _aceitavel(
     if tem_deriva_monotona(indices):
         return False
     if contra_indices is not None:
+        # Com o docente escolhendo, A e B podem ter tamanhos diferentes: só as
+        # posições que existem nas duas podem colidir.
         colisoes = sum(
-            1 for x, y in zip(indices, contra_indices, strict=True) if x == y
+            1 for x, y in zip(indices, contra_indices, strict=False) if x == y
         )
         if colisoes > limite_colisoes:
             return False
@@ -121,7 +123,8 @@ def planejar_letras(
     contra_indices = (
         [LETRAS.index(letra) for letra in contra] if contra is not None else None
     )
-    limite_colisoes = n_posicoes // LIMITE_COLISAO_DIVISOR
+    comuns = n_posicoes if contra is None else min(n_posicoes, len(contra))
+    limite_colisoes = comuns // LIMITE_COLISAO_DIVISOR
     gerador = random.Random(semente)
     for _ in range(MAX_TENTATIVAS_LETRAS):
         candidato = _multiconjunto_equilibrado(n_posicoes, k, gerador)

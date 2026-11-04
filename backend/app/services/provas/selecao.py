@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from backend.app.domain import FaixaDificuldade, TipoQuestao
 from backend.app.exceptions import (
     BancoInsuficienteParaProvaException,
+    QuestoesIndisponiveisException,
     SobreposicaoInevitavelException,
 )
 from backend.app.models.banco import Questao
@@ -157,6 +158,49 @@ def _subtema_excedido(compartilhadas: list[Questao]) -> tuple[str, int] | None:
     return None
 
 
+def _selecao(
+    a: list[Questao], b: list[Questao], compartilhadas: list[Questao]
+) -> Selecao:
+    selecionadas = {questao.id: questao for questao in a + b}
+    return Selecao(
+        a=a,
+        b=b,
+        compartilhadas=sorted(questao.numero for questao in compartilhadas),
+        sem_subtema=sum(
+            1 for questao in selecionadas.values() if questao.subtema is None
+        ),
+    )
+
+
+def escolher(
+    questoes: list[Questao], numeros_a: list[int], numeros_b: list[int], semente: str
+) -> Selecao:
+    """A escolha do docente, questão a questão. Nada de cota por faixa nem por
+    tipo: quem decide a composição é ele. Só o limite de subtema em comum
+    continua, porque é o que mantém A e B como versões distintas."""
+    por_numero = {questao.numero: questao for questao in questoes}
+    fora = sorted((set(numeros_a) | set(numeros_b)) - por_numero.keys())
+    if fora:
+        raise QuestoesIndisponiveisException(fora)
+    compartilhadas = [por_numero[n] for n in sorted(set(numeros_a) & set(numeros_b))]
+    excesso = _subtema_excedido(compartilhadas)
+    if excesso is not None:
+        subtema, quantas = excesso
+        raise SobreposicaoInevitavelException(
+            subtema,
+            quantas,
+            LIMITE_SUBTEMA_COMPARTILHADO,
+            dica="Deixe algumas delas em uma prova só.",
+        )
+    a = [por_numero[n] for n in numeros_a]
+    b = [por_numero[n] for n in numeros_b]
+    # A ordem dentro da prova continua sorteada, como na seleção automática.
+    gerador = random.Random(semente)
+    gerador.shuffle(a)
+    gerador.shuffle(b)
+    return _selecao(a, b, compartilhadas)
+
+
 def selecionar(
     questoes: list[Questao],
     n_objetivas: int,
@@ -194,15 +238,7 @@ def selecionar(
             # mesmas questões em ordens diferentes é parte de serem paralelas.
             gerador.shuffle(a)
             gerador.shuffle(b)
-            selecionadas = {questao.id: questao for questao in a + b}
-            return Selecao(
-                a=a,
-                b=b,
-                compartilhadas=sorted(questao.numero for questao in compartilhadas),
-                sem_subtema=sum(
-                    1 for questao in selecionadas.values() if questao.subtema is None
-                ),
-            )
+            return _selecao(a, b, compartilhadas)
     if excesso is None:  # só com MAX_TENTATIVAS_SELECAO < 1: o laço nem rodou
         raise RuntimeError("MAX_TENTATIVAS_SELECAO deve ser >= 1")
     subtema, quantas = excesso

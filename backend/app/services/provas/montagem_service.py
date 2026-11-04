@@ -10,6 +10,7 @@ Nenhum LLM: montar prova é seleção e permutação sobre dados já persistidos
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -35,7 +36,7 @@ from backend.app.services.controle_banco.consistencia import verificar_consisten
 from backend.app.services.controle_banco.estado import exigir_revisao, travar_banco
 from backend.app.services.log_auditoria import registrar_evento
 from backend.app.services.provas.letras import planejar_letras
-from backend.app.services.provas.selecao import Selecao, selecionar
+from backend.app.services.provas.selecao import Selecao, escolher, selecionar
 from backend.app.services.provas.verificacao import Verificacao, verificar_provas
 
 VERSAO_A = "A"
@@ -118,6 +119,33 @@ def _criar_prova(
     return prova
 
 
+def _ativas(db: Session, banco: BancoQuestoes) -> list[Questao]:
+    return list(
+        db.scalars(
+            select(Questao)
+            .where(Questao.banco_id == banco.id, Questao.estado == EstadoQuestao.ATIVA)
+            .order_by(Questao.numero)
+        )
+    )
+
+
+def sugerir_selecao(
+    db: Session, banco: BancoQuestoes, n_objetivas: int, n_discursivas: int
+) -> Selecao:
+    """A seleção automática, sem gravar nada: o docente parte dela e ajusta. Mesma
+    semente da montagem, então montar sem mexer dá as mesmas provas."""
+    sessao = banco.sessao
+    return selecionar(
+        _ativas(db, banco),
+        n_objetivas,
+        n_discursivas,
+        sessao.p_f,
+        sessao.p_m,
+        sessao.p_d,
+        semente=_semente(sessao.id, "selecao", banco.revisao),
+    )
+
+
 def montar_provas(
     db: Session,
     docente: Docente,
@@ -125,6 +153,49 @@ def montar_provas(
     n_objetivas: int,
     n_discursivas: int,
     revisao_esperada: int,
+) -> ProvasMontadas:
+    """Seleção automática por tipo e faixa (o comando do orquestrador)."""
+    return _montar(
+        db,
+        docente,
+        banco,
+        revisao_esperada,
+        lambda: sugerir_selecao(db, banco, n_objetivas, n_discursivas),
+        escolhida=False,
+    )
+
+
+def montar_provas_escolhidas(
+    db: Session,
+    docente: Docente,
+    banco: BancoQuestoes,
+    numeros_a: list[int],
+    numeros_b: list[int],
+    revisao_esperada: int,
+) -> ProvasMontadas:
+    """As questões que o docente marcou para cada prova."""
+    return _montar(
+        db,
+        docente,
+        banco,
+        revisao_esperada,
+        lambda: escolher(
+            _ativas(db, banco),
+            numeros_a,
+            numeros_b,
+            semente=_semente(banco.sessao_id, "selecao", banco.revisao),
+        ),
+        escolhida=True,
+    )
+
+
+def _montar(
+    db: Session,
+    docente: Docente,
+    banco: BancoQuestoes,
+    revisao_esperada: int,
+    selecionar_questoes: Callable[[], Selecao],
+    escolhida: bool,
 ) -> ProvasMontadas:
     # O lock serializa montagens concorrentes: a segunda espera a primeira
     # commitar e então vê as provas dela (ProvasJaMontadas, 409) em vez de
@@ -147,23 +218,8 @@ def montar_provas(
     if ja_existem:
         raise ProvasJaMontadasException(sorted(ja_existem))
 
-    ativas = list(
-        db.scalars(
-            select(Questao)
-            .where(Questao.banco_id == banco.id, Questao.estado == EstadoQuestao.ATIVA)
-            .order_by(Questao.numero)
-        )
-    )
     sessao = banco.sessao
-    selecao: Selecao = selecionar(
-        ativas,
-        n_objetivas,
-        n_discursivas,
-        sessao.p_f,
-        sessao.p_m,
-        sessao.p_d,
-        semente=_semente(sessao.id, "selecao", banco.revisao),
-    )
+    selecao = selecionar_questoes()
 
     n_objetivas_reais = sum(1 for q in selecao.a if q.tipo is TipoQuestao.OBJETIVA)
     letras_a = planejar_letras(
@@ -198,8 +254,9 @@ def montar_provas(
             "prova_a_id": prova_a.id,
             "prova_b_id": prova_b.id,
             "revisao_banco": banco.revisao,
-            "n_objetivas": n_objetivas,
-            "n_discursivas": n_discursivas,
+            "n_objetivas": prova_a.n_objetivas,
+            "n_discursivas": prova_a.n_discursivas,
+            "escolhida_pelo_docente": escolhida,
         },
     )
     db.commit()

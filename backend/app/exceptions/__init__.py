@@ -784,14 +784,34 @@ class SobreposicaoInevitavelException(DomainException):
     status_code = 409
     codigo = "SOBREPOSICAO_INEVITAVEL"
 
-    def __init__(self, subtema: str, quantas: int, limite: int) -> None:
+    def __init__(
+        self,
+        subtema: str,
+        quantas: int,
+        limite: int,
+        dica: str = "Reduza N ou substitua questões desse subtema.",
+    ) -> None:
         super().__init__(
             f'O subtema "{subtema}" ficaria com {quantas} questões nas duas '
-            f"provas, acima do limite de {limite}. Reduza N ou substitua questões "
-            "desse subtema.",
+            f"provas, acima do limite de {limite}. {dica}",
             subtema=subtema,
             quantas=quantas,
             limite=limite,
+        )
+
+
+class QuestoesIndisponiveisException(DomainException):
+    """O docente escolheu número que não é questão ativa do banco: não existe,
+    foi excluída ou substituída. O que está na tela é velho."""
+
+    status_code = 409
+    codigo = "QUESTOES_INDISPONIVEIS"
+
+    def __init__(self, numeros: list[int]) -> None:
+        super().__init__(
+            "Estas questões não estão ativas no banco: "
+            f"{', '.join(map(str, numeros))}. Recarregue a lista e escolha de novo.",
+            numeros=numeros,
         )
 
 

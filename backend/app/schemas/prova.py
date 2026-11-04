@@ -7,21 +7,38 @@ from backend.app.schemas.banco import N_MAXIMO_BANCO
 
 
 class ProvasCriar(BaseModel):
-    n_objetivas: int = Field(..., ge=0, description="Objetivas por prova.")
-    n_discursivas: int = Field(..., ge=0, description="Discursivas por prova.")
+    """O docente marca, questão a questão, o que vai para cada prova. A mesma
+    questão pode ir para as duas."""
+
+    numeros_a: list[int] = Field(
+        ...,
+        min_length=1,
+        max_length=N_MAXIMO_BANCO,
+        description="Números do banco na Prova A.",
+    )
+    numeros_b: list[int] = Field(
+        ...,
+        min_length=1,
+        max_length=N_MAXIMO_BANCO,
+        description="Números do banco na Prova B.",
+    )
     revisao_esperada: int = Field(
         ..., ge=0, description="Revisão do banco que o docente estava vendo."
     )
 
     @model_validator(mode="after")
-    def _soma_dentro_do_limite(self) -> ProvasCriar:
-        total = self.n_objetivas + self.n_discursivas
-        if not 1 <= total <= N_MAXIMO_BANCO:
-            raise ValueError(
-                f"a prova deve ter de 1 a {N_MAXIMO_BANCO} questões somando os "
-                f"dois tipos; pedido: {total}"
-            )
+    def _sem_repeticao(self) -> ProvasCriar:
+        for versao, numeros in (("A", self.numeros_a), ("B", self.numeros_b)):
+            if len(set(numeros)) != len(numeros):
+                raise ValueError(f"a Prova {versao} repete questão")
         return self
+
+
+class SugestaoProvasResposta(BaseModel):
+    """A seleção automática por tipo e faixa, para o docente partir dela."""
+
+    numeros_a: list[int]
+    numeros_b: list[int]
 
 
 class VerificacaoResposta(BaseModel):
@@ -160,8 +177,6 @@ class GabaritoResposta(BaseModel):
     modalidade: TipoGabarito
     revisao_banco: int = Field(..., description='O "Gabarito_vZ".')
     desatualizada: bool
-    completo: bool = Field(
-        ..., description="Gabarito para 100% das questões da prova."
-    )
+    completo: bool = Field(..., description="Gabarito para 100% das questões da prova.")
     problemas: list[str]
     itens: list[ItemGabaritoResposta]

@@ -27,7 +27,11 @@ from backend.app.schemas.banco import (
 )
 from backend.app.schemas.exportacao import ExportacaoResposta
 from backend.app.schemas.orientacao import DirecaoVariacao
-from backend.app.schemas.prova import ProvasCriar, ProvasMontadasResposta
+from backend.app.schemas.prova import (
+    ProvasCriar,
+    ProvasMontadasResposta,
+    SugestaoProvasResposta,
+)
 from backend.app.services.controle_banco.catalogo import ItemCatalogo, catalogar
 from backend.app.services.controle_banco.estado import obter_banco
 from backend.app.services.controle_banco.exclusao_service import (
@@ -57,7 +61,11 @@ from backend.app.services.exportacao.exportacao_service import (
 from backend.app.services.geracao.banco_service import Produzida
 from backend.app.services.metricas.juiz import Juiz, get_juiz
 from backend.app.services.provas.leitura import provas_do_banco
-from backend.app.services.provas.montagem_service import ProvasMontadas, montar_provas
+from backend.app.services.provas.montagem_service import (
+    ProvasMontadas,
+    montar_provas_escolhidas,
+    sugerir_selecao,
+)
 from backend.app.services.provedor.provedor_service import ProvedorLLMService
 from backend.app.services.rag.embeddings import Embeddings, get_embeddings
 from backend.app.services.rag.rerank import Reranker, get_reranker
@@ -246,13 +254,37 @@ def montar(
     # Uma chamada monta as DUAS provas: a regra de colisão de letras e a de
     # sobreposição de subtema são relações entre elas.
     banco = obter_banco(db, docente, banco_id)
-    return montar_provas(
+    return montar_provas_escolhidas(
         db,
         docente,
         banco,
-        n_objetivas=dados.n_objetivas,
-        n_discursivas=dados.n_discursivas,
+        numeros_a=dados.numeros_a,
+        numeros_b=dados.numeros_b,
         revisao_esperada=dados.revisao_esperada,
+    )
+
+
+@router.get("/provas/sugestao", response_model=SugestaoProvasResposta)
+def sugerir(
+    banco_id: int,
+    n_objetivas: int = Query(..., ge=0, description="Objetivas por prova."),
+    n_discursivas: int = Query(..., ge=0, description="Discursivas por prova."),
+    db: Session = Depends(get_db),
+    docente: Docente = Depends(get_current_docente),
+) -> SugestaoProvasResposta:
+    """Só leitura: nada é gravado, e o docente ajusta antes de montar."""
+    if not 1 <= n_objetivas + n_discursivas <= N_MAXIMO_BANCO:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"a prova deve ter de 1 a {N_MAXIMO_BANCO} questões somando os "
+            f"dois tipos; pedido: {n_objetivas + n_discursivas}",
+        )
+    selecao = sugerir_selecao(
+        db, obter_banco(db, docente, banco_id), n_objetivas, n_discursivas
+    )
+    return SugestaoProvasResposta(
+        numeros_a=sorted(q.numero for q in selecao.a),
+        numeros_b=sorted(q.numero for q in selecao.b),
     )
 
 

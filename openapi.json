@@ -1661,6 +1661,78 @@
         }
       }
     },
+    "/bancos/{banco_id}/provas/sugestao": {
+      "get": {
+        "tags": [
+          "Controle do Banco"
+        ],
+        "summary": "Sugerir",
+        "description": "Só leitura: nada é gravado, e o docente ajusta antes de montar.",
+        "operationId": "sugerir_bancos__banco_id__provas_sugestao_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "banco_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Banco Id"
+            }
+          },
+          {
+            "name": "n_objetivas",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Objetivas por prova.",
+              "title": "N Objetivas"
+            },
+            "description": "Objetivas por prova."
+          },
+          {
+            "name": "n_discursivas",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Discursivas por prova.",
+              "title": "N Discursivas"
+            },
+            "description": "Discursivas por prova."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SugestaoProvasResposta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/bancos/{banco_id}/exportacoes": {
       "post": {
         "tags": [
@@ -3938,17 +4010,25 @@
       },
       "ProvasCriar": {
         "properties": {
-          "n_objetivas": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "N Objetivas",
-            "description": "Objetivas por prova."
+          "numeros_a": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 25,
+            "minItems": 1,
+            "title": "Numeros A",
+            "description": "Números do banco na Prova A."
           },
-          "n_discursivas": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "N Discursivas",
-            "description": "Discursivas por prova."
+          "numeros_b": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 25,
+            "minItems": 1,
+            "title": "Numeros B",
+            "description": "Números do banco na Prova B."
           },
           "revisao_esperada": {
             "type": "integer",
@@ -3959,11 +4039,12 @@
         },
         "type": "object",
         "required": [
-          "n_objetivas",
-          "n_discursivas",
+          "numeros_a",
+          "numeros_b",
           "revisao_esperada"
         ],
-        "title": "ProvasCriar"
+        "title": "ProvasCriar",
+        "description": "O docente marca, questão a questão, o que vai para cada prova. A mesma\nquestão pode ir para as duas."
       },
       "ProvasMontadasResposta": {
         "properties": {
@@ -4741,6 +4822,31 @@
           "estado"
         ],
         "title": "SessaoResposta"
+      },
+      "SugestaoProvasResposta": {
+        "properties": {
+          "numeros_a": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Numeros A"
+          },
+          "numeros_b": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Numeros B"
+          }
+        },
+        "type": "object",
+        "required": [
+          "numeros_a",
+          "numeros_b"
+        ],
+        "title": "SugestaoProvasResposta",
+        "description": "A seleção automática por tipo e faixa, para o docente partir dela."
       },
       "TipoEventoAuditoria": {
         "type": "string",

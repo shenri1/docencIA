@@ -47,16 +47,30 @@ def preparar(client, db_session, credencial="prof-provas"):
     return headers, banco
 
 
-def montar(client, headers, banco, n_objetivas=10, n_discursivas=0):
+def sugerir(client, headers, banco, n_objetivas=10, n_discursivas=0):
+    return client.get(
+        f"/bancos/{banco.id}/provas/sugestao",
+        headers=headers,
+        params={"n_objetivas": n_objetivas, "n_discursivas": n_discursivas},
+    )
+
+
+def montar_com(client, headers, banco, numeros_a, numeros_b):
     return client.post(
         f"/bancos/{banco.id}/provas",
         headers=headers,
         json={
-            "n_objetivas": n_objetivas,
-            "n_discursivas": n_discursivas,
+            "numeros_a": numeros_a,
+            "numeros_b": numeros_b,
             "revisao_esperada": banco.revisao,
         },
     )
+
+
+def montar(client, headers, banco, n_objetivas=10, n_discursivas=0):
+    """O caminho da tela: pede a sugestão e monta com ela."""
+    sugestao = sugerir(client, headers, banco, n_objetivas, n_discursivas).json()
+    return montar_com(client, headers, banco, sugestao["numeros_a"], sugestao["numeros_b"])
 
 
 def test_post_provas_sem_token_responde_401(client, db_session):
@@ -70,7 +84,7 @@ def test_post_provas_de_banco_alheio_responde_404(client, db_session):
     resposta = client.post(
         f"/bancos/{banco.id}/provas",
         headers=outro,
-        json={"n_objetivas": 10, "n_discursivas": 0, "revisao_esperada": 0},
+        json={"numeros_a": [1], "numeros_b": [2], "revisao_esperada": 0},
     )
     assert resposta.status_code == 404
 
@@ -252,3 +266,42 @@ def test_get_provas_de_banco_alheio_responde_404(client, db_session):
 
     assert resposta.status_code == 404
     assert resposta.json()["codigo"] == "BANCO_NAO_ENCONTRADO"
+
+
+def test_post_monta_exatamente_as_questoes_escolhidas(client, db_session):
+    headers, banco = preparar(client, db_session, "prof-escolhe")
+    resposta = montar_com(client, headers, banco, [1, 2, 3], [3, 4, 5, 6])
+
+    assert resposta.status_code == 201
+    assert resposta.json()["compartilhadas"] == [3]
+    prova_b = db_session.get(Prova, resposta.json()["prova_b_id"])
+    assert sorted(i.questao.numero for i in prova_b.itens) == [3, 4, 5, 6]
+
+
+def test_post_com_questao_repetida_na_mesma_prova_responde_422(client, db_session):
+    headers, banco = preparar(client, db_session, "prof-repete")
+    resposta = montar_com(client, headers, banco, [1, 1], [2])
+    assert resposta.status_code == 422
+
+
+def test_post_com_questao_que_nao_existe_responde_409(client, db_session):
+    headers, banco = preparar(client, db_session, "prof-inexistente")
+    resposta = montar_com(client, headers, banco, [1, 99], [2])
+    assert resposta.status_code == 409
+    assert resposta.json()["codigo"] == "QUESTOES_INDISPONIVEIS"
+    assert resposta.json()["numeros"] == [99]
+
+
+def test_sugestao_nao_monta_nada(client, db_session):
+    headers, banco = preparar(client, db_session, "prof-sugestao")
+    resposta = sugerir(client, headers, banco, 10)
+
+    assert resposta.status_code == 200
+    assert len(resposta.json()["numeros_a"]) == 10
+    assert len(resposta.json()["numeros_b"]) == 10
+    assert db_session.query(Prova).count() == 0
+
+
+def test_sugestao_com_total_invalido_responde_422(client, db_session):
+    headers, banco = preparar(client, db_session, "prof-sugestao-zero")
+    assert sugerir(client, headers, banco, 0, 0).status_code == 422

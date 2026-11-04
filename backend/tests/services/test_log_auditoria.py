@@ -213,6 +213,7 @@ def test_provas_montadas_e_exportacao(
         "revisao_banco": banco.revisao,
         "n_objetivas": 10,
         "n_discursivas": 0,
+        "escolhida_pelo_docente": False,
     }
 
     registros = exportar(db_session, docente, armazenamento, banco)

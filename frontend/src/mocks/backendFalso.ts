@@ -177,11 +177,9 @@ const ativasDe = (banco: BancoFalso) => banco.questoes.filter((q) => q.estado ==
 
 /** Seleção do falso: A pega as primeiras de cada tipo, B as seguintes, e B
  * completa com as de A quando faltam — essas são as compartilhadas. */
-export function montarFalso(
-  banco: BancoFalso,
-  nObjetivas: number,
-  nDiscursivas: number,
-): ProvasFalsas {
+/** A "sugestão" do falso: A pega as primeiras de cada tipo, B as seguintes e
+ * completa com as de A quando faltam. */
+function sugestaoFalsa(banco: BancoFalso, nObjetivas: number, nDiscursivas: number) {
   const escolher = (tipo: Questao["tipo"], n: number) => {
     const doTipo = ativasDe(banco).filter((q) => q.tipo === tipo);
     const a = doTipo.slice(0, n);
@@ -190,9 +188,16 @@ export function montarFalso(
   };
   const objetivas = escolher("objetiva", nObjetivas);
   const discursivas = escolher("discursiva", nDiscursivas);
+  return { a: [...objetivas.a, ...discursivas.a], b: [...objetivas.b, ...discursivas.b] };
+}
+
+export function montarFalso(
+  banco: BancoFalso,
+  nObjetivas: number,
+  nDiscursivas: number,
+): ProvasFalsas {
   banco.provas = {
-    a: [...objetivas.a, ...discursivas.a],
-    b: [...objetivas.b, ...discursivas.b],
+    ...sugestaoFalsa(banco, nObjetivas, nDiscursivas),
     revisao: banco.revisao,
     sem_subtema: 0,
   };
@@ -985,13 +990,48 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
       return HttpResponse.json(montadasFalsas(banco, banco.provas));
     }),
 
+    http.get(`${base}/bancos/:id/provas/sugestao`, ({ request, params }) => {
+      if (!docenteDoToken(request)) return naoAutorizado();
+      const banco = bancoDe(params.id);
+      if (!banco) return bancoNaoEncontrado(params.id);
+      const consulta = new URL(request.url).searchParams;
+      const nObjetivas = Number(consulta.get("n_objetivas"));
+      const nDiscursivas = Number(consulta.get("n_discursivas"));
+      const ativas = ativasDe(banco);
+      const doTipo = (tipo: Questao["tipo"]) => ativas.filter((q) => q.tipo === tipo);
+      if (nObjetivas > doTipo("objetiva").length || nDiscursivas > doTipo("discursiva").length) {
+        const disponivel: Record<string, number> = {};
+        for (const tipo of ["objetiva", "discursiva"] as const) {
+          for (const faixa of FAIXAS) {
+            disponivel[`${tipo}/${faixa}`] = doTipo(tipo).filter(
+              (q) => q.faixa_dificuldade === faixa,
+            ).length;
+          }
+        }
+        return erro(
+          409,
+          "O banco não sustenta duas provas com essa distribuição. Reduza N, mude pF/pM/pD, ou substitua questões para reequilibrar as faixas.",
+          "BANCO_INSUFICIENTE_PARA_PROVA",
+          {
+            // O falso não distribui por faixa: a cota inteira vai para "media".
+            cotas_por_faixa: { facil: 0, media: nObjetivas + nDiscursivas, dificil: 0 },
+            pedido_por_tipo: { objetiva: nObjetivas, discursiva: nDiscursivas },
+            disponivel_por_celula: disponivel,
+          },
+        );
+      }
+      const sugestao = sugestaoFalsa(banco, nObjetivas, nDiscursivas);
+      const numeros = (questoes: Questao[]) => questoes.map((q) => q.numero).sort((x, y) => x - y);
+      return HttpResponse.json({ numeros_a: numeros(sugestao.a), numeros_b: numeros(sugestao.b) });
+    }),
+
     http.post(`${base}/bancos/:id/provas`, async ({ request, params }) => {
       if (!docenteDoToken(request)) return naoAutorizado();
       const banco = bancoDe(params.id);
       if (!banco) return bancoNaoEncontrado(params.id);
       const dados = (await request.json()) as {
-        n_objetivas: number;
-        n_discursivas: number;
+        numeros_a: number[];
+        numeros_b: number[];
         revisao_esperada: number;
       };
       const conflito = revisaoDesatualizada(banco, dados.revisao_esperada);
@@ -1010,38 +1050,26 @@ export function criarHandlers(base: string, estado: EstadoFalso = novoEstado()) 
           "PROVAS_JA_MONTADAS",
         );
       }
-      const ativas = ativasDe(banco);
-      const doTipo = (tipo: Questao["tipo"]) => ativas.filter((q) => q.tipo === tipo);
-      if (
-        dados.n_objetivas > doTipo("objetiva").length ||
-        dados.n_discursivas > doTipo("discursiva").length
-      ) {
-        const disponivel: Record<string, number> = {};
-        for (const tipo of ["objetiva", "discursiva"] as const) {
-          for (const faixa of FAIXAS) {
-            disponivel[`${tipo}/${faixa}`] = doTipo(tipo).filter(
-              (q) => q.faixa_dificuldade === faixa,
-            ).length;
-          }
-        }
+      const porNumero = new Map(ativasDe(banco).map((q) => [q.numero, q]));
+      const fora = [...new Set([...dados.numeros_a, ...dados.numeros_b])]
+        .filter((n) => !porNumero.has(n))
+        .sort((x, y) => x - y);
+      if (fora.length > 0) {
         return erro(
           409,
-          "O banco não sustenta duas provas com essa distribuição. Reduza N, mude pF/pM/pD, ou substitua questões para reequilibrar as faixas.",
-          "BANCO_INSUFICIENTE_PARA_PROVA",
-          {
-            // O falso não distribui por faixa: a cota inteira vai para "media".
-            cotas_por_faixa: {
-              facil: 0,
-              media: dados.n_objetivas + dados.n_discursivas,
-              dificil: 0,
-            },
-            pedido_por_tipo: { objetiva: dados.n_objetivas, discursiva: dados.n_discursivas },
-            disponivel_por_celula: disponivel,
-          },
+          `Estas questões não estão ativas no banco: ${fora.join(", ")}. Recarregue a lista e escolha de novo.`,
+          "QUESTOES_INDISPONIVEIS",
+          { numeros: fora },
         );
       }
-      const provas = montarFalso(banco, dados.n_objetivas, dados.n_discursivas);
-      return HttpResponse.json(montadasFalsas(banco, provas), { status: 201 });
+      const questoes = (numeros: number[]) => numeros.map((n) => porNumero.get(n) as Questao);
+      banco.provas = {
+        a: questoes(dados.numeros_a),
+        b: questoes(dados.numeros_b),
+        revisao: banco.revisao,
+        sem_subtema: 0,
+      };
+      return HttpResponse.json(montadasFalsas(banco, banco.provas), { status: 201 });
     }),
 
     http.get(`${base}/provas/:id`, ({ request, params }) => {

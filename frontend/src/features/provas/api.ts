@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "../../app/api-context";
 import { desembrulhar } from "../../api/cliente";
-import type { Prova, ProvasMontadas } from "../../api/tipos";
+import type { Banco, Prova, ProvasMontadas } from "../../api/tipos";
 import { chavesBanco } from "../banco/curadoria";
 import { chaves } from "../sessoes/api";
 
@@ -44,7 +44,7 @@ export function useMontarProvas(bancoId: number, sessaoId: number) {
   return useMutation<
     ProvasMontadas,
     Error,
-    { n_objetivas: number; n_discursivas: number; revisao_esperada: number }
+    { numeros_a: number[]; numeros_b: number[]; revisao_esperada: number }
   >({
     mutationFn: (body) =>
       desembrulhar(
@@ -57,5 +57,36 @@ export function useMontarProvas(bancoId: number, sessaoId: number) {
       queryClient.setQueryData(chavesProvas.doBanco(bancoId), montadas),
     // Dê certo ou não: um 409 diz que o que está na tela é velho.
     onSettled: () => queryClient.invalidateQueries({ queryKey: chaves.marco(sessaoId) }),
+  });
+}
+
+/** Todas as questões do banco num pedido só: um banco tem no máximo 25. */
+export function useQuestoesDoBanco(bancoId: number, ate: number) {
+  const cliente = useApi();
+  return useQuery<Banco>({
+    queryKey: [...chavesProvas.doBanco(bancoId), "questoes", ate],
+    queryFn: () =>
+      desembrulhar(
+        cliente.GET("/bancos/{banco_id}", {
+          params: { path: { banco_id: bancoId }, query: { de: 1, ate } },
+        }),
+      ),
+  });
+}
+
+/** A seleção automática, só leitura: preenche as caixas para o docente ajustar. */
+export function useSugerirSelecao(bancoId: number) {
+  const cliente = useApi();
+  return useMutation<
+    { numeros_a: number[]; numeros_b: number[] },
+    Error,
+    { n_objetivas: number; n_discursivas: number }
+  >({
+    mutationFn: (query) =>
+      desembrulhar(
+        cliente.GET("/bancos/{banco_id}/provas/sugestao", {
+          params: { path: { banco_id: bancoId }, query },
+        }),
+      ),
   });
 }

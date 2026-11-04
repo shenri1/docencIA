@@ -476,6 +476,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bancos/{banco_id}/provas/sugestao": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sugerir
+         * @description Só leitura: nada é gravado, e o docente ajusta antes de montar.
+         */
+        get: operations["sugerir_bancos__banco_id__provas_sugestao_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bancos/{banco_id}/exportacoes": {
         parameters: {
             query?: never;
@@ -1438,18 +1458,22 @@ export interface components {
             /** Itens */
             itens: components["schemas"]["ItemProvaResposta"][];
         };
-        /** ProvasCriar */
+        /**
+         * ProvasCriar
+         * @description O docente marca, questão a questão, o que vai para cada prova. A mesma
+         *     questão pode ir para as duas.
+         */
         ProvasCriar: {
             /**
-             * N Objetivas
-             * @description Objetivas por prova.
+             * Numeros A
+             * @description Números do banco na Prova A.
              */
-            n_objetivas: number;
+            numeros_a: number[];
             /**
-             * N Discursivas
-             * @description Discursivas por prova.
+             * Numeros B
+             * @description Números do banco na Prova B.
              */
-            n_discursivas: number;
+            numeros_b: number[];
             /**
              * Revisao Esperada
              * @description Revisão do banco que o docente estava vendo.
@@ -1813,6 +1837,16 @@ export interface components {
             p_calculo: number;
             /** @description Estado atual da sessão. */
             estado: components["schemas"]["EstadoSessao"];
+        };
+        /**
+         * SugestaoProvasResposta
+         * @description A seleção automática por tipo e faixa, para o docente partir dela.
+         */
+        SugestaoProvasResposta: {
+            /** Numeros A */
+            numeros_a: number[];
+            /** Numeros B */
+            numeros_b: number[];
         };
         /**
          * TipoEventoAuditoria
@@ -2948,6 +2982,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProvasMontadasResposta"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sugerir_bancos__banco_id__provas_sugestao_get: {
+        parameters: {
+            query: {
+                /** @description Objetivas por prova. */
+                n_objetivas: number;
+                /** @description Discursivas por prova. */
+                n_discursivas: number;
+            };
+            header?: never;
+            path: {
+                banco_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SugestaoProvasResposta"];
                 };
             };
             /** @description Validation Error */

@@ -1,16 +1,17 @@
 import { Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { ErroApi } from "../../api/erros";
-import type { Marco, MarcoBanco } from "../../api/tipos";
+import type { Marco, MarcoBanco, Questao } from "../../api/tipos";
 import { Alerta } from "../../components/Alerta";
 import { Botao } from "../../components/Botao";
 import { Campo } from "../../components/Campo";
+import { TextoComFormulas } from "../../components/TextoComFormulas";
 import { inteiroEntre } from "../../lib/validacao";
 import { ROTULO_FAIXA, ROTULO_TIPO_QUESTAO } from "../banco/rotulos";
 import { useMarcoSessao } from "../sessoes/api";
 import { bancoMaisRecente } from "../sessoes/marco";
 import { proximaAcao } from "../sessoes/proximaAcao";
-import { useMontarProvas } from "./api";
+import { useMontarProvas, useQuestoesDoBanco, useSugerirSelecao } from "./api";
 import { VerProvas } from "./VerProvas";
 
 // Do M10 em diante o banco já tem provas montadas.
@@ -61,66 +62,171 @@ export function Provas({ sessaoId }: { sessaoId: string }) {
   );
 }
 
+type Versao = "A" | "B";
+
 function MontarProvas({ marcoBanco, sessaoId }: { marcoBanco: MarcoBanco; sessaoId: number }) {
   const objetivasAtivas = marcoBanco.objetivas_ativas;
   const discursivasAtivas = marcoBanco.n_atual - objetivasAtivas;
+  const banco = useQuestoesDoBanco(marcoBanco.banco_id, N_MAXIMO_PROVA);
+  const ativas = (banco.data?.questoes ?? []).filter((q) => q.estado === "ativa");
+  const [marcadas, setMarcadas] = useState<Record<Versao, ReadonlySet<number>>>({
+    A: new Set(),
+    B: new Set(),
+  });
   const [objetivas, setObjetivas] = useState(String(Math.min(N_PADRAO, objetivasAtivas)));
   const [discursivas, setDiscursivas] = useState("0");
   const [confirmando, setConfirmando] = useState(false);
+  const sugerir = useSugerirSelecao(marcoBanco.banco_id);
   const montar = useMontarProvas(marcoBanco.banco_id, sessaoId);
 
   const o = inteiroEntre(objetivas, 0, N_MAXIMO_PROVA);
   const d = inteiroEntre(discursivas, 0, N_MAXIMO_PROVA);
-  const total = o !== null && d !== null ? o + d : null;
-  const valido = total !== null && total >= 1 && total <= N_MAXIMO_PROVA;
+  const totalSugestao = o !== null && d !== null ? o + d : null;
+  const sugestaoValida =
+    totalSugestao !== null && totalSugestao >= 1 && totalSugestao <= N_MAXIMO_PROVA;
+
+  const tamanho = (v: Versao) => marcadas[v].size;
+  const valida = (v: Versao) => tamanho(v) >= 1 && tamanho(v) <= N_MAXIMO_PROVA;
+  const emComum = [...marcadas.A].filter((n) => marcadas.B.has(n)).length;
+
+  function alternar(numero: number, versao: Versao) {
+    setConfirmando(false);
+    setMarcadas((atual) => {
+      const novo = new Set(atual[versao]);
+      if (novo.has(numero)) novo.delete(numero);
+      else novo.add(numero);
+      return { ...atual, [versao]: novo };
+    });
+  }
+
+  function pedirSugestao() {
+    if (o === null || d === null) return;
+    setConfirmando(false);
+    sugerir.mutate(
+      { n_objetivas: o, n_discursivas: d },
+      {
+        onSuccess: (s) => setMarcadas({ A: new Set(s.numeros_a), B: new Set(s.numeros_b) }),
+      },
+    );
+  }
 
   function pedir(evento: FormEvent) {
     evento.preventDefault();
-    if (valido) setConfirmando(true);
+    if (valida("A") && valida("B")) setConfirmando(true);
   }
+
+  const ordenados = (v: Versao) => [...marcadas[v]].sort((x, y) => x - y);
+  const erro = montar.error ?? sugerir.error;
 
   return (
     <form noValidate onSubmit={pedir} className="folha flex flex-col gap-5 p-6">
       <p className="font-grotesca text-detalhe">
         {`O banco ${marcoBanco.versao} tem ${objetivasAtivas} objetivas e ${discursivasAtivas} discursivas ativas.`}
       </p>
-      {montar.error && <ErroMontagem erro={montar.error} />}
-      <div className="grid grid-cols-2 gap-3">
-        <Campo
-          rotulo="Objetivas por prova"
-          type="number"
-          min={0}
-          max={N_MAXIMO_PROVA}
-          value={objetivas}
-          onChange={(e) => {
-            setObjetivas(e.target.value);
-            setConfirmando(false);
-          }}
-        />
-        <Campo
-          rotulo="Discursivas por prova"
-          type="number"
-          min={0}
-          max={N_MAXIMO_PROVA}
-          value={discursivas}
-          onChange={(e) => {
-            setDiscursivas(e.target.value);
-            setConfirmando(false);
-          }}
-        />
-      </div>
-      <p
-        className={`tabular font-grotesca text-detalhe ${
-          valido ? "text-texto-suave" : "text-descartar"
-        }`}
-      >
-        Total por prova: {total ?? "—"}
-        {!valido && ` — use de 1 a ${N_MAXIMO_PROVA} questões somando os dois tipos`}
+      <p className="font-grotesca text-detalhe text-texto-suave">
+        Marque o que vai para cada prova. A mesma questão pode ir para as duas.
       </p>
-      {confirmando && o !== null && d !== null ? (
+      {erro && <ErroMontagem erro={erro} />}
+
+      <fieldset className="flex flex-col gap-3">
+        <legend className="font-grotesca text-detalhe font-semibold">Sugestão automática</legend>
+        <div className="grid grid-cols-2 gap-3">
+          <Campo
+            rotulo="Objetivas por prova"
+            type="number"
+            min={0}
+            max={N_MAXIMO_PROVA}
+            value={objetivas}
+            onChange={(e) => setObjetivas(e.target.value)}
+          />
+          <Campo
+            rotulo="Discursivas por prova"
+            type="number"
+            min={0}
+            max={N_MAXIMO_PROVA}
+            value={discursivas}
+            onChange={(e) => setDiscursivas(e.target.value)}
+          />
+        </div>
+        <div className="flex justify-end gap-3">
+          <Botao
+            variante="fantasma"
+            onClick={() => {
+              setConfirmando(false);
+              setMarcadas({ A: new Set(), B: new Set() });
+            }}
+          >
+            Limpar
+          </Botao>
+          <Botao
+            variante="fantasma"
+            disabled={!sugestaoValida || sugerir.isPending}
+            onClick={pedirSugestao}
+          >
+            {sugerir.isPending ? "Sugerindo…" : "Sugerir seleção"}
+          </Botao>
+        </div>
+      </fieldset>
+
+      {banco.isError && <Alerta variante="erro">{banco.error.message}</Alerta>}
+      {banco.isPending && <p className="font-grotesca text-detalhe">Carregando questões…</p>}
+      {ativas.length > 0 && (
+        <table className="tabular w-full font-grotesca text-detalhe">
+          <caption className="sr-only">Questões do banco</caption>
+          <thead>
+            <tr className="border-b border-borda text-left">
+              <th scope="col" className="py-2 pr-3">Nº</th>
+              <th scope="col" className="py-2 pr-3">Questão</th>
+              <th scope="col" className="py-2 pr-3">Prova A</th>
+              <th scope="col" className="py-2">Prova B</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ativas.map((q) => (
+              <tr key={q.numero} className="border-b border-borda align-top">
+                <td className="py-2 pr-3">{q.numero}</td>
+                <td className="py-2 pr-3">
+                  <span className="text-texto-suave">
+                    {`${ROTULO_TIPO_QUESTAO[q.tipo]} · ${ROTULO_FAIXA[q.faixa_dificuldade]}${
+                      q.tema ? ` · ${q.tema}` : ""
+                    }`}
+                  </span>
+                  <TextoComFormulas texto={q.enunciado} className="line-clamp-2 font-serifa text-corpo" />
+                </td>
+                {(["A", "B"] as const).map((v) => (
+                  <td key={v} className="py-2 pr-3">
+                    <input
+                      type="checkbox"
+                      className="caixa"
+                      aria-label={`Questão ${q.numero} na Prova ${v}`}
+                      checked={marcadas[v].has(q.numero)}
+                      onChange={() => alternar(q.numero, v)}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <div className="flex flex-col gap-1 font-grotesca text-detalhe">
+        {(["A", "B"] as const).map((v) => (
+          <p key={v} className={`tabular ${valida(v) ? "text-texto-suave" : "text-descartar"}`}>
+            {resumo(v, ativas.filter((q) => marcadas[v].has(q.numero)))}
+          </p>
+        ))}
+        {emComum > 0 && (
+          <p className="tabular text-texto-suave">
+            {emComum === 1 ? "1 questão nas duas provas." : `${emComum} questões nas duas provas.`}
+          </p>
+        )}
+      </div>
+
+      {confirmando ? (
         <>
           <Alerta variante="aviso">
-            {`Montar as provas A e B com ${o + d} questões cada? Depois de montar não é possível remontar nem aceitar variação.`}
+            {`Montar a Prova A com ${tamanho("A")} questões e a Prova B com ${tamanho("B")} questões? Depois de montar não é possível remontar nem aceitar variação.`}
           </Alerta>
           <div className="flex justify-end gap-3">
             <Botao variante="fantasma" onClick={() => setConfirmando(false)}>
@@ -130,7 +236,11 @@ function MontarProvas({ marcoBanco, sessaoId }: { marcoBanco: MarcoBanco; sessao
               disabled={montar.isPending}
               onClick={() =>
                 montar.mutate(
-                  { n_objetivas: o, n_discursivas: d, revisao_esperada: marcoBanco.revisao },
+                  {
+                    numeros_a: ordenados("A"),
+                    numeros_b: ordenados("B"),
+                    revisao_esperada: marcoBanco.revisao,
+                  },
                   { onSettled: () => setConfirmando(false) },
                 )
               }
@@ -141,13 +251,25 @@ function MontarProvas({ marcoBanco, sessaoId }: { marcoBanco: MarcoBanco; sessao
         </>
       ) : (
         <div className="flex justify-end">
-          <Botao type="submit" disabled={!valido}>
+          <Botao type="submit" disabled={!valida("A") || !valida("B")}>
             Montar provas
           </Botao>
         </div>
       )}
     </form>
   );
+}
+
+/** Contagem por tipo e faixa. Só informa: a proporção vale na geração do banco. */
+function resumo(versao: Versao, questoes: Questao[]): string {
+  const n = questoes.length;
+  if (n === 0) return `Prova ${versao}: nenhuma questão marcada`;
+  const obj = questoes.filter((q) => q.tipo === "objetiva").length;
+  const porFaixa = FAIXAS.map(
+    (f) => `${ROTULO_FAIXA[f].toLowerCase()} ${questoes.filter((q) => q.faixa_dificuldade === f).length}`,
+  ).join(" · ");
+  const excesso = n > N_MAXIMO_PROVA ? ` — no máximo ${N_MAXIMO_PROVA}` : "";
+  return `Prova ${versao}: ${n} ${n === 1 ? "questão" : "questões"} (${obj} objetivas, ${n - obj} discursivas) · ${porFaixa}${excesso}`;
 }
 
 /** 409 é orientação, não falha; 500 é erro do sistema. */
